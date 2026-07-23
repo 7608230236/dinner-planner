@@ -1,0 +1,261 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Dinner Planner</title>
+<meta name="theme-color" content="#265c44">
+<meta name="dinner-planner-version" content="60">
+<link rel="manifest" href="/manifest.json">
+<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+<meta http-equiv="Pragma" content="no-cache">
+<meta http-equiv="Expires" content="0">
+<link rel="stylesheet" href="/css/styles.css?v=60">
+</head>
+<body>
+<div class="wrap">
+  <div class="top">
+    <div class="brand">Dinner Planner <button type="button" class="version-pill" id="versionBadge" aria-label="App version 60">v60</button></div>
+    <button class="menu" type="button" onclick="scrollToSection('prefs')" aria-label="Open preferences">☰</button>
+  </div>
+
+  <section class="hero" id="home">
+    <h1>What should we cook this week?</h1>
+    <p class="subtitle">A Sunday–Thursday dinner plan based on your family, stores, and what you already have.</p>
+    <div id="calendarBanner" class="calendar-banner" aria-live="polite"></div>
+    <div class="kitchen-photo" role="img" aria-label="Warm Jewish family kitchen illustration"></div>
+    <div class="portion">
+      <div class="portion-line"><b>Portions</b><div class="counter"><button class="circle" id="minusPortions">−</button><span class="count" id="portionCount">5</span><button class="circle" id="plusPortions">+</button></div></div>
+      <div class="tiny">Set before building the week.</div>
+    </div>
+    <div class="grid2">
+      <button class="btn secondary" onclick="scrollToSection('prefs')">Set preferences</button>
+      <button class="btn secondary" onclick="scrollToSection('stores')">Set stores</button>
+    </div>
+    <button type="button" class="btn full" id="buildWeekBtn" style="margin-top:12px">Build this week's dinners</button>
+<div id="buildStatus" class="status" aria-live="polite"></div>
+<button type="button" class="btn secondary full" id="buildNextWeekBtnHome" style="margin-top:10px">Plan next week too</button>
+    <button type="button" class="support support-button" id="usePantryBtn"><b>Use what I already have</b><br><span>Pantry, fridge, freezer, or typed ingredients.</span></button>
+  </section>
+
+  <main>
+    <div>
+      <section class="card" id="prefs">
+        <h2 class="section-title">Permanent preferences</h2>
+        <p class="muted">Saved rules for every week.</p>
+        <div class="chips" id="prefChips"></div>
+        <button class="btn full" id="savePrefsBtn" style="margin-top:14px">Save preferences</button>
+      </section>
+
+      <section class="card" id="weekSettings">
+        <h2 class="section-title">This week</h2>
+        <p class="muted">Choose what matters only for this plan.</p>
+        <div class="chips" id="weekChips"></div>
+
+        <details class="multi-select" id="excludeDropdown">
+          <summary id="excludeSummary">Select ingredients to avoid</summary>
+          <div class="multi-panel">
+            <div id="excludeChecks"></div>
+            <div class="custom-exclude">
+              <input id="customExclude" class="text-input" placeholder="Add another ingredient">
+              <button class="btn small" id="addCustomExcludeBtn" type="button">Add</button>
+            </div>
+          </div>
+        </details>
+        <div class="chips" id="excludeChips" style="margin-top:10px"></div>
+      </section>
+
+      <section class="card" id="stores">
+        <h2 class="section-title">Set stores</h2>
+        <p class="muted">Find nearby kosher stores and choose the ones you use.</p>
+
+        <div class="store-scope">
+          <h3>Meat / chicken</h3>
+          <p class="tiny">Choose according to your specific kosher standards.</p>
+          <button class="btn full" data-find-stores="meat" type="button">Find nearby stores</button>
+          <div class="status" id="meatStatus"></div>
+          <div class="selected-store hidden" id="meatSelected"></div>
+          <div class="store-results" id="meatResults"></div>
+        </div>
+
+        <div class="store-scope">
+          <h3>Default supermarket</h3>
+          <button class="btn full" data-find-stores="supermarket" type="button">Find nearby stores</button>
+          <div class="status" id="supermarketStatus"></div>
+          <div class="selected-store hidden" id="supermarketSelected"></div>
+          <div class="store-results" id="supermarketResults"></div>
+        </div>
+      </section>
+
+      <section class="card" id="week">
+        <h2 class="section-title">This week</h2>
+        <p class="muted">Lock the dinners you like. Replace the others.</p>
+        <div id="weekDateRange" class="tiny"></div>
+        <div id="weekList"></div>
+        <div class="grid2 week-footer-actions">
+          <button class="btn secondary" id="lockWeekBtn" type="button">Lock in week</button>
+          <button class="btn" id="replaceUnlockedBtn" type="button">Replace unlocked dinners</button>
+        </div>
+      </section>
+
+      <section class="card" id="nextWeek">
+        <h2 class="section-title">Next week</h2>
+        <p class="muted">Plan ahead so you can shop early.</p>
+        <div id="nextWeekDateRange" class="tiny"></div>
+        <div class="week-actions">
+          <button type="button" class="btn secondary full" id="buildNextWeekBtn">Build next week's dinners</button>
+          <div id="nextBuildStatus" class="status" aria-live="polite"></div>
+        </div>
+        <div id="nextWeekList"></div>
+        <div class="grid2 week-footer-actions">
+          <button class="btn secondary" id="lockNextWeekBtn" type="button">Lock in week</button>
+          <button class="btn" id="replaceNextUnlockedBtn" type="button">Replace unlocked dinners</button>
+        </div>
+      </section>
+    </div>
+
+    <div>
+      <section class="card" id="pantry">
+        <div class="scan-head">
+          <div>
+            <h2 class="section-title">Scan your kitchen</h2>
+            <p class="muted">Add pictures from your fridge, freezer, pantry, counters, or anywhere else. You can add several pictures before scanning.</p>
+          </div>
+          <div id="scanCount" class="scan-count">0 photos</div>
+        </div>
+
+        <div class="location-bar">
+          <select id="photoLocation" class="select" aria-label="Photo location">
+            <option>Fridge</option><option>Freezer</option><option>Pantry</option><option>Fruit bowl</option><option>Spice cabinet</option><option>Other</option>
+          </select>
+          <label for="photoInput" class="btn secondary small">📷 Snap or add photos</label>
+          <input id="photoInput" class="photo-input" type="file" accept="image/*" capture="environment" multiple>
+          <button class="btn small secondary" id="addTypedBtn" type="button">Type an item</button>
+        </div>
+        <div class="tiny" style="margin-top:8px">Tip: use one or two clear pictures per area. You can return later and add more.</div>
+        <div id="typedBox" class="hidden" style="margin-top:10px"><input id="typedItem" class="text-input" placeholder="Example: rice, garlic, frozen chicken"><button class="btn small" id="saveTypedBtn" type="button" style="margin-top:8px">Save item</button></div>
+
+        <div class="photo-session" id="pictureList"></div>
+        <div class="scan-actions">
+          <button class="btn full" id="analyzePicturesBtn" type="button">Finish scanning</button>
+          <button class="btn secondary small" id="clearPhotosBtn" type="button">Clear photos</button>
+        </div>
+        <div class="privacy-note">Photos are compressed on your device and stored only in this app unless you choose to analyze them.</div>
+        <div id="aiStatus" class="notice" aria-live="polite">Add pictures, then finish scanning.</div>
+        <button class="btn secondary full" id="quickShareSupportBtn" type="button" style="margin-top:8px">Create scan support file</button>
+        <div class="tiny" style="margin-top:6px;text-align:center">Download one support file, then attach it in ChatGPT using the + button. No screenshots needed.</div>
+
+        <div id="inventoryArea" class="hidden">
+          <div class="inventory-summary" id="inventorySummary"></div>
+          <div class="row" style="justify-content:space-between;margin:12px 0 8px">
+            <h3 style="margin:0">What I found</h3>
+            <button class="btn small secondary" id="editAllItemsBtn" type="button">Review all</button>
+          </div>
+          <div class="inventory-grid" id="inventoryList"></div>
+          <button class="btn secondary full" id="showAllInventoryBtn" type="button" style="margin-top:10px">Show all items</button>
+
+          <div class="pantry-memory">
+            <b>Your kitchen is remembered</b>
+            <div id="pantryMemoryText" class="tiny" style="margin-top:4px"></div>
+            <div class="pantry-memory-actions">
+              <button class="btn small secondary" id="addMorePhotosBtn" type="button">Add another photo</button>
+              <button class="btn small secondary" id="removeUsedBtn" type="button">Remove used items</button>
+            </div>
+          </div>
+
+          <h3 style="margin-top:20px">Based on what you have, you can make</h3>
+          <div class="pantry-suggestions" id="pantrySuggestions"></div>
+
+          <details class="support-bridge" id="supportBridge">
+            <summary>Help me diagnose a scan</summary>
+            <div class="support-bridge-body">
+              <p class="tiny">Create one support file, then upload that file in our ChatGPT conversation. It includes the app version, scan results, errors, and—only when selected—small photo previews. It never includes your API key.</p>
+              <label class="support-check"><input id="includeSupportPhotos" type="checkbox" checked><span class="tiny">Include small photo previews so the scan can be checked properly.</span></label>
+              <div class="support-actions">
+                <button class="btn small" id="downloadSupportBtn" type="button">Download support file</button>
+                <button class="btn small secondary" id="shareSupportBtn" type="button">Use phone Share menu</button>
+                <button class="btn small secondary" id="copySupportBtn" type="button">Copy report</button>
+                <label class="btn small secondary" for="importSupportFix">Import corrected inventory</label>
+                <input id="importSupportFix" class="photo-input" type="file" accept="application/json,.json">
+                <button class="btn small secondary" id="reloadLatestBtn" type="button">Reload latest app</button>
+              </div>
+              <div id="supportStatus" class="notice" aria-live="polite">This lets me inspect the exact scan and send a corrected inventory back to you.</div>
+            </div>
+          </details>
+        </div>
+      </section>
+
+      <section class="card" id="shopping">
+        <h2 class="section-title">Shopping list</h2>
+        <p class="muted">Grouped by the stores you chose.</p>
+        <div class="segmented" id="shoppingSwitch">
+          <button type="button" class="seg" data-shop-view="this">This week</button>
+          <button type="button" class="seg" data-shop-view="next">Next week</button>
+          <button type="button" class="seg" data-shop-view="combined">Both weeks</button>
+        </div>
+        <div class="tiny">Choose both weeks if you want to shop early.</div>
+        <div id="shoppingList"></div>
+      </section>
+
+      <section class="card developer-panel hidden" id="developerPanel" aria-labelledby="developerTitle">
+        <div class="developer-head">
+          <div>
+            <h2 class="section-title" id="developerTitle">Developer mode</h2>
+            <p class="muted">Inspect pantry scans, shopping calculations, errors, storage, cache, and service-worker state.</p>
+          </div>
+          <button class="btn small secondary" id="closeDeveloperBtn" type="button">Close</button>
+        </div>
+
+        <div class="developer-actions">
+          <button class="btn small" id="reportBugBtn" type="button">Report bug</button>
+          <button class="btn small secondary" id="runValidationBtn" type="button">Run validation</button>
+          <button class="btn small secondary" id="copyDebugBtn" type="button">Copy debug report</button>
+          <button class="btn small secondary" id="downloadDebugBtn" type="button">Download debug report</button>
+        </div>
+        <div id="developerStatus" class="notice" aria-live="polite">Developer tools are ready.</div>
+        <div id="developerSummary" class="developer-grid"></div>
+
+        <details class="dev-section" open>
+          <summary>Validation engine</summary>
+          <div class="dev-list" id="developerValidation"></div>
+        </details>
+        <details class="dev-section">
+          <summary>Pantry diagnostics</summary>
+          <div class="dev-list" id="developerPantry"></div>
+        </details>
+        <details class="dev-section">
+          <summary>AI inspector</summary>
+          <div class="dev-list" id="developerAi"></div>
+        </details>
+        <details class="dev-section">
+          <summary>Shopping diagnostics</summary>
+          <div class="dev-list" id="developerShopping"></div>
+        </details>
+        <details class="dev-section">
+          <summary>Error timeline and internal logs</summary>
+          <div class="dev-list" id="developerTimeline"></div>
+          <div class="dev-list" id="developerErrors"></div>
+        </details>
+        <details class="dev-section">
+          <summary>Cache, service worker, and storage</summary>
+          <div class="dev-list" id="developerStorage"></div>
+        </details>
+
+        <div class="developer-actions">
+          <button class="btn small secondary" id="clearCacheBtn" type="button">Clear app cache</button>
+          <button class="btn small secondary" id="unregisterWorkerBtn" type="button">Reset service worker</button>
+          <button class="btn small ghost" id="clearLogsBtn" type="button">Clear developer logs</button>
+        </div>
+      </section>
+    </div>
+  </main>
+</div>
+
+<dialog id="recipeDialog"><div class="modal" id="recipeModal"></div></dialog>
+
+<script src="/js/ingredient-engine.js?v=60"></script>
+<script src="/js/recipes.js?v=60"></script>
+<script src="/js/app.js?v=60"></script>
+<script src="/js/developer.js?v=60"></script>
+</body>
+</html>

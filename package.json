@@ -1,0 +1,15 @@
+{
+  "name": "dinner-planner",
+  "version": "60.0.0",
+  "private": true,
+  "description": "Kosher family dinner planner PWA with pantry scanning, shopping deduction, Jewish calendar rules, and developer diagnostics.",
+  "scripts": {
+    "check": "node scripts/check-syntax.mjs",
+    "test": "node --test tests/*.test.js tests/*.test.mjs",
+    "qa": "npm run check && npm test",
+    "serve": "python3 -m http.server 8888"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}
