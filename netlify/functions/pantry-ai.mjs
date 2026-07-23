@@ -1,39 +1,3 @@
-
-
-dinner-planner-support-2026-07-23.json
-File
-Fail
-
-bec26293-77aa-4eb5-bf14-e00b8c969a5c.png
-
-Great — then you are in the right place.
-
-Open netlify/functions/pantry-ai.mjs, click the pencil Edit button, delete everything in the file, and paste the replacement code there.
-
-The only problem is that my download link failed. I’ll give you the full replacement code directly in the chat next so you can copy and paste it.
-
-
-cant you just but I need to he new file
-
-Here is the fresh replacement file:
-
-pantry-ai-new.mjs
-
-After downloading it:
-
-Rename it to pantry-ai.mjs.
-
-In GitHub, open netlify/functions/pantry-ai.mjs.
-
-Delete the old file or replace its contents with this new one.
-
-Commit the change. 
-
-
-Same issue, just write the code here I will paste it
-
-Paste this entire code into netlify/functions/pantry-ai.mjs, replacing everything currently in that file:
-
 const MAX_IMAGE_CHARACTERS = 8_000_000;
 const MAX_ITEMS = 20;
 
@@ -689,6 +653,3 @@ function json(obj, statusCode = 200) {
     body: JSON.stringify(obj)
   };
 }
-After pasting it, click Commit changes, then click Commit changes again in the confirmation box.
-
-
