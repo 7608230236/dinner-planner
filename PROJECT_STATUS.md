@@ -76,6 +76,26 @@ Rebuilt the desktop (≥960px) layout to match the reference mockup style:
 
 **Done:** hero photo updated to the full family (parents + two kids) matching the same warm kitchen style. Also caught and fixed a real bug while checking it: the photo container was being stretched to match the text column's height on desktop, cropping the sides of the photo and cutting off part of the family. Fixed by sizing the photo box to its actual aspect ratio instead. Verified via screenshot before and after the fix — confirmed the whole family is visible now.
 
+## Family account / household sync (2026-07-24)
+
+Lets your spouse (and kids, if you want) see and edit the same plan/pantry/shopping list from their own phone.
+
+**How it works:**
+- One device creates a household → gets a short code (e.g. `KJ8P2XQR`)
+- Other devices enter that code to join
+- After that, both devices share: plan, pantry inventory (names/qty/confidence — not photos), shopping list + checkmarks, preferences, stores
+- Sync happens automatically ~1.5s after any change, plus every 45s and whenever the app comes back to the foreground (not true instant real-time — a reasonable tradeoff for a family meal-planning app, not a live-collab document)
+
+**Deliberately excluded from sync, and why:**
+- Pantry/fridge photos stay on the device that took them — syncing full images would make every small edit slow and heavy. Only the AI's structured reading of the photo (item name, quantity, confidence) syncs.
+- Debug logs, error timeline, AI request history — device-specific diagnostics, not meaningful to share.
+
+**Backend:** a new Netlify Function (`household-sync.mjs`) using Netlify Blobs for storage — no new account/database signup needed, fits the "always free" model. No authentication beyond knowing the code (like a private link) — appropriate for a family tool, not bank-grade security. Worth knowing: anyone with the code has full read/write access.
+
+**Tested:** real automated test simulates two separate devices — one creates a household and adds a pantry item with a photo thumbnail, the other joins and receives the plan and pantry item, but confirms the photo thumbnail does NOT transfer. This is a genuine two-device simulation, not just "doesn't crash."
+
+**Not yet live-verified:** Netlify Blobs should work with zero extra configuration when deployed on Netlify, but this needs an actual live test — please try creating a household on your phone and joining from your wife's phone (or a second browser) once deployed, and report back what happens.
+
 ## Native Android app (2026-07-24)
 
 Set up via Capacitor — wraps the existing web app into a real Android app shell.
@@ -136,6 +156,7 @@ Reviewed the actual code against the brief's trust principles and your household
 - **2026-07-23** — Fixed `pantry-ai.mjs` syntax corruption (chat text embedded in source). Commit `95de28b`.
 - **2026-07-23** — Linked Netlify to GitHub for continuous deployment (was previously disconnected manual deploys).
 - **2026-07-23** — Fixed default OpenAI model (`gpt-5-mini` → `gpt-4.1-mini-2025-04-14`) causing pantry scans to hang and time out after 50s. Commit `4fd89ad`. Updated matching test and README.
+- **2026-07-24** — Added family account / household sync: shared plan, pantry, shopping list, and preferences across devices via a household code, backed by Netlify Blobs. Photos deliberately stay device-local. Real two-device test added. Not yet live-verified.
 - **2026-07-24** — Native Android app set up via Capacitor. Fixed relative API paths that would've broken in a packaged app. GitHub Actions now builds the debug APK automatically (no local Android SDK needed) — first build confirmed successful after fixing a Node version mismatch (Capacitor CLI needs Node ≥22).
 - **2026-07-24** — Finished the "Dinner Made Easy" rename across manifest (home screen name), title, mobile top bar, package.json, README. This is what fixes the "still says Dinner Planner on mobile" issue.
 - **2026-07-24** — Hero photo updated to family (parents + kids). Caught and fixed a real cropping bug in the process: the photo box was stretching to the text column's height, cutting off the sides of the family photo. Fixed with a proper aspect-ratio. Verified via screenshots before/after.
