@@ -51,6 +51,20 @@ Last updated: 2026-07-23 by Claude
 
 ---
 
+## App name
+
+**Decided: "Dinner Made Easy."** This was already the tagline used throughout the mockups/renderings — now confirmed as the actual app name, not just a slogan.
+
+Not yet renamed in the codebase — currently still "Dinner Planner" in `index.html`, `package.json`, version badge, service worker cache name, etc. Renaming is a separate task involving:
+- `index.html` title/branding
+- `package.json` name field
+- Version badge text
+- Service worker cache name (careful — cache-name changes can affect existing users' cached assets)
+- README/docs references
+- Possibly the GitHub repo name and Netlify site name (optional, bigger changes)
+
+Not done yet — flagging as a future task, not urgent.
+
 ## Commercial model
 
 **This app is permanently free. No paid tiers, no premium features, no monetization.** The original commercial brief's tiered/paid concept does not apply — disregard it. This is a free family tool, not a commercial product.
@@ -89,6 +103,7 @@ Reviewed the actual code against the brief's trust principles and your household
 - **2026-07-23** — Fixed `pantry-ai.mjs` syntax corruption (chat text embedded in source). Commit `95de28b`.
 - **2026-07-23** — Linked Netlify to GitHub for continuous deployment (was previously disconnected manual deploys).
 - **2026-07-23** — Fixed default OpenAI model (`gpt-5-mini` → `gpt-4.1-mini-2025-04-14`) causing pantry scans to hang and time out after 50s. Commit `4fd89ad`. Updated matching test and README.
+- **2026-07-24** — App name decided: "Dinner Made Easy" (was already the mockup tagline, now the official name). Not yet applied to the codebase — future task.
 - **2026-07-24** — No-duplicate-meals confirmed working live by user, including after multiple "Replace unlocked" cycles.
 - **2026-07-24** — Store search confirmed working live by user.
 - **2026-07-24** — Jewish calendar banner confirmed visible and correct on live site ("Tisha B'Av week").
