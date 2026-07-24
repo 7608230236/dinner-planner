@@ -1,4 +1,4 @@
-# Dinner Planner v60
+# Dinner Made Easy (v60)
 
 Phone-first kosher family dinner planner with a 500-recipe library for Sunday through Thursday. The app builds unique weekly plans, applies household preferences and Jewish-calendar restrictions, remembers pantry inventory, subtracts trusted pantry quantities from shopping, finds nearby kosher stores, and exports a complete diagnostic report when something goes wrong.
 

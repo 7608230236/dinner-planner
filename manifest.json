@@ -1,7 +1,7 @@
 {
   "id": "/",
-  "name": "Dinner Planner",
-  "short_name": "Dinner",
+  "name": "Dinner Made Easy",
+  "short_name": "Dinner Easy",
   "description": "A kosher Sunday–Thursday family dinner planner with pantry scanning and shopping lists.",
   "start_url": "/?source=pwa",
   "scope": "/",

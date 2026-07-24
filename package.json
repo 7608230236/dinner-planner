@@ -1,8 +1,8 @@
 {
-  "name": "dinner-planner",
+  "name": "dinner-made-easy",
   "version": "60.0.0",
   "private": true,
-  "description": "Kosher family dinner planner PWA with pantry scanning, shopping deduction, Jewish calendar rules, and developer diagnostics.",
+  "description": "Kosher family dinner planner PWA (Dinner Made Easy) with pantry scanning, shopping deduction, Jewish calendar rules, and developer diagnostics.",
   "scripts": {
     "check": "node scripts/check-syntax.mjs",
     "test": "node --test tests/*.test.js tests/*.test.mjs",
