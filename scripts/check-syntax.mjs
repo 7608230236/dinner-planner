@@ -7,7 +7,7 @@ const targets = [];
 
 function walk(directory) {
   for (const name of readdirSync(directory)) {
-    if ([".git", "node_modules"].includes(name)) continue;
+    if ([".git", "node_modules", "www", "android", "ios"].includes(name)) continue;
     const full = join(directory, name);
     const stat = statSync(full);
     if (stat.isDirectory()) walk(full);

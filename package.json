@@ -7,9 +7,17 @@
     "check": "node scripts/check-syntax.mjs",
     "test": "node --test tests/*.test.js tests/*.test.mjs",
     "qa": "npm run check && npm test",
-    "serve": "python3 -m http.server 8888"
+    "serve": "python3 -m http.server 8888",
+    "build:www": "node scripts/build-www.mjs",
+    "android:sync": "npm run build:www && npx cap sync android"
   },
   "engines": {
     "node": ">=20"
+  },
+  "devDependencies": {
+    "@capacitor/android": "^8.4.2",
+    "@capacitor/assets": "^3.0.5",
+    "@capacitor/cli": "^8.4.2",
+    "@capacitor/core": "^8.4.2"
   }
 }

@@ -1,5 +1,9 @@
 const APP_VERSION="60";
 const SUPPORT_SCHEMA=2;
+// When running as a packaged native app (Capacitor), there is no local server to answer
+// relative /.netlify/functions/* requests, so those calls need to point at the real deployed
+// site. On the web, this stays empty so requests remain same-origin as before.
+const API_ORIGIN=(typeof window!=="undefined"&&window.Capacitor)?"https://cheerful-conkies-96998f.netlify.app":"";
 const IngredientEngine=window.DinnerIngredientEngine;
 if(!IngredientEngine)throw new Error("Ingredient engine failed to load.");
 const RECIPES=window.DinnerRecipes;
@@ -803,7 +807,7 @@ async function findNearbyStores(scope){
     renderCalendar();
     status.textContent="Finding nearby kosher stores…";
     try{
-      const response=await fetch("/.netlify/functions/store-locator",{
+      const response=await fetch(`${API_ORIGIN}/.netlify/functions/store-locator`,{
         method:"POST",
         headers:{"Content-Type":"application/json"},
         body:JSON.stringify({
@@ -1235,7 +1239,7 @@ async function analyzePictures(){
     try{
       const aiStarted=performance.now();
       const aiRequest={id:`ai-${Date.now()}-${Math.random().toString(36).slice(2,7)}`,at:new Date().toISOString(),photoId:picture.id,location:picture.location,status:"pending"};
-      const response=await fetch("/.netlify/functions/pantry-ai",{
+      const response=await fetch(`${API_ORIGIN}/.netlify/functions/pantry-ai`,{
         method:"POST",
         headers:{"Content-Type":"application/json"},
         body:JSON.stringify({image:picture.image,catalog:INGREDIENT_OPTIONS,location:picture.location,photoId:picture.id})
