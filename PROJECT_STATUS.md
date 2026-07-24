@@ -55,15 +55,19 @@ Last updated: 2026-07-23 by Claude
 
 **Decided: "Dinner Made Easy."** This was already the tagline used throughout the mockups/renderings — now confirmed as the actual app name, not just a slogan.
 
-Not yet renamed in the codebase — currently still "Dinner Planner" in `index.html`, `package.json`, version badge, service worker cache name, etc. Renaming is a separate task involving:
-- `index.html` title/branding
-- `package.json` name field
-- Version badge text
-- Service worker cache name (careful — cache-name changes can affect existing users' cached assets)
-- README/docs references
-- Possibly the GitHub repo name and Netlify site name (optional, bigger changes)
+Not yet renamed everywhere in the codebase — sidebar brand now says "Dinner made easy." but `index.html` `<title>`, `package.json`, mobile top-bar text, version badge label, and service worker cache name still say "Dinner Planner". Renaming those is a separate, not-yet-done task — flagged, not urgent.
 
-Not done yet — flagging as a future task, not urgent.
+## Desktop layout (2026-07-24)
+
+Rebuilt the desktop (≥960px) layout to match the reference mockup style:
+- Added a persistent left sidebar: brand, nav links (Home, Weekly Plan, Recipes, Pantry, Shopping Lists, Stores, Jewish Calendar, Settings — all scroll to existing sections, no new pages), and a "Free. Private. No ads." card.
+- Hero is now two-column on desktop (text + actions on left, kitchen photo on right); stays single-column stacked on mobile exactly as before.
+- Added a 4-item feature row below the hero (Use what you have / Smart shopping / Kid-friendly / Less stress).
+- Old mobile top-bar (brand + hamburger + version badge) is untouched and still drives Developer Mode's 7-tap entry — it's just hidden on desktop where the sidebar takes over.
+- Verified by actually rendering the page with Playwright and screenshotting both desktop (1440px) and mobile (390px) before shipping — not just reading the CSS.
+- All 27 automated tests still pass; no functional IDs were changed, only presentation.
+
+**Still pending:** the hero photo is still the original couple-only image (`hero-family-kitchen.jpg`). User wants a version with kids included, matching the same style — waiting on user to generate that image (prompt already provided) and upload it.
 
 ## Commercial model
 
@@ -103,7 +107,8 @@ Reviewed the actual code against the brief's trust principles and your household
 - **2026-07-23** — Fixed `pantry-ai.mjs` syntax corruption (chat text embedded in source). Commit `95de28b`.
 - **2026-07-23** — Linked Netlify to GitHub for continuous deployment (was previously disconnected manual deploys).
 - **2026-07-23** — Fixed default OpenAI model (`gpt-5-mini` → `gpt-4.1-mini-2025-04-14`) causing pantry scans to hang and time out after 50s. Commit `4fd89ad`. Updated matching test and README.
-- **2026-07-24** — App name decided: "Dinner Made Easy" (was already the mockup tagline, now the official name). Not yet applied to the codebase — future task.
+- **2026-07-24** — Rebuilt desktop layout with a sidebar nav, two-column hero, and feature row to match the reference mockup. Verified via actual Playwright screenshots before shipping. All 27 tests still pass.
+- **2026-07-24** — App name decided: "Dinner Made Easy" (was already the mockup tagline, now the official name). Not yet applied everywhere in the codebase — future task.
 - **2026-07-24** — No-duplicate-meals confirmed working live by user, including after multiple "Replace unlocked" cycles.
 - **2026-07-24** — Store search confirmed working live by user.
 - **2026-07-24** — Jewish calendar banner confirmed visible and correct on live site ("Tisha B'Av week").
