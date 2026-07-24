@@ -94,7 +94,7 @@ Lets your spouse (and kids, if you want) see and edit the same plan/pantry/shopp
 
 **Tested:** real automated test simulates two separate devices — one creates a household and adds a pantry item with a photo thumbnail, the other joins and receives the plan and pantry item, but confirms the photo thumbnail does NOT transfer. This is a genuine two-device simulation, not just "doesn't crash."
 
-**Not yet live-verified:** Netlify Blobs should work with zero extra configuration when deployed on Netlify, but this needs an actual live test — please try creating a household on your phone and joining from your wife's phone (or a second browser) once deployed, and report back what happens.
+**Live-verified (2026-07-24):** user confirmed household sync works end-to-end after adding `NETLIFY_BLOBS_SITE_ID` and `NETLIFY_BLOBS_TOKEN` environment variables and redeploying. Root cause was a documented Netlify platform issue (`MissingBlobsEnvironmentError` — automatic Blobs context injection failing intermittently in production), worked around with explicit siteID/token configuration.
 
 **Critical bug found and fixed (2026-07-24):** the household sync had an infinite loop. Logging a successful/failed sync via `logEvent()` triggered another `save()`, which (since a household was active) scheduled another cloud push, which logged its own result, which triggered another save, forever — hammering the sync endpoint continuously every ~1.5s indefinitely. This is almost certainly why the user's first attempt to create a household "failed." Root cause: `logEvent()`'s internal save call wasn't excluded from triggering cloud sync, even though debug logs were never part of the synced payload in the first place. Fixed by having `logEvent()` skip cloud push. Caught by the automated test suite hanging/timing out — a real, valuable catch, not just a theoretical test artifact.
 
@@ -120,7 +120,7 @@ Set up via Capacitor — wraps the existing web app into a real Android app shel
 
 ## Known resolved issues log
 
-- **Mobile "unstyled long list" / photo not loading (2026-07-24):** After the desktop redesign + hero photo change, user's phone showed an unstyled page (raw list of text/buttons, no photo). Root cause: stale PWA cache/service worker holding old assets. Fixed by using the in-app "Reload latest app" button (clears cache + service worker). Confirmed resolved via debug report: v60, iPhone Safari, zero runtime errors. **Lesson for future changes:** any time CSS/HTML structure changes significantly, remind the user this cache-clear step may be needed — it's not a new bug each time.
+- **Mobile "unstyled long list" / photo not loading (2026-07-24):** After the desktop redesign + hero photo change, user's phone showed an unstyled page (raw list of text/buttons, no photo). Root cause: stale PWA cache/service worker holding old assets. Fixed by using the in-app "Reload latest app" button (clears cache + service worker). Confirmed resolved via debug report: v60, iPhone Safari, zero runtime errors. **This pattern recurred a second time** after the household sync deploy (photo not loading again) — same fix (reload latest app) resolved it again. **Lesson for future changes:** any time CSS/HTML/JS changes ship, proactively remind the user to reload/clear cache rather than waiting for them to report a "broken" page — this is expected PWA caching behavior, not a new bug each time.
 
 ## Commercial model
 
@@ -160,6 +160,7 @@ Reviewed the actual code against the brief's trust principles and your household
 - **2026-07-23** — Fixed `pantry-ai.mjs` syntax corruption (chat text embedded in source). Commit `95de28b`.
 - **2026-07-23** — Linked Netlify to GitHub for continuous deployment (was previously disconnected manual deploys).
 - **2026-07-23** — Fixed default OpenAI model (`gpt-5-mini` → `gpt-4.1-mini-2025-04-14`) causing pantry scans to hang and time out after 50s. Commit `4fd89ad`. Updated matching test and README.
+- **2026-07-24** — Household sync confirmed working live end-to-end. Root cause of the 502 was `MissingBlobsEnvironmentError`, a documented Netlify platform issue with automatic Blobs context injection. Fixed with explicit `NETLIFY_BLOBS_SITE_ID`/`NETLIFY_BLOBS_TOKEN` env vars.
 - **2026-07-24** — Fixed critical household sync infinite loop bug (logging a sync result was re-triggering another sync, forever). This is almost certainly why the user's first attempt failed. Also added household status to debug reports and a native share-sheet button for the household code.
 - **2026-07-24** — Added family account / household sync: shared plan, pantry, shopping list, and preferences across devices via a household code, backed by Netlify Blobs. Photos deliberately stay device-local. Real two-device test added. Not yet live-verified.
 - **2026-07-24** — Native Android app set up via Capacitor. Fixed relative API paths that would've broken in a packaged app. GitHub Actions now builds the debug APK automatically (no local Android SDK needed) — first build confirmed successful after fixing a Node version mismatch (Capacitor CLI needs Node ≥22).
