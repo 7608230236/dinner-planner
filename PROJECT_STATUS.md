@@ -76,6 +76,24 @@ Rebuilt the desktop (≥960px) layout to match the reference mockup style:
 
 **Done:** hero photo updated to the full family (parents + two kids) matching the same warm kitchen style. Also caught and fixed a real bug while checking it: the photo container was being stretched to match the text column's height on desktop, cropping the sides of the photo and cutting off part of the family. Fixed by sizing the photo box to its actual aspect ratio instead. Verified via screenshot before and after the fix — confirmed the whole family is visible now.
 
+## Native Android app (2026-07-24)
+
+Set up via Capacitor — wraps the existing web app into a real Android app shell.
+
+- Repo now has `android/` (native project), `capacitor.config.json`, `resources/` (icon/splash source), `scripts/build-www.mjs` (assembles the web bundle Capacitor packages).
+- Fixed a real issue while setting this up: the app's two API calls (`pantry-ai`, `store-locator`) used relative `/.netlify/functions/...` paths, which only work when served from the Netlify site itself. A packaged native app has no local server at that path. Added an `API_ORIGIN` constant in `js/app.js` that points those calls at the real deployed site when running inside Capacitor (`window.Capacitor` present), while staying relative (unchanged behavior) on the web.
+- **GitHub Actions builds the Android APK automatically** — no local Android SDK needed by anyone. Two workflows:
+  - `qa.yml` — runs the full test suite on every push
+  - `android-build.yml` — builds a debug APK on GitHub's runners (which include Android SDK + Xcode-equivalent tooling built in) and uploads it as a downloadable artifact
+- Hit and fixed a real CI bug: Capacitor CLI 8.x requires Node ≥22; workflow was set to Node 20 and failed immediately. Fixed by bumping the Android workflow to Node 22 (left the QA workflow at Node 20 intentionally, since that matches the app's documented minimum supported Node version).
+- **First successful build confirmed** — debug APK built and uploaded as a GitHub Actions artifact.
+
+**Not yet done:**
+- Release signing (needed for real Play Store submission — currently only a debug build, which can be installed for testing but not published)
+- Play Store listing (screenshots, description, privacy policy)
+- iOS project (not started — same Capacitor approach will apply; GitHub's macOS runners provide Xcode without needing a physical Mac)
+- Auto-publish to Play Store from CI (possible via Google Play Developer API + service account key, deliberately not set up yet — signing/publishing credentials should be added directly by the user as GitHub secrets, not routed through chat)
+
 ## Commercial model
 
 **This app is permanently free. No paid tiers, no premium features, no monetization.** The original commercial brief's tiered/paid concept does not apply — disregard it. This is a free family tool, not a commercial product.
@@ -114,6 +132,7 @@ Reviewed the actual code against the brief's trust principles and your household
 - **2026-07-23** — Fixed `pantry-ai.mjs` syntax corruption (chat text embedded in source). Commit `95de28b`.
 - **2026-07-23** — Linked Netlify to GitHub for continuous deployment (was previously disconnected manual deploys).
 - **2026-07-23** — Fixed default OpenAI model (`gpt-5-mini` → `gpt-4.1-mini-2025-04-14`) causing pantry scans to hang and time out after 50s. Commit `4fd89ad`. Updated matching test and README.
+- **2026-07-24** — Native Android app set up via Capacitor. Fixed relative API paths that would've broken in a packaged app. GitHub Actions now builds the debug APK automatically (no local Android SDK needed) — first build confirmed successful after fixing a Node version mismatch (Capacitor CLI needs Node ≥22).
 - **2026-07-24** — Finished the "Dinner Made Easy" rename across manifest (home screen name), title, mobile top bar, package.json, README. This is what fixes the "still says Dinner Planner on mobile" issue.
 - **2026-07-24** — Hero photo updated to family (parents + kids). Caught and fixed a real cropping bug in the process: the photo box was stretching to the text column's height, cutting off the sides of the family photo. Fixed with a proper aspect-ratio. Verified via screenshots before/after.
 - **2026-07-24** — Rebuilt desktop layout with a sidebar nav, two-column hero, and feature row to match the reference mockup. Verified via actual Playwright screenshots before shipping. All 27 tests still pass.
