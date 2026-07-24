@@ -38,3 +38,33 @@
 .support-button{width:100%;border:0;text-align:left;font:inherit;cursor:pointer}
 .support-button:hover{filter:brightness(.98)}
 .week-footer-actions{margin-top:12px}
+
+/* Sidebar layout */
+.app-shell{display:block}
+.sidebar{display:none}
+@media(min-width:960px){
+  .app-shell{display:grid;grid-template-columns:248px 1fr;align-items:start;max-width:1400px;margin:0 auto}
+  .sidebar{display:flex;flex-direction:column;gap:6px;position:sticky;top:0;height:100vh;padding:24px 16px;border-right:1px solid var(--line);background:var(--paper)}
+  .top{display:none}
+  .wrap{max-width:1120px}
+}
+.sidebar-brand{display:flex;align-items:center;gap:10px;padding:6px 10px 18px;font-weight:900;color:var(--green);line-height:1.05;font-size:1.05rem}
+.brand-mark{font-size:1.5rem}
+.sidebar-nav{display:flex;flex-direction:column;gap:2px}
+.nav-link{border:0;background:transparent;text-align:left;padding:11px 12px;border-radius:14px;font-weight:800;color:var(--ink);display:flex;align-items:center;gap:8px}
+.nav-link:hover{background:var(--soft)}
+.nav-badge{background:var(--green2);color:var(--green);font-size:.65rem;font-weight:900;border-radius:999px;padding:2px 7px;letter-spacing:.02em}
+.sidebar-footer{margin-top:auto;padding-top:18px}
+.sidebar-card{background:var(--soft);border:1px solid var(--line);border-radius:18px;padding:14px;font-size:.85rem;color:var(--muted);line-height:1.5}
+
+/* Hero two-column layout */
+.hero-grid{display:block}
+.kitchen-photo{height:220px;border-radius:28px;background-image:url('../hero-family-kitchen.jpg');background-size:cover;background-position:center;border:1px solid var(--line);margin:22px 0}
+@media(min-width:860px){
+  .hero-grid{display:grid;grid-template-columns:1.1fr .9fr;gap:28px;align-items:center}
+  .kitchen-photo{height:100%;min-height:340px;margin:0}
+}
+.feature-row{display:grid;grid-template-columns:repeat(2,1fr);gap:14px;margin-top:22px;padding-top:22px;border-top:1px solid var(--line)}
+.feature-item{display:flex;gap:10px;align-items:flex-start}
+.feature-icon{font-size:1.3rem;line-height:1}
+@media(min-width:860px){.feature-row{grid-template-columns:repeat(4,1fr)}}

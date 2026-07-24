@@ -13,29 +13,60 @@
 <link rel="stylesheet" href="/css/styles.css?v=60">
 </head>
 <body>
-<div class="wrap">
+<div class="app-shell">
+  <aside class="sidebar">
+    <div class="sidebar-brand">
+      <span class="brand-mark" aria-hidden="true">🍲</span>
+      <span class="brand-text">Dinner<br>made easy.</span>
+    </div>
+    <nav class="sidebar-nav" aria-label="Main">
+      <button type="button" class="nav-link" onclick="scrollToSection('home')">Home</button>
+      <button type="button" class="nav-link" onclick="scrollToSection('week')">Weekly Plan</button>
+      <button type="button" class="nav-link" onclick="scrollToSection('week')">Recipes</button>
+      <button type="button" class="nav-link" onclick="scrollToSection('pantry')">Pantry <span class="nav-badge">NEW</span></button>
+      <button type="button" class="nav-link" onclick="scrollToSection('shopping')">Shopping Lists</button>
+      <button type="button" class="nav-link" onclick="scrollToSection('stores')">Stores</button>
+      <button type="button" class="nav-link" onclick="scrollToSection('home')">Jewish Calendar</button>
+      <button type="button" class="nav-link" onclick="scrollToSection('prefs')">Settings</button>
+    </nav>
+    <div class="sidebar-footer">
+      <div class="sidebar-card">Free. Private. No ads.<br>Made for families like yours. <span aria-hidden="true">💚</span></div>
+    </div>
+  </aside>
+
+  <div class="wrap">
   <div class="top">
     <div class="brand">Dinner Planner <button type="button" class="version-pill" id="versionBadge" aria-label="App version 60">v60</button></div>
     <button class="menu" type="button" onclick="scrollToSection('prefs')" aria-label="Open preferences">☰</button>
   </div>
 
   <section class="hero" id="home">
-    <h1>What should we cook this week?</h1>
-    <p class="subtitle">A Sunday–Thursday dinner plan based on your family, stores, and what you already have.</p>
-    <div id="calendarBanner" class="calendar-banner" aria-live="polite"></div>
-    <div class="kitchen-photo" role="img" aria-label="Warm Jewish family kitchen illustration"></div>
-    <div class="portion">
-      <div class="portion-line"><b>Portions</b><div class="counter"><button class="circle" id="minusPortions">−</button><span class="count" id="portionCount">5</span><button class="circle" id="plusPortions">+</button></div></div>
-      <div class="tiny">Set before building the week.</div>
+    <div class="hero-grid">
+      <div class="hero-copy">
+        <h1>What should we cook this week?</h1>
+        <p class="subtitle">A Sunday–Thursday dinner plan based on your family, stores, and what you already have.</p>
+        <div id="calendarBanner" class="calendar-banner" aria-live="polite"></div>
+        <div class="portion">
+          <div class="portion-line"><b>Portions</b><div class="counter"><button class="circle" id="minusPortions">−</button><span class="count" id="portionCount">5</span><button class="circle" id="plusPortions">+</button></div></div>
+          <div class="tiny">Set before building the week.</div>
+        </div>
+        <div class="grid2">
+          <button class="btn secondary" onclick="scrollToSection('prefs')">Set preferences</button>
+          <button class="btn secondary" onclick="scrollToSection('stores')">Set stores</button>
+        </div>
+        <button type="button" class="btn full" id="buildWeekBtn" style="margin-top:12px">Build this week's dinners</button>
+        <div id="buildStatus" class="status" aria-live="polite"></div>
+        <button type="button" class="btn secondary full" id="buildNextWeekBtnHome" style="margin-top:10px">Plan next week too</button>
+        <button type="button" class="support support-button" id="usePantryBtn"><b>Use what I already have</b><br><span>Pantry, fridge, freezer, or typed ingredients.</span></button>
+      </div>
+      <div class="kitchen-photo" role="img" aria-label="Warm Jewish family kitchen photo"></div>
     </div>
-    <div class="grid2">
-      <button class="btn secondary" onclick="scrollToSection('prefs')">Set preferences</button>
-      <button class="btn secondary" onclick="scrollToSection('stores')">Set stores</button>
+    <div class="feature-row">
+      <div class="feature-item"><span class="feature-icon" aria-hidden="true">🍽️</span><div><b>Use what you have</b><div class="tiny">Scan your kitchen and save money.</div></div></div>
+      <div class="feature-item"><span class="feature-icon" aria-hidden="true">🛒</span><div><b>Smart shopping</b><div class="tiny">Lists organized by store and aisle.</div></div></div>
+      <div class="feature-item"><span class="feature-icon" aria-hidden="true">🧒</span><div><b>Kid-friendly</b><div class="tiny">Meals your family will actually eat.</div></div></div>
+      <div class="feature-item"><span class="feature-icon" aria-hidden="true">💚</span><div><b>Less stress</b><div class="tiny">Real food. Less waste. More family time.</div></div></div>
     </div>
-    <button type="button" class="btn full" id="buildWeekBtn" style="margin-top:12px">Build this week's dinners</button>
-<div id="buildStatus" class="status" aria-live="polite"></div>
-<button type="button" class="btn secondary full" id="buildNextWeekBtnHome" style="margin-top:10px">Plan next week too</button>
-    <button type="button" class="support support-button" id="usePantryBtn"><b>Use what I already have</b><br><span>Pantry, fridge, freezer, or typed ingredients.</span></button>
   </section>
 
   <main>
@@ -249,6 +280,7 @@
       </section>
     </div>
   </main>
+  </div>
 </div>
 
 <dialog id="recipeDialog"><div class="modal" id="recipeModal"></div></dialog>
