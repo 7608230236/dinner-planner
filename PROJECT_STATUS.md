@@ -32,7 +32,7 @@ Last updated: 2026-07-23 by Claude
 | No duplicate recipes (this week or on replace) | Code verified | Test: "the real app script boots... creates five unique dinners"; "replace unlocked preserves locked meals and keeps the plan unique" |
 | Jewish calendar (auto Hebrew date, Nine Days, Tisha B'Av, meat restrictions) | Code verified, needs live visual check | Logic + tests pass. This is the feature that "disappeared" in a past build — needs to be confirmed visible on the live site, not just logically correct |
 | Local kosher grocery + meat store search (Baltimore-area) | Code verified, needs live check | Seed directory (Pikesville, MD) + Google Places integration; sorts by distance. Needs a live search test with a real address |
-| Persistent shopping list + pantry subtraction | Code verified | Tomato-form distinction, unit conversion, and negative-quantity guard all have passing tests |
+| Persistent shopping list + pantry subtraction | **Live tested — found and fixed a real bug** | User confirmed shopping list/checkmarks were "gone" after closing and reopening on phone. Root cause found: the `save()` function had no error handling — if `localStorage.setItem()` throws (most likely cause: storage quota exceeded from accumulated pantry photos/thumbnails), the save silently failed and nothing after that point persisted. Fixed: `save()` now catches errors, records them to a small separate storage key, and surfaces them prominently in Developer mode ("Last save: FAILED"). Added a regression test that simulates a quota-exceeded failure. **Needs live re-test** — please retry the same close/reopen test and check Developer mode's "Last save" stat if it fails again. |
 | Mobile planner UI | Not yet audited | User previously flagged "mobile planner issues" — no specifics gathered yet |
 
 ---
@@ -42,7 +42,7 @@ Last updated: 2026-07-23 by Claude
 | Issue | Status |
 |---|---|
 | Pantry scan failing | **Fixed** — two root causes: (1) corrupted `pantry-ai.mjs` (chat text pasted into source, commit `95de28b`), (2) function defaulted to a non-working model `gpt-5-mini` instead of the known-working `gpt-4.1-mini-2025-04-14` (commit `4fd89ad`). Confirmed live: scan found 7 items. |
-| Shopping list persistence | Needs live verification — code + test look correct |
+| Shopping list persistence | **Fixed, needs live re-test** — root cause was `save()` silently swallowing storage errors (likely quota exceeded from pantry photo data). Now catches, records, and surfaces failures in Developer mode. Commit `9ac94dd`. |
 | Calendar disappearing | Needs live visual verification — code + test look correct |
 | Mobile planner issues | Not yet audited — need specifics from user |
 | Store lookup problems | Needs live verification — code looks correct, Google Maps key is set |
@@ -89,6 +89,7 @@ Reviewed the actual code against the brief's trust principles and your household
 - **2026-07-23** — Fixed `pantry-ai.mjs` syntax corruption (chat text embedded in source). Commit `95de28b`.
 - **2026-07-23** — Linked Netlify to GitHub for continuous deployment (was previously disconnected manual deploys).
 - **2026-07-23** — Fixed default OpenAI model (`gpt-5-mini` → `gpt-4.1-mini-2025-04-14`) causing pantry scans to hang and time out after 50s. Commit `4fd89ad`. Updated matching test and README.
+- **2026-07-24** — Found and fixed real cause of "shopping list gone" bug: `save()` had no error handling, so a storage failure (likely quota exceeded from pantry photos) silently dropped all future saves. Fixed with error catching, a visible Developer-mode indicator, and a regression test. Commit `9ac94dd`.
 - **2026-07-24** — Spot-checked pantry scan accuracy against real debug report data. Confirmed canned/sauce distinction, correct quantity sourcing, model fix holding steady. Flagged one minor confidence-label mismatch to watch.
 - **2026-07-23** — Full repository audit against original requirements. This file created.
 
