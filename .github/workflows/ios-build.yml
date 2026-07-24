@@ -36,7 +36,7 @@ jobs:
       - name: Build for iOS Simulator (unsigned - validates the project compiles)
         working-directory: ios/App
         run: |
-          xcodebuild -project App.xcodeproj -target App \
+          xcodebuild -project App.xcodeproj -scheme App \
             -sdk iphonesimulator -configuration Debug \
             -derivedDataPath build \
             CODE_SIGNING_ALLOWED=NO \
