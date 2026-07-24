@@ -76,6 +76,19 @@ Rebuilt the desktop (≥960px) layout to match the reference mockup style:
 
 **Done:** hero photo updated to the full family (parents + two kids) matching the same warm kitchen style. Also caught and fixed a real bug while checking it: the photo container was being stretched to match the text column's height on desktop, cropping the sides of the photo and cutting off part of the family. Fixed by sizing the photo box to its actual aspect ratio instead. Verified via screenshot before and after the fix — confirmed the whole family is visible now.
 
+## Privacy policy (2026-07-24)
+
+Added `privacy.html` — a plain-language privacy policy required for App Store / Play Store submission. Reflects actual data practices, not filler boilerplate:
+- Local-only storage by default
+- Household sync explained (optional, code-based, photos excluded)
+- OpenAI photo analysis and Google Places store search disclosed as the only third parties involved
+- No ads, no accounts, no tracking, no paid tiers
+- A children's-information section, since the app may be used by kids under parent guidance
+
+Linked from the app's Settings section. Included in native Android/iOS builds too.
+
+**Not legal advice — this is a good-faith draft.** Worth a quick real review before actual store submission, especially given it touches children's data indirectly.
+
 ## Native iOS app (2026-07-24)
 
 Same approach as Android — Capacitor wraps the existing web app.
