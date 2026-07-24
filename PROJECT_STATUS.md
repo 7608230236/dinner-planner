@@ -94,6 +94,10 @@ Set up via Capacitor — wraps the existing web app into a real Android app shel
 - iOS project (not started — same Capacitor approach will apply; GitHub's macOS runners provide Xcode without needing a physical Mac)
 - Auto-publish to Play Store from CI (possible via Google Play Developer API + service account key, deliberately not set up yet — signing/publishing credentials should be added directly by the user as GitHub secrets, not routed through chat)
 
+## Known resolved issues log
+
+- **Mobile "unstyled long list" / photo not loading (2026-07-24):** After the desktop redesign + hero photo change, user's phone showed an unstyled page (raw list of text/buttons, no photo). Root cause: stale PWA cache/service worker holding old assets. Fixed by using the in-app "Reload latest app" button (clears cache + service worker). Confirmed resolved via debug report: v60, iPhone Safari, zero runtime errors. **Lesson for future changes:** any time CSS/HTML structure changes significantly, remind the user this cache-clear step may be needed — it's not a new bug each time.
+
 ## Commercial model
 
 **This app is permanently free. No paid tiers, no premium features, no monetization.** The original commercial brief's tiered/paid concept does not apply — disregard it. This is a free family tool, not a commercial product.
