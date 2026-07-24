@@ -61,8 +61,8 @@
 .hero-grid{display:block}
 .kitchen-photo{height:220px;border-radius:28px;background-image:url('../hero-family-kitchen.jpg');background-size:cover;background-position:center;border:1px solid var(--line);margin:22px 0}
 @media(min-width:860px){
-  .hero-grid{display:grid;grid-template-columns:1.1fr .9fr;gap:28px;align-items:center}
-  .kitchen-photo{height:100%;min-height:340px;margin:0}
+  .hero-grid{display:grid;grid-template-columns:1.1fr .9fr;gap:28px;align-items:start}
+  .kitchen-photo{height:auto;aspect-ratio:16/9;min-height:0;margin:0;align-self:start}
 }
 .feature-row{display:grid;grid-template-columns:repeat(2,1fr);gap:14px;margin-top:22px;padding-top:22px;border-top:1px solid var(--line)}
 .feature-item{display:flex;gap:10px;align-items:flex-start}
