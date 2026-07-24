@@ -51,6 +51,30 @@ Last updated: 2026-07-23 by Claude
 
 ---
 
+## Commercial model
+
+**This app is permanently free. No paid tiers, no premium features, no monetization.** The original commercial brief's tiered/paid concept does not apply — disregard it. This is a free family tool, not a commercial product.
+
+## Trust & safety / halacha audit (2026-07-23)
+
+Reviewed the actual code against the brief's trust principles and your household rules. One nuance worth understanding, otherwise solid.
+
+| Principle | Status | Detail |
+|---|---|---|
+| Never mix meat and dairy | **Verified in code** | Enforced in recipe library + validation suite; test passes |
+| No siyum-based meat override | **Verified in code** | No siyum logic exists anywhere in the codebase — matches your explicit instruction that Chabad doesn't recognize this app's siyum as an override |
+| Nine Days (1–9 Av): meat-free | **Verified in code** | `calendarRuleForDate()` correctly restricts to dairy/pareve for Av 1–9 |
+| Tisha B'Av: break-fast only, dairy/pareve | **Verified in code** | Also correctly handles the Shabbos-postponement case (fast moves to 10 Av if 9 Av falls on Shabbos) |
+| Meat restricted through halachic midday on 10 Av | **Correct by circumstance, worth understanding why** | The code doesn't hard-block meat on 10 Av's *dinner* — but since this app only plans **dinner** (evening meal), and halachic midday is always well before evening, this restriction is functionally moot for dinner planning. It would only matter for a lunch feature, which doesn't exist. The app does still show an informational note about the midday cutoff on the calendar banner. **Not a bug**, but flagging so it's understood rather than assumed correct by luck. |
+| Hard exclusions (no fish/tofu/turkey/broccoli/cauliflower/cilantro/egg-forward/spicy) actually filter candidates, not just deprioritize | **Verified in code** | `recipeAllowed()` is a real filter applied at build time and replace time, not a scoring nudge |
+| Soft reductions (chickpeas/carrots/spinach/eggplant) are score-based, not hard bans | **Verified in code** | Matches your stated preference — reduce, don't eliminate |
+| Manual correction always available | **Verified in code** | Pantry items have edit/remove actions |
+| Distinguish certain vs. uncertain pantry detections | **Verified in code** | Confidence badges (high/medium/low); unreviewed medium-confidence items don't suppress shopping (has a passing test) |
+| Never claim a store is kosher without reliable basis | **Verified in code** | UI clearly labels results "Directory verified" (your own confirmed list) vs. "Nearby result" (Google Places match, not independently confirmed) |
+| API keys never exposed client-side | **Verified in code** | Confirmed no keys in any browser-side file; both external calls happen only in Netlify Functions |
+
+**One item for a Rav, not for code:** the 10 Av / halachic midday logic above is *technically* fine for dinner-only planning, but if you ever want the app to handle other meals (lunch, seudos, etc.) this would need real halachic-midday enforcement, not just an informational note. Worth asking your Rav if there's any scenario specific to your household where this distinction matters even for dinner (e.g., an unusually early Shabbos-adjacent dinner).
+
 ## Deployment
 
 - Repo: `https://github.com/7608230236/dinner-planner`
