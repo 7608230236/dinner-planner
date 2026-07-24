@@ -285,6 +285,41 @@ test('household sync: creating on one device and joining on another shares plan 
   assert.equal(stateB.have[0].thumbnail, '', 'photos must never sync between devices');
 });
 
+test('rating a recipe up increases its score, rating it down decreases it, and toggling to neutral clears it', async () => {
+  const { context } = await boot();
+  const api = context.window.__dinnerPlannerTest;
+  api.buildPlan();
+  const plan = api.getState().plan;
+  const recipeId = plan[0].id;
+  const fakeRecipe = { id: recipeId, title: 'Test Recipe', kind: 'meat', tags: [], ingredients: [] };
+  const before = api.scoreRecipe(fakeRecipe, null, new Set());
+
+  api.setRecipeRating(recipeId, 'up');
+  const afterUp = api.scoreRecipe(fakeRecipe, null, new Set());
+  assert.ok(afterUp > before, 'an upvoted recipe should score higher');
+
+  api.setRecipeRating(recipeId, 'down');
+  const afterDown = api.scoreRecipe(fakeRecipe, null, new Set());
+  assert.ok(afterDown < before, 'a downvoted recipe should score lower than its unrated baseline');
+  assert.ok(afterDown < afterUp, 'a downvoted recipe should score lower than an upvoted one');
+
+  api.setRecipeRating(recipeId, 'neutral');
+  const state = api.getState();
+  assert.ok(!(recipeId in (state.recipeRatings || {})), 'setting back to neutral should clear the rating entirely');
+});
+
+test('recipe ratings survive a normalizeState pass and are not accidentally wiped', async () => {
+  const { context } = await boot();
+  const api = context.window.__dinnerPlannerTest;
+  api.buildPlan();
+  const plan = api.getState().plan;
+  api.setRecipeRating(plan[0].id, 'up');
+  api.setRecipeRating(plan[1].id, 'down');
+  const state = api.getState();
+  assert.equal(state.recipeRatings[plan[0].id], 'up');
+  assert.equal(state.recipeRatings[plan[1].id], 'down');
+});
+
 test('v60 starts with every agreed household preference enabled', async () => {
   const {context}=await boot();
   const state=context.window.__dinnerPlannerTest.getState();

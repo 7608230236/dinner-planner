@@ -149,6 +149,7 @@ function normalizeState(raw){
       : {this:{},next:{},combined:{}},
     shoppingView: ["this","next","combined"].includes(clean.shoppingView) ? clean.shoppingView : (Array.isArray(clean.nextPlan) && clean.nextPlan.length ? "combined" : "this"),
     recentPlans: Array.isArray(clean.recentPlans) ? clean.recentPlans : [],
+    recipeRatings: (clean.recipeRatings && typeof clean.recipeRatings === "object" && !Array.isArray(clean.recipeRatings)) ? clean.recipeRatings : {},
     planNonce: Number.isFinite(Number(clean.planNonce)) ? Number(clean.planNonce) : 0,
     updatedAt: Number.isFinite(Number(clean.updatedAt)) ? Number(clean.updatedAt) : 0
   };
@@ -183,6 +184,7 @@ function buildSyncPayload(){
     shoppingChecked:state.shoppingChecked,
     recentPlans:state.recentPlans,
     planNonce:state.planNonce,
+    recipeRatings:state.recipeRatings,
     updatedAt:state.updatedAt
   };
 }
@@ -569,6 +571,11 @@ function scoreRecipe(r,targetKind,usedFamilies){
   const family=recipeFamily(r);
   if(usedFamilies.has(family)) score-=6;
   if((state.recentPlans||[]).flat().includes(r.id)) score-=1;
+
+  const rating=(state.recipeRatings||{})[r.id];
+  if(rating==="up") score+=5;
+  if(rating==="down") score-=8;
+
   return score;
 }
 
@@ -716,6 +723,23 @@ function lockAllForWeek(weekKey="this"){
   return !allLocked;
 }
 
+function ratingButtons(recipeId,context){
+  const rating=(state.recipeRatings||{})[recipeId]||"neutral";
+  const options=[["up","👍","Loved it"],["neutral","😐","It's fine"],["down","👎","Not again"]];
+  return `<div class="rating-row" role="group" aria-label="Rate this dish">
+    ${options.map(([value,icon,label])=>
+      `<button type="button" class="rating-btn ${rating===value?'on':''}" data-rating="${context}:${recipeId}:${value}" aria-label="${label}" aria-pressed="${rating===value}">${icon}</button>`
+    ).join("")}
+  </div>`;
+}
+
+function setRecipeRating(recipeId,value){
+  state.recipeRatings=state.recipeRatings||{};
+  if(value==="neutral")delete state.recipeRatings[recipeId];
+  else state.recipeRatings[recipeId]=value;
+  save("state",state);
+}
+
 function renderWeekSection(weekKey="this"){
   const plan=state[planProp(weekKey)]||[];
   const locks=state[lockedProp(weekKey)]||{};
@@ -754,6 +778,7 @@ function renderWeekSection(weekKey="this"){
         <button type="button" class="btn small secondary" data-replace="${weekKey}:${p.day}">Replace</button>
         <button type="button" class="btn small ghost" data-recipe="${weekKey}:${r.id}">Show recipe</button>
       </div>
+      ${ratingButtons(r.id,weekKey)}
     </div>`;
   }).join("");
 
@@ -769,6 +794,13 @@ function renderWeekSection(weekKey="this"){
 
   $(target).querySelectorAll("[data-replace]").forEach(btn=>btn.onclick=()=>{const [wk,day]=btn.dataset.replace.split(":");replaceDay(wk,day)});
   $(target).querySelectorAll("[data-recipe]").forEach(btn=>btn.onclick=()=>{const [wk,id]=btn.dataset.recipe.split(":");showRecipe(id,wk)});
+  $(target).querySelectorAll("[data-rating]").forEach(btn=>{
+    btn.onclick=()=>{
+      const [wk,recipeId,value]=btn.dataset.rating.split(":");
+      setRecipeRating(recipeId,value);
+      renderWeekSection(wk);
+    };
+  });
 }
 
 function scaleQuantity(qty){
@@ -799,6 +831,7 @@ function showRecipe(id,weekKey="this"){
         <span class="chip">${esc(r.time)} total</span>
         ${r.cost?`<span class="chip">About ${esc(r.cost)} per portion</span>`:""}
       </div>
+      ${ratingButtons(r.id,"modal")}
     </div>
     <details class="have-summary">
       <summary>From what you have</summary>
@@ -817,6 +850,14 @@ function showRecipe(id,weekKey="this"){
         ${r.steps.map((s,i)=>`<div style="margin-bottom:8px"><b>${i+1}.</b> ${esc(s)}</div>`).join("")}
       </div>
     </div>`;
+
+  $("recipeModal").querySelectorAll("[data-rating]").forEach(btn=>{
+    btn.onclick=()=>{
+      const [,recipeId,value]=btn.dataset.rating.split(":");
+      setRecipeRating(recipeId,value);
+      showRecipe(recipeId,weekKey);
+    };
+  });
 
   $("recipeDialog").showModal();
 }
@@ -1989,6 +2030,8 @@ window.__dinnerPlannerTest={
   shoppingCheckKey,
   setShoppingChecked,
   inventoryMatchesIngredient,
+  setRecipeRating,
+  scoreRecipe,
   createHousehold,
   joinHousehold,
   leaveHousehold,
