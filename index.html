@@ -27,6 +27,7 @@
       <button type="button" class="nav-link" onclick="scrollToSection('shopping')">Shopping Lists</button>
       <button type="button" class="nav-link" onclick="scrollToSection('stores')">Stores</button>
       <button type="button" class="nav-link" onclick="scrollToSection('home')">Jewish Calendar</button>
+      <button type="button" class="nav-link" onclick="scrollToSection('household')">Family Account</button>
       <button type="button" class="nav-link" onclick="scrollToSection('prefs')">Settings</button>
     </nav>
     <div class="sidebar-footer">
@@ -71,6 +72,40 @@
 
   <main>
     <div>
+      <section class="card" id="household">
+        <h2 class="section-title">Family account</h2>
+        <p class="muted">Share your plan, pantry, and shopping list with your spouse and kids. Photos always stay on the device that took them.</p>
+
+        <div id="householdSetup">
+          <div class="store-scope">
+            <h3>Create a household</h3>
+            <p class="tiny">Start here on your own phone first. You'll get a short code to share.</p>
+            <button class="btn full" id="createHouseholdBtn" type="button">Create household</button>
+          </div>
+          <div class="store-scope">
+            <h3>Join a household</h3>
+            <p class="tiny">Already have a code from your spouse or parent? Enter it here.</p>
+            <input id="joinHouseholdCode" class="text-input" placeholder="Household code" autocapitalize="characters" maxlength="10">
+            <button class="btn secondary full" id="joinHouseholdBtn" type="button" style="margin-top:8px">Join household</button>
+          </div>
+        </div>
+
+        <div id="householdActive" class="hidden">
+          <div class="selected-store">
+            <div class="tiny">Your household code</div>
+            <div style="font-size:1.6rem;font-weight:900;letter-spacing:.08em" id="householdCodeDisplay"></div>
+            <div class="row" style="margin-top:8px">
+              <button class="btn small secondary" id="copyHouseholdCodeBtn" type="button">Copy code</button>
+              <button class="btn small ghost" id="leaveHouseholdBtn" type="button">Leave household</button>
+            </div>
+          </div>
+          <div class="tiny" style="margin-top:12px">Your name (shown to family when you make changes)</div>
+          <input id="deviceNameInput" class="text-input" placeholder="e.g. Mats, Jacqueline, Rose" value="" style="margin-top:6px">
+        </div>
+
+        <div id="householdStatus" class="status" aria-live="polite"></div>
+      </section>
+
       <section class="card" id="prefs">
         <h2 class="section-title">Permanent preferences</h2>
         <p class="muted">Saved rules for every week.</p>

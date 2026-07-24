@@ -15,9 +15,17 @@ const WEEK = ["Kid-friendly","More dairy","More meat/chicken","Simple week"];
 const K="dinnerPlannerV51:";
 const $=id=>document.getElementById(id);
 const load=(k,d)=>{try{return JSON.parse(localStorage.getItem(K+k))??d}catch{return d}};
-const save=(k,v)=>{
+let householdCode=load("householdCode",null);
+let deviceName=load("deviceName","");
+let cloudPushTimer=null;
+let cloudSyncStatus={state:"idle",message:"",at:0}; // idle | syncing | synced | error
+const save=(k,v,opts={})=>{
   try{
+    if(k==="state"&&opts.bumpTimestamp!==false&&v&&typeof v==="object"){
+      v.updatedAt=Date.now();
+    }
     localStorage.setItem(K+k,JSON.stringify(v));
+    if(k==="state"&&householdCode&&opts.skipCloudPush!==true)scheduleCloudPush();
     return true;
   }catch(error){
     try{
@@ -141,11 +149,196 @@ function normalizeState(raw){
       : {this:{},next:{},combined:{}},
     shoppingView: ["this","next","combined"].includes(clean.shoppingView) ? clean.shoppingView : (Array.isArray(clean.nextPlan) && clean.nextPlan.length ? "combined" : "this"),
     recentPlans: Array.isArray(clean.recentPlans) ? clean.recentPlans : [],
-    planNonce: Number.isFinite(Number(clean.planNonce)) ? Number(clean.planNonce) : 0
+    planNonce: Number.isFinite(Number(clean.planNonce)) ? Number(clean.planNonce) : 0,
+    updatedAt: Number.isFinite(Number(clean.updatedAt)) ? Number(clean.updatedAt) : 0
   };
 }
 state = normalizeState(state);
-save("state",state);
+save("state",state,{bumpTimestamp:false,skipCloudPush:true});
+
+// ---- Household sync ----
+// Shared family data (plan, pantry list, shopping, preferences) syncs through a
+// small Netlify Function backed by Netlify Blobs, keyed by a short household code.
+// Photos never leave the device that took them - only the structured pantry data
+// (names/qty/confidence) syncs, so this stays fast and small.
+const HOUSEHOLD_SYNC_URL=`${API_ORIGIN}/.netlify/functions/household-sync`;
+const HOUSEHOLD_POLL_MS=45000;
+let householdPollTimer=null;
+
+function buildSyncPayload(){
+  return {
+    portions:state.portions,
+    prefs:state.prefs,
+    week:state.week,
+    exclude:state.exclude,
+    stores:state.stores,
+    plan:state.plan,
+    locked:state.locked,
+    nextPlan:state.nextPlan,
+    nextLocked:state.nextLocked,
+    have:(state.have||[]).map(item=>({...item,thumbnail:""})),
+    pantryLastScan:state.pantryLastScan,
+    shopping:state.shopping,
+    nextShopping:state.nextShopping,
+    shoppingChecked:state.shoppingChecked,
+    recentPlans:state.recentPlans,
+    planNonce:state.planNonce,
+    updatedAt:state.updatedAt
+  };
+}
+
+function applyCloudState(cloudState){
+  const localThumbnails=new Map((state.have||[]).map(item=>[item.id,item.thumbnail]));
+  const mergedHave=(cloudState.have||[]).map(item=>({
+    ...item,
+    thumbnail:item.thumbnail||localThumbnails.get(item.id)||""
+  }));
+  state=normalizeState({
+    ...state,
+    ...cloudState,
+    have:mergedHave,
+    pantryPhotos:state.pantryPhotos // photos are device-local, never overwritten by cloud
+  });
+  save("state",state,{bumpTimestamp:false,skipCloudPush:true});
+  renderPrefs();
+  renderExclusionChips();
+  renderWeekSection("this");
+  renderWeekSection("next");
+  renderHave();
+  renderShopping();
+  renderStoreSelection("meat");
+  renderStoreSelection("supermarket");
+}
+
+function setHouseholdStatus(state,message){
+  cloudSyncStatus={state,message,at:Date.now()};
+  renderHouseholdStatus();
+}
+
+function scheduleCloudPush(){
+  clearTimeout(cloudPushTimer);
+  cloudPushTimer=setTimeout(pushHouseholdState,1500);
+}
+
+async function pushHouseholdState(){
+  if(!householdCode)return;
+  setHouseholdStatus("syncing","Syncing…");
+  try{
+    const response=await fetch(HOUSEHOLD_SYNC_URL,{
+      method:"POST",
+      headers:{"Content-Type":"application/json"},
+      body:JSON.stringify({code:householdCode,state:buildSyncPayload(),deviceName})
+    });
+    if(!response.ok)throw new Error(`Sync failed (${response.status})`);
+    setHouseholdStatus("synced","Synced just now.");
+  }catch(error){
+    setHouseholdStatus("error","Could not sync. Will try again.");
+  }
+}
+
+async function pullHouseholdState(){
+  if(!householdCode)return;
+  try{
+    const response=await fetch(`${HOUSEHOLD_SYNC_URL}?code=${encodeURIComponent(householdCode)}`);
+    if(!response.ok)throw new Error(`Fetch failed (${response.status})`);
+    const data=await response.json();
+    if(data.found&&Number(data.updatedAt)>Number(state.updatedAt||0)){
+      applyCloudState(data.state);
+      setHouseholdStatus("synced",data.updatedBy?`Updated from ${data.updatedBy}.`:"Updated from your household.");
+    }else if(data.found){
+      setHouseholdStatus("synced","Up to date.");
+    }
+  }catch(error){
+    setHouseholdStatus("error","Could not check for updates.");
+  }
+}
+
+function startHouseholdPolling(){
+  clearInterval(householdPollTimer);
+  if(!householdCode)return;
+  householdPollTimer=setInterval(pullHouseholdState,HOUSEHOLD_POLL_MS);
+  document.addEventListener("visibilitychange",()=>{
+    if(document.visibilityState==="visible"&&householdCode)pullHouseholdState();
+  });
+}
+
+function generateHouseholdCode(){
+  const chars="ABCDEFGHJKMNPQRSTUVWXYZ23456789";
+  let code="";
+  for(let i=0;i<8;i++)code+=chars[Math.floor(Math.random()*chars.length)];
+  return code;
+}
+
+async function createHousehold(){
+  const code=generateHouseholdCode();
+  householdCode=code;
+  save("householdCode",code);
+  setHouseholdStatus("syncing","Setting up your household…");
+  await pushHouseholdState();
+  startHouseholdPolling();
+  renderHouseholdSection();
+}
+
+async function joinHousehold(rawCode){
+  const code=String(rawCode||"").trim().toUpperCase().replace(/[^A-Z0-9]/g,"");
+  if(code.length<6){
+    setHouseholdStatus("error","That code doesn't look right. Check it and try again.");
+    renderHouseholdSection();
+    return;
+  }
+  householdCode=code;
+  save("householdCode",code);
+  setHouseholdStatus("syncing","Joining household…");
+  renderHouseholdSection();
+  try{
+    const response=await fetch(`${HOUSEHOLD_SYNC_URL}?code=${encodeURIComponent(code)}`);
+    const data=await response.json();
+    if(data.found){
+      applyCloudState(data.state);
+      setHouseholdStatus("synced","Joined! You're now seeing your household's shared plan.");
+    }else{
+      // No household exists yet at this code - this device becomes the first one.
+      await pushHouseholdState();
+    }
+  }catch(error){
+    setHouseholdStatus("error","Could not join. Check your connection and try again.");
+  }
+  startHouseholdPolling();
+  renderHouseholdSection();
+}
+
+function leaveHousehold(){
+  if(!confirm("Stop syncing with your household? This device's data stays, but it will no longer share updates with anyone else."))return;
+  householdCode=null;
+  save("householdCode",null);
+  clearInterval(householdPollTimer);
+  setHouseholdStatus("idle","");
+  renderHouseholdSection();
+}
+
+function renderHouseholdStatus(){
+  const box=$("householdStatus");
+  if(!box)return;
+  box.className=`status ${cloudSyncStatus.state==="error"?"error":""}`.trim();
+  box.textContent=cloudSyncStatus.message;
+}
+
+function renderHouseholdSection(){
+  const setupBox=$("householdSetup");
+  const activeBox=$("householdActive");
+  if(!setupBox||!activeBox||!$("householdCodeDisplay"))return;
+  if(householdCode){
+    setupBox.classList.add("hidden");
+    activeBox.classList.remove("hidden");
+    $("householdCodeDisplay").textContent=householdCode;
+    if($("deviceNameInput")&&!$("deviceNameInput").value)$("deviceNameInput").value=deviceName;
+  }else{
+    setupBox.classList.remove("hidden");
+    activeBox.classList.add("hidden");
+  }
+  renderHouseholdStatus();
+}
+
 
 const HEBREW_FMT = new Intl.DateTimeFormat("en-u-ca-hebrew", {day:"numeric",month:"long",year:"numeric"});
 const GREGORIAN_FMT = new Intl.DateTimeFormat("en-US", {month:"short",day:"numeric"});
@@ -1558,6 +1751,21 @@ $("plusPortions").onclick=()=>{
 };
 
 $("savePrefsBtn").onclick=()=>{save("state",state);scrollToSection("weekSettings")};
+$("createHouseholdBtn")?.addEventListener("click",()=>{createHousehold()});
+$("joinHouseholdBtn")?.addEventListener("click",()=>{joinHousehold($("joinHouseholdCode").value)});
+$("leaveHouseholdBtn")?.addEventListener("click",()=>{leaveHousehold()});
+$("copyHouseholdCodeBtn")?.addEventListener("click",async()=>{
+  try{
+    await navigator.clipboard.writeText(householdCode||"");
+    setHouseholdStatus("synced","Code copied. Send it to your family.");
+  }catch{
+    setHouseholdStatus("error","Couldn't copy. Share the code shown above.");
+  }
+});
+$("deviceNameInput")?.addEventListener("change",event=>{
+  deviceName=event.target.value.slice(0,60);
+  save("deviceName",deviceName);
+});
 
 function runBuild(weekKey="this",replaceUnlocked=false){
   const status=$(weekKey==="next"?"nextBuildStatus":"buildStatus");
@@ -1720,6 +1928,11 @@ buildShoppingForWeek("this");
 buildShoppingForWeek("next");
 save("state",state);
 renderShopping();
+renderHouseholdSection();
+if(householdCode){
+  pullHouseholdState();
+  startHouseholdPolling();
+}
 setTimeout(()=>{try{runValidationSuite()}catch(error){recordRuntimeError("validation",error.message)}},0);
 
 window.__dinnerPlannerTest={
@@ -1742,5 +1955,11 @@ window.__dinnerPlannerTest={
   shoppingFromRecipes,
   shoppingCheckKey,
   setShoppingChecked,
-  inventoryMatchesIngredient
+  inventoryMatchesIngredient,
+  createHousehold,
+  joinHousehold,
+  leaveHousehold,
+  pullHouseholdState,
+  buildSyncPayload,
+  getHouseholdCode:()=>householdCode
 };

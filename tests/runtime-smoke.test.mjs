@@ -56,7 +56,9 @@ function createRuntime(){
     'buildNextWeekBtnHome','usePantryBtn','addCustomExcludeBtn','addTypedBtn','typedBox','saveTypedBtn','analyzePicturesBtn','clearPhotosBtn','addMorePhotosBtn','removeUsedBtn','minusPortions',
     'plusPortions','savePrefsBtn','quickShareSupportBtn','shareSupportBtn','downloadSupportBtn','copySupportBtn','reloadLatestBtn','editAllItemsBtn','shoppingSwitch',
     'versionBadge','developerPanel','developerSummary','developerValidation','developerPantry','developerAi','developerShopping','developerTimeline','developerErrors','developerStorage',
-    'developerStatus','reportBugBtn','runValidationBtn','copyDebugBtn','downloadDebugBtn','clearCacheBtn','unregisterWorkerBtn','clearLogsBtn','closeDeveloperBtn'
+    'developerStatus','reportBugBtn','runValidationBtn','copyDebugBtn','downloadDebugBtn','clearCacheBtn','unregisterWorkerBtn','clearLogsBtn','closeDeveloperBtn',
+    'household','householdSetup','householdActive','householdStatus','householdCodeDisplay','createHouseholdBtn','joinHouseholdBtn','joinHouseholdCode',
+    'leaveHouseholdBtn','copyHouseholdCodeBtn','deviceNameInput'
   ])];
   const elements=new Map(ids.map(id=>[id,new FakeElement(id)]));
   elements.get('photoLocation').value='Pantry';
@@ -120,6 +122,8 @@ function createRuntime(){
     requestAnimationFrame:callback=>callback(),
     setTimeout:callback=>{callback();return 1;},
     clearTimeout:()=>{},
+    setInterval:()=>1,
+    clearInterval:()=>{},
     File:class {},
     FileReader:class {},
     Image:class {},
@@ -227,6 +231,58 @@ test('a storage save failure (e.g. quota exceeded) is caught, not silent, and is
   const lastError=bridge.getLastSaveError();
   assert.ok(lastError,'a save failure must be recorded, not silently dropped');
   assert.equal(lastError.name,'QuotaExceededError');
+});
+
+test('household sync: creating on one device and joining on another shares plan and pantry, never photos', async () => {
+  const cloud = new Map();
+
+  function mockFetch(url, opts) {
+    const parsed = new URL(url, 'https://example.test');
+    if (opts && opts.method === 'POST') {
+      const body = JSON.parse(opts.body);
+      cloud.set(body.code, { state: body.state, updatedAt: Date.now() + cloud.size, updatedBy: body.deviceName || '' });
+      return Promise.resolve({ ok: true, status: 200, json: async () => ({ ok: true, updatedAt: Date.now() }) });
+    }
+    const code = parsed.searchParams.get('code');
+    const entry = cloud.get(code);
+    if (!entry) return Promise.resolve({ ok: true, status: 200, json: async () => ({ found: false }) });
+    return Promise.resolve({
+      ok: true,
+      status: 200,
+      json: async () => ({ found: true, state: entry.state, updatedAt: entry.updatedAt, updatedBy: entry.updatedBy })
+    });
+  }
+
+  const deviceA = await boot();
+  deviceA.context.window.fetch = mockFetch;
+  const apiA = deviceA.context.window.__dinnerPlannerTest;
+  apiA.buildPlan();
+  const stateWithPantryItem = apiA.getState();
+  stateWithPantryItem.have = [{
+    id: 'item-1', item: 'Chicken', label: 'Chicken', location: 'Fridge', qty: 2, unit: 'package',
+    confidence: 'high', category: 'meat', perishable: true, sourcePhotoIds: [], sourceLocations: ['Fridge'],
+    reviewed: true, thumbnail: 'data:image/jpeg;base64,DEVICE_A_ONLY_PHOTO_DATA', evidence: '', quantityBasis: 'visible',
+    observations: [], bbox: null
+  }];
+  apiA.setState(stateWithPantryItem);
+  await apiA.createHousehold();
+  const code = apiA.getHouseholdCode();
+  assert.ok(code && code.length >= 6, 'a household code should be generated');
+
+  const deviceB = await boot();
+  deviceB.context.window.fetch = mockFetch;
+  const apiB = deviceB.context.window.__dinnerPlannerTest;
+  await apiB.joinHousehold(code);
+
+  const stateB = apiB.getState();
+  assert.deepEqual(
+    stateB.plan.map(entry => entry.id).sort(),
+    apiA.getState().plan.map(entry => entry.id).sort(),
+    'device B should receive device A\'s plan'
+  );
+  assert.equal(stateB.have.length, 1, 'device B should receive the pantry item');
+  assert.equal(stateB.have[0].item, 'Chicken');
+  assert.equal(stateB.have[0].thumbnail, '', 'photos must never sync between devices');
 });
 
 test('v60 starts with every agreed household preference enabled', async () => {
