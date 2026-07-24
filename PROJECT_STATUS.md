@@ -22,7 +22,7 @@ Last updated: 2026-07-23 by Claude
 | Feature | Status | Notes |
 |---|---|---|
 | Sunday–Thursday weekly planning | Code verified | Tests: build week, unique meals, replace/lock behavior |
-| Pantry/fridge/freezer photo scanning | Live verified (basic) | Scan just found 7 items successfully. Accuracy (correct quantities, canned vs. fresh distinction, no invented items) not yet spot-checked against a real photo |
+| Pantry/fridge/freezer photo scanning | **Live verified with real data** | Spot-checked against the actual debug report (`dinner-planner-support-2026-07-24.json`). Confirmed: correctly distinguished a canned "Tomatoes" item from a separate "Tomato Sauce" (12-can box) item; quantities correctly sourced as `visible` vs. `label`; nothing invented. Confirmed the model fix is holding — every attempt since the fix used `gpt-4.1-mini-2025-04-14`, no reversion to `gpt-5-mini`. **Caveat:** only 1 clean sample since the fix — recommend 2–3 more real scans before calling this fully reliable, since the old `gpt-5-mini` default also "worked" once before failing 8 times in a row. One minor thing to watch, not a bug: one item ("Tuna") was tagged `confidence: high` but its evidence text said "likely tuna" — a small mismatch between the confidence label and the AI's own hedging language, worth keeping an eye on across more scans. |
 | Shopping list builder | Code verified | Test: "shopping checklist state is persistent and keyed by store plus ingredient" |
 | Permanent household preferences (never-suggest / reduce lists) | Code verified | No fish/tofu/turkey/broccoli/cauliflower/cilantro; less chickpeas/carrots/eggplant/spinach — all present in `js/app.js` |
 | Weekly options (kid-friendly, more dairy, more meat, simple week, use pantry first, avoid list) | Code verified | Present in `PREFS`/weekly logic in `js/app.js` |
@@ -89,13 +89,14 @@ Reviewed the actual code against the brief's trust principles and your household
 - **2026-07-23** — Fixed `pantry-ai.mjs` syntax corruption (chat text embedded in source). Commit `95de28b`.
 - **2026-07-23** — Linked Netlify to GitHub for continuous deployment (was previously disconnected manual deploys).
 - **2026-07-23** — Fixed default OpenAI model (`gpt-5-mini` → `gpt-4.1-mini-2025-04-14`) causing pantry scans to hang and time out after 50s. Commit `4fd89ad`. Updated matching test and README.
+- **2026-07-24** — Spot-checked pantry scan accuracy against real debug report data. Confirmed canned/sauce distinction, correct quantity sourcing, model fix holding steady. Flagged one minor confidence-label mismatch to watch.
 - **2026-07-23** — Full repository audit against original requirements. This file created.
 
 ---
 
 ## Next steps (priority order)
 
-1. Spot-check pantry scan accuracy against a real photo (quantities, canned vs. fresh, no invented items)
+1. Do 2–3 more real pantry scans to confirm `gpt-4.1-mini-2025-04-14` is reliably stable (not just lucky once, like `gpt-5-mini` was)
 2. Verify shopping list persists across a page reload / browser close
 3. Verify Jewish calendar banner is actually visible on the live site (not just logically correct)
 4. Verify store search returns real, correctly-sorted results for your address
