@@ -76,6 +76,15 @@ Rebuilt the desktop (≥960px) layout to match the reference mockup style:
 
 **Done:** hero photo updated to the full family (parents + two kids) matching the same warm kitchen style. Also caught and fixed a real bug while checking it: the photo container was being stretched to match the text column's height on desktop, cropping the sides of the photo and cutting off part of the family. Fixed by sizing the photo box to its actual aspect ratio instead. Verified via screenshot before and after the fix — confirmed the whole family is visible now.
 
+## Dish ratings (2026-07-24)
+
+Thumbs up / neutral / thumbs down on any dish — from its meal card in the weekly plan, or from the recipe detail modal.
+
+- **Rating lives on the recipe, not the day.** If "Hungarian Goulash" gets a thumbs down, it stays deprioritized the next time it would come up, not just that one week.
+- **Not a hard ban.** A downvoted recipe is heavily deprioritized in scoring, not permanently excluded — tastes change, and this avoids painting the app into a corner if variety runs thin.
+- **Syncs across the household** — same as plan/pantry/shopping, so the whole family's opinion feeds into future planning, not just whoever tapped the button.
+- **Verified with a real browser test** (not just unit-level): built a plan, clicked the actual thumbs-up button, confirmed the DOM updated correctly — plus separate tests confirming the score math (up increases score, down decreases it, neutral clears the rating).
+
 ## Family account / household sync (2026-07-24)
 
 Lets your spouse (and kids, if you want) see and edit the same plan/pantry/shopping list from their own phone.
@@ -160,6 +169,7 @@ Reviewed the actual code against the brief's trust principles and your household
 - **2026-07-23** — Fixed `pantry-ai.mjs` syntax corruption (chat text embedded in source). Commit `95de28b`.
 - **2026-07-23** — Linked Netlify to GitHub for continuous deployment (was previously disconnected manual deploys).
 - **2026-07-23** — Fixed default OpenAI model (`gpt-5-mini` → `gpt-4.1-mini-2025-04-14`) causing pantry scans to hang and time out after 50s. Commit `4fd89ad`. Updated matching test and README.
+- **2026-07-24** — Added thumbs up/down/neutral dish ratings. Lives on the recipe (persists across weeks), influences future scoring, syncs across the household. Verified with a real browser click test, not just unit logic.
 - **2026-07-24** — Household sync confirmed working live end-to-end. Root cause of the 502 was `MissingBlobsEnvironmentError`, a documented Netlify platform issue with automatic Blobs context injection. Fixed with explicit `NETLIFY_BLOBS_SITE_ID`/`NETLIFY_BLOBS_TOKEN` env vars.
 - **2026-07-24** — Fixed critical household sync infinite loop bug (logging a sync result was re-triggering another sync, forever). This is almost certainly why the user's first attempt failed. Also added household status to debug reports and a native share-sheet button for the household code.
 - **2026-07-24** — Added family account / household sync: shared plan, pantry, shopping list, and preferences across devices via a household code, backed by Netlify Blobs. Photos deliberately stay device-local. Real two-device test added. Not yet live-verified.
@@ -179,5 +189,6 @@ Reviewed the actual code against the brief's trust principles and your household
 
 ## Next steps (priority order)
 
-1. Do 2–3 more real pantry scans to confirm `gpt-4.1-mini-2025-04-14` is reliably stable (not just lucky once, like `gpt-5-mini` was)
+1. User to live-test dish ratings on the deployed site
+2. Do 2–3 more real pantry scans to confirm `gpt-4.1-mini-2025-04-14` is reliably stable (not just lucky once, like `gpt-5-mini` was)
 2. Audit mobile planner UI once specifics are gathered
