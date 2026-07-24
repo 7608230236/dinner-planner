@@ -31,7 +31,7 @@ Last updated: 2026-07-23 by Claude
 | Lock / Replace / Show recipe per day | Code verified | Dedicated tests pass for lock and replace-unlocked |
 | No duplicate recipes (this week or on replace) | Code verified | Test: "the real app script boots... creates five unique dinners"; "replace unlocked preserves locked meals and keeps the plan unique" |
 | Jewish calendar (auto Hebrew date, Nine Days, Tisha B'Av, meat restrictions) | **Live verified** | User confirmed the banner is visible on the live site and correctly showing "Tisha B'Av week" today |
-| Local kosher grocery + meat store search (Baltimore-area) | Code verified, needs live check | Seed directory (Pikesville, MD) + Google Places integration; sorts by distance. Needs a live search test with a real address |
+| Local kosher grocery + meat store search (Baltimore-area) | **Live verified** | User confirmed store search works on the live site |
 | Persistent shopping list + pantry subtraction | **Live verified — fixed and confirmed** | User confirmed: closed and reopened the app on phone, shopping list and checkmarks survived. Root cause was `save()` silently swallowing storage errors; now catches, records, and surfaces failures in Developer mode. |
 | Mobile planner UI | Not yet audited | User previously flagged "mobile planner issues" — no specifics gathered yet |
 
@@ -45,7 +45,7 @@ Last updated: 2026-07-23 by Claude
 | Shopping list persistence | **Fixed and live-confirmed** — root cause was `save()` silently swallowing storage errors. Now catches, records, and surfaces failures in Developer mode. Commit `9ac94dd`. User confirmed working. |
 | Calendar disappearing | **Confirmed working live** — banner visible, correctly showing "Tisha B'Av week" |
 | Mobile planner issues | Not yet audited — need specifics from user |
-| Store lookup problems | Needs live verification — code looks correct, Google Maps key is set |
+| Store lookup problems | **Confirmed working live** by user |
 | Duplicate meals | Needs live verification — code + tests look correct |
 | Wrong quantities | Needs live verification — code + tests look correct |
 
@@ -89,6 +89,7 @@ Reviewed the actual code against the brief's trust principles and your household
 - **2026-07-23** — Fixed `pantry-ai.mjs` syntax corruption (chat text embedded in source). Commit `95de28b`.
 - **2026-07-23** — Linked Netlify to GitHub for continuous deployment (was previously disconnected manual deploys).
 - **2026-07-23** — Fixed default OpenAI model (`gpt-5-mini` → `gpt-4.1-mini-2025-04-14`) causing pantry scans to hang and time out after 50s. Commit `4fd89ad`. Updated matching test and README.
+- **2026-07-24** — Store search confirmed working live by user.
 - **2026-07-24** — Jewish calendar banner confirmed visible and correct on live site ("Tisha B'Av week").
 - **2026-07-24** — Found and fixed real cause of "shopping list gone" bug: `save()` had no error handling, so a storage failure (likely quota exceeded from pantry photos) silently dropped all future saves. Fixed with error catching, a visible Developer-mode indicator, and a regression test. Commit `9ac94dd`. User confirmed fix working live.
 - **2026-07-24** — Spot-checked pantry scan accuracy against real debug report data. Confirmed canned/sauce distinction, correct quantity sourcing, model fix holding steady. Flagged one minor confidence-label mismatch to watch.
@@ -99,6 +100,5 @@ Reviewed the actual code against the brief's trust principles and your household
 ## Next steps (priority order)
 
 1. Do 2–3 more real pantry scans to confirm `gpt-4.1-mini-2025-04-14` is reliably stable (not just lucky once, like `gpt-5-mini` was)
-2. Verify store search returns real, correctly-sorted results for your address
-3. Verify no duplicate meals across a real build + replace cycle
-4. Audit mobile planner UI once specifics are gathered
+2. Verify no duplicate meals across a real build + replace cycle
+3. Audit mobile planner UI once specifics are gathered
