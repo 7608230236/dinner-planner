@@ -96,6 +96,10 @@ Lets your spouse (and kids, if you want) see and edit the same plan/pantry/shopp
 
 **Not yet live-verified:** Netlify Blobs should work with zero extra configuration when deployed on Netlify, but this needs an actual live test — please try creating a household on your phone and joining from your wife's phone (or a second browser) once deployed, and report back what happens.
 
+**Critical bug found and fixed (2026-07-24):** the household sync had an infinite loop. Logging a successful/failed sync via `logEvent()` triggered another `save()`, which (since a household was active) scheduled another cloud push, which logged its own result, which triggered another save, forever — hammering the sync endpoint continuously every ~1.5s indefinitely. This is almost certainly why the user's first attempt to create a household "failed." Root cause: `logEvent()`'s internal save call wasn't excluded from triggering cloud sync, even though debug logs were never part of the synced payload in the first place. Fixed by having `logEvent()` skip cloud push. Caught by the automated test suite hanging/timing out — a real, valuable catch, not just a theoretical test artifact.
+
+**Also added:** household sync status (code, device name, last sync state) is now included in downloadable debug/support reports, and a "Share code" button using the native phone share sheet (works with Messages, WhatsApp, email, contacts — whatever the phone offers), addressing the user's request to make sharing the household code easier than manually copying it.
+
 ## Native Android app (2026-07-24)
 
 Set up via Capacitor — wraps the existing web app into a real Android app shell.
@@ -156,6 +160,7 @@ Reviewed the actual code against the brief's trust principles and your household
 - **2026-07-23** — Fixed `pantry-ai.mjs` syntax corruption (chat text embedded in source). Commit `95de28b`.
 - **2026-07-23** — Linked Netlify to GitHub for continuous deployment (was previously disconnected manual deploys).
 - **2026-07-23** — Fixed default OpenAI model (`gpt-5-mini` → `gpt-4.1-mini-2025-04-14`) causing pantry scans to hang and time out after 50s. Commit `4fd89ad`. Updated matching test and README.
+- **2026-07-24** — Fixed critical household sync infinite loop bug (logging a sync result was re-triggering another sync, forever). This is almost certainly why the user's first attempt failed. Also added household status to debug reports and a native share-sheet button for the household code.
 - **2026-07-24** — Added family account / household sync: shared plan, pantry, shopping list, and preferences across devices via a household code, backed by Netlify Blobs. Photos deliberately stay device-local. Real two-device test added. Not yet live-verified.
 - **2026-07-24** — Native Android app set up via Capacitor. Fixed relative API paths that would've broken in a packaged app. GitHub Actions now builds the debug APK automatically (no local Android SDK needed) — first build confirmed successful after fixing a Node version mismatch (Capacitor CLI needs Node ≥22).
 - **2026-07-24** — Finished the "Dinner Made Easy" rename across manifest (home screen name), title, mobile top bar, package.json, README. This is what fixes the "still says Dinner Planner on mobile" issue.
