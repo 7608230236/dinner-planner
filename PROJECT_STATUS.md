@@ -53,9 +53,16 @@ Last updated: 2026-07-23 by Claude
 
 ## App name
 
-**Decided: "Dinner Made Easy."** This was already the tagline used throughout the mockups/renderings — now confirmed as the actual app name, not just a slogan.
+**Decided: "Dinner Made Easy."** This was already the tagline used throughout the mockups/renderings — now confirmed as the actual app name.
 
-Not yet renamed everywhere in the codebase — sidebar brand now says "Dinner made easy." but `index.html` `<title>`, `package.json`, mobile top-bar text, version badge label, and service worker cache name still say "Dinner Planner". Renaming those is a separate, not-yet-done task — flagged, not urgent.
+**Renamed everywhere that matters for the user:**
+- `manifest.json` `name`/`short_name` — this is what shows on the phone home screen after "Add to Home Screen", which is what prompted this fix
+- Page `<title>`
+- Mobile top-bar brand text
+- `package.json` name/description
+- `README.md` heading
+
+**Deliberately left alone** (internal, not user-facing): the service worker cache name already said `dinner-made-easy-*` (was already correct), and internal downloaded-file names like `dinner-planner-support-*.json` — these are just file-naming conventions for debug exports, not branding.
 
 ## Desktop layout (2026-07-24)
 
@@ -107,6 +114,7 @@ Reviewed the actual code against the brief's trust principles and your household
 - **2026-07-23** — Fixed `pantry-ai.mjs` syntax corruption (chat text embedded in source). Commit `95de28b`.
 - **2026-07-23** — Linked Netlify to GitHub for continuous deployment (was previously disconnected manual deploys).
 - **2026-07-23** — Fixed default OpenAI model (`gpt-5-mini` → `gpt-4.1-mini-2025-04-14`) causing pantry scans to hang and time out after 50s. Commit `4fd89ad`. Updated matching test and README.
+- **2026-07-24** — Finished the "Dinner Made Easy" rename across manifest (home screen name), title, mobile top bar, package.json, README. This is what fixes the "still says Dinner Planner on mobile" issue.
 - **2026-07-24** — Hero photo updated to family (parents + kids). Caught and fixed a real cropping bug in the process: the photo box was stretching to the text column's height, cutting off the sides of the family photo. Fixed with a proper aspect-ratio. Verified via screenshots before/after.
 - **2026-07-24** — Rebuilt desktop layout with a sidebar nav, two-column hero, and feature row to match the reference mockup. Verified via actual Playwright screenshots before shipping. All 27 tests still pass.
 - **2026-07-24** — App name decided: "Dinner Made Easy" (was already the mockup tagline, now the official name). Not yet applied everywhere in the codebase — future task.
