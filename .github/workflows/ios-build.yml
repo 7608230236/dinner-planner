@@ -1,0 +1,51 @@
+name: iOS Build
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "ios/**"
+      - "js/**"
+      - "css/**"
+      - "index.html"
+      - "manifest.json"
+      - "capacitor.config.json"
+      - "scripts/build-www.mjs"
+      - ".github/workflows/ios-build.yml"
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build web assets
+        run: npm run build:www
+
+      - name: Sync Capacitor
+        run: npx cap sync ios
+
+      - name: Build for iOS Simulator (unsigned - validates the project compiles)
+        working-directory: ios/App
+        run: |
+          xcodebuild -project App.xcodeproj -target App \
+            -sdk iphonesimulator -configuration Debug \
+            -derivedDataPath build \
+            CODE_SIGNING_ALLOWED=NO \
+            build
+
+      - name: Upload build log on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ios-build-log
+          path: ios/App/build/Logs
+          retention-days: 7
