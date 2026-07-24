@@ -25,7 +25,7 @@ Phone-first kosher family dinner planner with a 500-recipe library for Sunday th
 3. Use the repository root as the publish directory. No build command is required.
 4. Add these environment variables in Netlify:
    - `OPENAI_API_KEY` — required for pantry photo analysis.
-   - `OPENAI_MODEL` — optional; defaults to `gpt-5-mini`.
+   - `OPENAI_MODEL` — optional; defaults to `gpt-4.1-mini-2025-04-14`.
    - `GOOGLE_MAPS_API_KEY` — optional; enables live nearby kosher-store results. The Baltimore directory fallback still works without it.
 5. Deploy.
 

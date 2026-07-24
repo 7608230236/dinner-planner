@@ -45,7 +45,7 @@ test('pantry AI rejects generic and malformed detections but keeps a supported c
   assert.equal(body.rejectedCount, 2);
   assert.equal(body.rejectedItems.length, 2);
   assert.equal(requestBody.store, false);
-  assert.equal(requestBody.model, 'gpt-5-mini');
+  assert.equal(requestBody.model, 'gpt-4.1-mini-2025-04-14');
   assert.equal(requestBody.text?.format?.type, 'json_schema');
   assert.equal(requestBody.text?.format?.strict, true);
 });

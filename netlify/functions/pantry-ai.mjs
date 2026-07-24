@@ -260,7 +260,7 @@ export async function handler(event) {
       model:
         result.model ||
         process.env.OPENAI_MODEL ||
-        "gpt-5-mini",
+        "gpt-4.1-mini-2025-04-14",
       photoId
     });
   } catch (err) {
@@ -293,7 +293,7 @@ async function requestInventory({
   controller
 }) {
   const model =
-    process.env.OPENAI_MODEL || "gpt-5-mini";
+    process.env.OPENAI_MODEL || "gpt-4.1-mini-2025-04-14";
 
   const response = await fetch(
     "https://api.openai.com/v1/responses",
