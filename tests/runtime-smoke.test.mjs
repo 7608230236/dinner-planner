@@ -58,7 +58,7 @@ function createRuntime(){
     'versionBadge','developerPanel','developerSummary','developerValidation','developerPantry','developerAi','developerShopping','developerTimeline','developerErrors','developerStorage',
     'developerStatus','reportBugBtn','runValidationBtn','copyDebugBtn','downloadDebugBtn','clearCacheBtn','unregisterWorkerBtn','clearLogsBtn','closeDeveloperBtn',
     'household','householdSetup','householdActive','householdStatus','householdCodeDisplay','createHouseholdBtn','joinHouseholdBtn','joinHouseholdCode',
-    'leaveHouseholdBtn','copyHouseholdCodeBtn','deviceNameInput'
+    'leaveHouseholdBtn','copyHouseholdCodeBtn','shareHouseholdCodeBtn','deviceNameInput'
   ])];
   const elements=new Map(ids.map(id=>[id,new FakeElement(id)]));
   elements.get('photoLocation').value='Pantry';

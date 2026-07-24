@@ -231,8 +231,10 @@ async function pushHouseholdState(){
     });
     if(!response.ok)throw new Error(`Sync failed (${response.status})`);
     setHouseholdStatus("synced","Synced just now.");
+    logEvent("household_push_success",{code:householdCode});
   }catch(error){
     setHouseholdStatus("error","Could not sync. Will try again.");
+    logEvent("household_push_failed",{code:householdCode,message:error?.message||String(error)});
   }
 }
 
@@ -245,11 +247,13 @@ async function pullHouseholdState(){
     if(data.found&&Number(data.updatedAt)>Number(state.updatedAt||0)){
       applyCloudState(data.state);
       setHouseholdStatus("synced",data.updatedBy?`Updated from ${data.updatedBy}.`:"Updated from your household.");
+      logEvent("household_pull_applied",{code:householdCode,updatedBy:data.updatedBy||""});
     }else if(data.found){
       setHouseholdStatus("synced","Up to date.");
     }
   }catch(error){
     setHouseholdStatus("error","Could not check for updates.");
+    logEvent("household_pull_failed",{code:householdCode,message:error?.message||String(error)});
   }
 }
 
@@ -273,6 +277,7 @@ async function createHousehold(){
   const code=generateHouseholdCode();
   householdCode=code;
   save("householdCode",code);
+  logEvent("household_created",{code});
   setHouseholdStatus("syncing","Setting up your household…");
   await pushHouseholdState();
   startHouseholdPolling();
@@ -288,6 +293,7 @@ async function joinHousehold(rawCode){
   }
   householdCode=code;
   save("householdCode",code);
+  logEvent("household_join_attempt",{code});
   setHouseholdStatus("syncing","Joining household…");
   renderHouseholdSection();
   try{
@@ -296,12 +302,15 @@ async function joinHousehold(rawCode){
     if(data.found){
       applyCloudState(data.state);
       setHouseholdStatus("synced","Joined! You're now seeing your household's shared plan.");
+      logEvent("household_join_success",{code});
     }else{
       // No household exists yet at this code - this device becomes the first one.
       await pushHouseholdState();
+      logEvent("household_join_created_new",{code});
     }
   }catch(error){
     setHouseholdStatus("error","Could not join. Check your connection and try again.");
+    logEvent("household_join_failed",{code,message:error?.message||String(error)});
   }
   startHouseholdPolling();
   renderHouseholdSection();
@@ -1056,7 +1065,7 @@ function confidenceRank(value){return ({low:1,medium:2,high:3,user:4})[value]||0
 
 function logEvent(type,detail={}){
   state.debugLog=[...(state.debugLog||[]),{at:new Date().toISOString(),type,detail}].slice(-200);
-  try{save("state",state)}catch{}
+  try{save("state",state,{skipCloudPush:true})}catch{}
 }
 
 function mergePantryItem(incoming){
@@ -1579,6 +1588,12 @@ function makeSupportReport(includeImages=true){
     generatedAt:new Date().toISOString(),
     page:{href:location.href,userAgent:navigator.userAgent,language:navigator.language,screen:{width:screen.width,height:screen.height,pixelRatio:window.devicePixelRatio||1}},
     currentMessage:$("aiStatus")?.textContent||"",
+    household:{
+      hasCode:Boolean(householdCode),
+      code:householdCode||"",
+      deviceName,
+      syncStatus:cloudSyncStatus
+    },
     preferences:{portions:state.portions,prefs:state.prefs,week:state.week,exclude:state.exclude},
     photos:(state.pantryPhotos||[]).map(p=>({
       id:p.id,location:p.location,label:p.label,status:p.status,addedAt:p.addedAt,scannedAt:p.scannedAt,detectedCount:p.detectedCount||0,error:p.error||"",requestId:p.requestId||"",model:p.model||"",rawItems:p.rawItems||[],rejectedItems:p.rejectedItems||[],image:includeImages?p.image:undefined
@@ -1761,6 +1776,17 @@ $("copyHouseholdCodeBtn")?.addEventListener("click",async()=>{
   }catch{
     setHouseholdStatus("error","Couldn't copy. Share the code shown above.");
   }
+});
+$("shareHouseholdCodeBtn")?.addEventListener("click",async()=>{
+  const text=`Join our Dinner Made Easy household! Open the app and enter this code: ${householdCode}`;
+  try{
+    if(navigator.share){
+      await navigator.share({title:"Join our household",text});
+    }else{
+      await navigator.clipboard.writeText(text);
+      setHouseholdStatus("synced","Sharing isn't available here, so the invite was copied instead.");
+    }
+  }catch{}
 });
 $("deviceNameInput")?.addEventListener("change",event=>{
   deviceName=event.target.value.slice(0,60);
