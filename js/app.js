@@ -229,7 +229,10 @@ async function pushHouseholdState(){
       headers:{"Content-Type":"application/json"},
       body:JSON.stringify({code:householdCode,state:buildSyncPayload(),deviceName})
     });
-    if(!response.ok)throw new Error(`Sync failed (${response.status})`);
+    if(!response.ok){
+      const detail=await response.json().catch(()=>({}));
+      throw new Error(detail.error||`Sync failed (${response.status})`);
+    }
     setHouseholdStatus("synced","Synced just now.");
     logEvent("household_push_success",{code:householdCode});
   }catch(error){
@@ -242,7 +245,10 @@ async function pullHouseholdState(){
   if(!householdCode)return;
   try{
     const response=await fetch(`${HOUSEHOLD_SYNC_URL}?code=${encodeURIComponent(householdCode)}`);
-    if(!response.ok)throw new Error(`Fetch failed (${response.status})`);
+    if(!response.ok){
+      const detail=await response.json().catch(()=>({}));
+      throw new Error(detail.error||`Fetch failed (${response.status})`);
+    }
     const data=await response.json();
     if(data.found&&Number(data.updatedAt)>Number(state.updatedAt||0)){
       applyCloudState(data.state);
@@ -298,7 +304,8 @@ async function joinHousehold(rawCode){
   renderHouseholdSection();
   try{
     const response=await fetch(`${HOUSEHOLD_SYNC_URL}?code=${encodeURIComponent(code)}`);
-    const data=await response.json();
+    const data=await response.json().catch(()=>({}));
+    if(!response.ok)throw new Error(data.error||`Join failed (${response.status})`);
     if(data.found){
       applyCloudState(data.state);
       setHouseholdStatus("synced","Joined! You're now seeing your household's shared plan.");
