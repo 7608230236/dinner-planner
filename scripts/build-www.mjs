@@ -11,6 +11,7 @@ const wwwDir = resolve(root, "www");
 
 const filesAndDirs = [
   "index.html",
+  "privacy.html",
   "manifest.json",
   "service-worker.js",
   "icon-192.png",
