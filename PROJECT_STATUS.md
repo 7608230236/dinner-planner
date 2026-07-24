@@ -67,7 +67,7 @@ Rebuilt the desktop (≥960px) layout to match the reference mockup style:
 - Verified by actually rendering the page with Playwright and screenshotting both desktop (1440px) and mobile (390px) before shipping — not just reading the CSS.
 - All 27 automated tests still pass; no functional IDs were changed, only presentation.
 
-**Still pending:** the hero photo is still the original couple-only image (`hero-family-kitchen.jpg`). User wants a version with kids included, matching the same style — waiting on user to generate that image (prompt already provided) and upload it.
+**Done:** hero photo updated to the full family (parents + two kids) matching the same warm kitchen style. Also caught and fixed a real bug while checking it: the photo container was being stretched to match the text column's height on desktop, cropping the sides of the photo and cutting off part of the family. Fixed by sizing the photo box to its actual aspect ratio instead. Verified via screenshot before and after the fix — confirmed the whole family is visible now.
 
 ## Commercial model
 
@@ -107,6 +107,7 @@ Reviewed the actual code against the brief's trust principles and your household
 - **2026-07-23** — Fixed `pantry-ai.mjs` syntax corruption (chat text embedded in source). Commit `95de28b`.
 - **2026-07-23** — Linked Netlify to GitHub for continuous deployment (was previously disconnected manual deploys).
 - **2026-07-23** — Fixed default OpenAI model (`gpt-5-mini` → `gpt-4.1-mini-2025-04-14`) causing pantry scans to hang and time out after 50s. Commit `4fd89ad`. Updated matching test and README.
+- **2026-07-24** — Hero photo updated to family (parents + kids). Caught and fixed a real cropping bug in the process: the photo box was stretching to the text column's height, cutting off the sides of the family photo. Fixed with a proper aspect-ratio. Verified via screenshots before/after.
 - **2026-07-24** — Rebuilt desktop layout with a sidebar nav, two-column hero, and feature row to match the reference mockup. Verified via actual Playwright screenshots before shipping. All 27 tests still pass.
 - **2026-07-24** — App name decided: "Dinner Made Easy" (was already the mockup tagline, now the official name). Not yet applied everywhere in the codebase — future task.
 - **2026-07-24** — No-duplicate-meals confirmed working live by user, including after multiple "Replace unlocked" cycles.
