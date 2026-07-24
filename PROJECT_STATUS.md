@@ -76,6 +76,20 @@ Rebuilt the desktop (≥960px) layout to match the reference mockup style:
 
 **Done:** hero photo updated to the full family (parents + two kids) matching the same warm kitchen style. Also caught and fixed a real bug while checking it: the photo container was being stretched to match the text column's height on desktop, cropping the sides of the photo and cutting off part of the family. Fixed by sizing the photo box to its actual aspect ratio instead. Verified via screenshot before and after the fix — confirmed the whole family is visible now.
 
+## Native iOS app (2026-07-24)
+
+Same approach as Android — Capacitor wraps the existing web app.
+
+- Repo now has `ios/` (native Xcode project), same `capacitor.config.json`/`resources/`/`scripts/build-www.mjs` as Android reuse.
+- **Builds via GitHub Actions on `macos-latest` runners — no Mac needed on the user's end**, since GitHub's macOS runners include Xcode.
+- Hit and fixed a real issue: `xcodebuild -derivedDataPath` requires a scheme (not just a target), but Capacitor's generated project doesn't include a shared scheme by default (Xcode only creates one on first interactive open, which never happens in CI). Fixed by hand-authoring a proper shared `.xcscheme` file. This also matters for later: a real signed archive build (`xcodebuild archive`) requires a scheme too, so this was needed eventually regardless.
+- **First successful build confirmed** — compiles cleanly for iOS Simulator (unsigned) on GitHub's macOS runner.
+
+**Not yet done (bigger lift than Android on this front):**
+- Code signing — Apple requires this even to install on your own physical iPhone for testing, unlike Android's sideloadable debug APK. Needs your Apple Developer certificate + provisioning profile added as GitHub secrets (user should add these directly, not route through chat, same principle as the Android signing key).
+- App Store Connect submission
+- App Store listing (screenshots, description, privacy policy)
+
 ## Dish ratings (2026-07-24)
 
 Thumbs up / neutral / thumbs down on any dish — from its meal card in the weekly plan, or from the recipe detail modal.
@@ -169,6 +183,7 @@ Reviewed the actual code against the brief's trust principles and your household
 - **2026-07-23** — Fixed `pantry-ai.mjs` syntax corruption (chat text embedded in source). Commit `95de28b`.
 - **2026-07-23** — Linked Netlify to GitHub for continuous deployment (was previously disconnected manual deploys).
 - **2026-07-23** — Fixed default OpenAI model (`gpt-5-mini` → `gpt-4.1-mini-2025-04-14`) causing pantry scans to hang and time out after 50s. Commit `4fd89ad`. Updated matching test and README.
+- **2026-07-24** — Native iOS app set up via Capacitor. Builds successfully on GitHub's macOS runners (no Mac needed). Fixed a real CI issue: Capacitor doesn't generate a shared Xcode scheme by default, which `xcodebuild` needs — hand-authored one, which will also be needed for the eventual signed archive build.
 - **2026-07-24** — Added thumbs up/down/neutral dish ratings. Lives on the recipe (persists across weeks), influences future scoring, syncs across the household. Verified with a real browser click test, not just unit logic.
 - **2026-07-24** — Household sync confirmed working live end-to-end. Root cause of the 502 was `MissingBlobsEnvironmentError`, a documented Netlify platform issue with automatic Blobs context injection. Fixed with explicit `NETLIFY_BLOBS_SITE_ID`/`NETLIFY_BLOBS_TOKEN` env vars.
 - **2026-07-24** — Fixed critical household sync infinite loop bug (logging a sync result was re-triggering another sync, forever). This is almost certainly why the user's first attempt failed. Also added household status to debug reports and a native share-sheet button for the household code.
