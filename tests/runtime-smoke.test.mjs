@@ -211,6 +211,24 @@ test('shopping checklist state is persistent and keyed by store plus ingredient'
   assert.equal(api.getState().shoppingChecked.this[key],undefined);
 });
 
+test('a storage save failure (e.g. quota exceeded) is caught, not silent, and is recorded for developer mode', async () => {
+  const {context}=await boot();
+  const realSetItem=context.window.localStorage.setItem.bind(context.window.localStorage);
+  context.window.localStorage.setItem=(key,value)=>{
+    if(key.endsWith(':state')){
+      const error=new Error('Quota exceeded');
+      error.name='QuotaExceededError';
+      throw error;
+    }
+    return realSetItem(key,value);
+  };
+  const bridge=context.window.__dinnerPlannerBridge;
+  assert.doesNotThrow(()=>bridge.saveState());
+  const lastError=bridge.getLastSaveError();
+  assert.ok(lastError,'a save failure must be recorded, not silently dropped');
+  assert.equal(lastError.name,'QuotaExceededError');
+});
+
 test('v60 starts with every agreed household preference enabled', async () => {
   const {context}=await boot();
   const state=context.window.__dinnerPlannerTest.getState();

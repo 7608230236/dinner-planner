@@ -114,6 +114,7 @@
     const failed=validations.length-passed;
     const diagnostics=latestDiagnostics(state);
     const runtime=await collectRuntime();
+    const saveError=bridge.getLastSaveError?bridge.getLastSaveError():null;
 
     byId('developerSummary').innerHTML=[
       ['Build',`v${bridge.version}`],
@@ -123,8 +124,13 @@
       ['AI calls',(state.aiRequests||[]).length],
       ['Errors',(state.runtimeErrors||[]).length],
       ['Shopping lines',(state.shopping||[]).length+(state.nextShopping||[]).length],
-      ['Cache',runtime.caches.map(cache=>cache.name).join(', ')||'None']
+      ['Cache',runtime.caches.map(cache=>cache.name).join(', ')||'None'],
+      ['Last save',saveError?`FAILED (${saveError.name})`:'OK']
     ].map(([label,value])=>`<div class="developer-stat"><span class="tiny">${escapeHtml(label)}</span><b>${escapeHtml(value)}</b></div>`).join('');
+
+    if(saveError){
+      setStatus(`Storage save failed at ${new Date(saveError.at).toLocaleString()}: ${saveError.message}. This is likely why data appeared to disappear — try removing old pantry photos to free up space.`,'error');
+    }
 
     renderRows('developerValidation',validations.map(result=>`
       <div class="dev-row ${result.ok?'ok':'fail'}">

@@ -11,7 +11,23 @@ const WEEK = ["Kid-friendly","More dairy","More meat/chicken","Simple week"];
 const K="dinnerPlannerV51:";
 const $=id=>document.getElementById(id);
 const load=(k,d)=>{try{return JSON.parse(localStorage.getItem(K+k))??d}catch{return d}};
-const save=(k,v)=>localStorage.setItem(K+k,JSON.stringify(v));
+const save=(k,v)=>{
+  try{
+    localStorage.setItem(K+k,JSON.stringify(v));
+    return true;
+  }catch(error){
+    try{
+      localStorage.setItem(`${K}lastSaveError`,JSON.stringify({
+        at:new Date().toISOString(),
+        key:k,
+        message:error?.message||String(error),
+        name:error?.name||"Error"
+      }));
+    }catch{}
+    if(typeof console!=="undefined"&&console.error)console.error("Save failed:",k,error);
+    return false;
+  }
+};
 let state=load("state",{
   portions:5,
   prefs:[...PREFS],
@@ -704,6 +720,7 @@ function renderShopping(){
     input.onchange=()=>{
       setShoppingChecked(state.shoppingView||"this",input.dataset.shopCheck,input.checked);
       input.closest?.(".shop-item")?.classList.toggle("checked",input.checked);
+      save("state",state);
     };
   });
   document.querySelectorAll("[data-copy]").forEach(btn=>btn.onclick=()=>copyItem(btn.dataset.copy));
@@ -1650,6 +1667,7 @@ function runValidationSuite(){
 window.__dinnerPlannerBridge={
   version:APP_VERSION,
   getState:()=>JSON.parse(JSON.stringify(state)),
+  getLastSaveError:()=>load("lastSaveError",null),
   setState:next=>{state=normalizeState(next);buildShoppingForWeek("this");buildShoppingForWeek("next");save("state",state);renderPrefs();renderWeekSection("this");renderWeekSection("next");renderHave();renderShopping()},
   saveState:()=>save("state",state),
   logEvent,
