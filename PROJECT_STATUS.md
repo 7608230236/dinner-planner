@@ -3,7 +3,15 @@
 Single source of truth for what works, what's broken, and what changed.
 Update this file every time a fix is made or verified — don't rely on chat history.
 
-Last updated: 2026-07-23 by Claude
+Last updated: 2026-07-24 by Claude
+
+---
+
+## For a new Claude chat picking this up
+
+- **Reuse the existing GitHub token — do not ask the user to generate a new one every time.** A fine-grained personal access token already exists, scoped to this repo with Contents + Workflows read/write, expiring **2026-08-22**. The user has it saved. Ask them to paste it in; only request a brand new one if this one turns out to be revoked or expired.
+- Read this whole file before making changes — it's the actual current state, not a chat's memory.
+- The user is not a developer by trade. Keep explanations plain, and don't send them on manual dashboard hunts for things already documented here.
 
 ---
 
