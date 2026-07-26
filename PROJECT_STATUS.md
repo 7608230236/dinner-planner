@@ -86,7 +86,7 @@ User reported the app still showed Tisha B'Av restrictions/dishes after the cale
 
 2. **The plan itself had zero tracking of which week it was built for.** Each day's plan entry already stored its own `date`, but nothing ever compared that to today's actual computed dates. This meant: build a plan, then don't rebuild for a week or more, and the app would silently keep pairing old (possibly Tisha-B'Av-specific) recipes with whatever the current date range happened to be — no warning, nothing. Fixed: added `isPlanStale()`, which compares the plan's stored dates against today's actual week. When they don't match, a clear orange warning now appears above the plan: *"This plan is from a previous week... tap Build this week's dinners to refresh it."* Deliberately does **not** auto-rebuild silently — that could overwrite someone's locked/chosen meals without asking.
 
-**Verified for real, not just unit-tested:** a Playwright test builds a plan, simulates a week passing by shifting the stored dates back 7 days, does an actual page reload, and confirms the warning banner genuinely appears in the DOM. Plus dedicated tests for `isPlanStale()` itself (fresh plan = not stale, week-old dates = stale, no plan = not stale).
+**Strengthened (same day):** the first fix used only `visibilitychange`, which is known to be unreliable specifically in iOS Safari's "Add to Home Screen" standalone mode — exactly how this app is meant to be used. Added `focus` and `pageshow` listeners as well, shortened the backstop interval to 15s, and made the day-change check also refresh both week sections (so the stale-plan warning appears proactively too, not just the calendar text). **Verified with a real headless-browser test using Playwright's clock API** — loaded the real page on a simulated Tisha B'Av date, fast-forwarded 3 days with no page reload, fired the same events a phone would fire on resume, and confirmed the banner genuinely updated itself. Also added a permanent lightweight regression test (no browser needed) that checks the actual re-render happens on a detected day change, and that it correctly does *not* re-render again without a real day change (avoiding wasted work).
 
 ## Privacy policy (2026-07-24)
 
@@ -205,6 +205,7 @@ Reviewed the actual code against the brief's trust principles and your household
 
 ## Change log
 
+- **2026-07-24** — Strengthened the calendar auto-refresh: user reported it still required a manual refresh. Added focus/pageshow listeners (iOS home-screen PWA mode is unreliable with visibilitychange alone), shortened the backstop interval, and extended it to refresh the plan sections too. Verified with a real Playwright clock-fast-forward test plus a permanent lightweight regression test.
 - **2026-07-24** — Fixed real bug: stale Tisha B'Av calendar/plan info after a week passed (surfaced right after Shabbos). Two root causes: calendar banner never re-checked itself over time, and the plan had no tracking of which week it was built for. Both fixed; verified with a real Playwright test simulating a week rollover plus an actual page reload.
 
 - **2026-07-23** — Fixed `pantry-ai.mjs` syntax corruption (chat text embedded in source). Commit `95de28b`.
