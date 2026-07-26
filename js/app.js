@@ -715,6 +715,14 @@ function replaceDay(weekKey,day){
   const index=plan.findIndex(p=>p.day===day);
   if(index<0)return;
 
+  // Without reshuffling here, every Replace click re-scores with the exact
+  // same jitter and just ping-pongs between the same 2-3 top-scoring dishes
+  // for that day's kind (meat/dairy/pareve), no matter how large the
+  // library is. Bump it on every click so Replace actually explores the
+  // full library over repeated taps, the same way building a whole new
+  // week already does.
+  state.planNonce=(state.planNonce||0)+1;
+
   const current=plan[index];
   const dates=plannerDatesForWeek(weekKey);
   const date=dates[index].date;

@@ -197,6 +197,25 @@ test('Replace on a single day never swaps to a same-family variant (the actual b
   }
 });
 
+test('repeatedly tapping Replace on the same day explores real variety instead of ping-ponging between the same couple of dishes (the actual bug: 20 taps only ever alternated between 2 recipes because Replace never reshuffled the scoring, unlike a full week build)', async () => {
+  const {context}=await boot();
+  const api=context.window.__dinnerPlannerTest;
+  api.buildPlanForWeek('this',{});
+  const state=api.getState();
+  const day=state.plan[0].day;
+  const seenFamilies=new Set();
+  for(let i=0;i<20;i++){
+    api.replaceDay('this',day);
+    const after=api.getState();
+    const entry=after.plan.find(p=>p.day===day);
+    seenFamilies.add(api.recipeFamily(api.getRecipe(entry.id)));
+  }
+  assert.ok(
+    seenFamilies.size>=8,
+    `20 taps of Replace on the same day only produced ${seenFamilies.size} distinct dish(es) (${[...seenFamilies].join(', ')}) - Replace should explore real variety across repeated taps, not repeat a small handful`
+  );
+});
+
 test('built meals obey the calendar rule for their dates and validation passes', async () => {
   const {context,elements}=await boot();
   elements.get('buildWeekBtn').click();
