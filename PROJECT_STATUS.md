@@ -76,6 +76,18 @@ Rebuilt the desktop (≥960px) layout to match the reference mockup style:
 
 **Done:** hero photo updated to the full family (parents + two kids) matching the same warm kitchen style. Also caught and fixed a real bug while checking it: the photo container was being stretched to match the text column's height on desktop, cropping the sides of the photo and cutting off part of the family. Fixed by sizing the photo box to its actual aspect ratio instead. Verified via screenshot before and after the fix — confirmed the whole family is visible now.
 
+## Bug: stale Tisha B'Av info after a week passed (2026-07-24)
+
+User reported the app still showed Tisha B'Av restrictions/dishes after the calendar week had genuinely moved on (this surfaced right after Shabbos — a real day-boundary crossing while the app sat unused).
+
+**Two distinct real bugs found, both fixed:**
+
+1. **Calendar banner never re-checked itself.** `renderCalendar()` only ran at initial page load. If the app/tab stayed open (or was just backgrounded) across a day boundary, the banner kept showing whatever was true when it last rendered — it had no way to notice the date had changed underneath it. Fixed: added a day-change check on `visibilitychange` (when you return to the app) and a 60-second interval as a backstop, so the banner self-corrects without needing a manual reload.
+
+2. **The plan itself had zero tracking of which week it was built for.** Each day's plan entry already stored its own `date`, but nothing ever compared that to today's actual computed dates. This meant: build a plan, then don't rebuild for a week or more, and the app would silently keep pairing old (possibly Tisha-B'Av-specific) recipes with whatever the current date range happened to be — no warning, nothing. Fixed: added `isPlanStale()`, which compares the plan's stored dates against today's actual week. When they don't match, a clear orange warning now appears above the plan: *"This plan is from a previous week... tap Build this week's dinners to refresh it."* Deliberately does **not** auto-rebuild silently — that could overwrite someone's locked/chosen meals without asking.
+
+**Verified for real, not just unit-tested:** a Playwright test builds a plan, simulates a week passing by shifting the stored dates back 7 days, does an actual page reload, and confirms the warning banner genuinely appears in the DOM. Plus dedicated tests for `isPlanStale()` itself (fresh plan = not stale, week-old dates = stale, no plan = not stale).
+
 ## Privacy policy (2026-07-24)
 
 Added `privacy.html` — a plain-language privacy policy required for App Store / Play Store submission. Reflects actual data practices, not filler boilerplate:
@@ -192,6 +204,8 @@ Reviewed the actual code against the brief's trust principles and your household
 ---
 
 ## Change log
+
+- **2026-07-24** — Fixed real bug: stale Tisha B'Av calendar/plan info after a week passed (surfaced right after Shabbos). Two root causes: calendar banner never re-checked itself over time, and the plan had no tracking of which week it was built for. Both fixed; verified with a real Playwright test simulating a week rollover plus an actual page reload.
 
 - **2026-07-23** — Fixed `pantry-ai.mjs` syntax corruption (chat text embedded in source). Commit `95de28b`.
 - **2026-07-23** — Linked Netlify to GitHub for continuous deployment (was previously disconnected manual deploys).
