@@ -1,4 +1,10 @@
 const APP_VERSION="60";
+// APP_VERSION is the user-facing feature version (only bumped for real releases).
+// BUILD_ID changes on every single deploy automatically (injected at Netlify build
+// time from the git commit) - this is what actually detects "a new deploy happened"
+// and triggers a cache/service-worker refresh, since APP_VERSION alone doesn't
+// change often enough to catch every deploy.
+const BUILD_ID="__BUILD_ID__";
 const SUPPORT_SCHEMA=2;
 // When running as a packaged native app (Capacitor), there is no local server to answer
 // relative /.netlify/functions/* requests, so those calls need to point at the real deployed
@@ -1980,29 +1986,42 @@ window.__dinnerPlannerBridge={
   shoppingCheckKey,
   setShoppingChecked,
   clearRuntimeLogs:()=>{state.runtimeErrors=[];state.debugLog=[];state.aiRequests=[];state.validationResults=[];save("state",state)},
-  getCacheName:()=>`dinner-made-easy-v${APP_VERSION}`
+  getCacheName:()=>`dinner-made-easy-v${APP_VERSION}-${BUILD_ID}`
 };
 
 async function prepareCurrentAppVersion(){
   const versionKey=`${K}appVersion`;
+  const buildKey=`${K}buildId`;
   const previous=localStorage.getItem(versionKey);
-  if(previous!==APP_VERSION){
+  const previousBuild=localStorage.getItem(buildKey);
+  const isNewFeatureVersion=previous!==APP_VERSION;
+  const isNewBuild=previousBuild!==BUILD_ID;
+  if(isNewFeatureVersion){
     // v60 migration: install the household's agreed permanent preference defaults
     // and remove the obsolete weekly pantry-first toggle (pantry-first is automatic).
     state.prefs=[...new Set([...(state.prefs||[]),...PREFS])];
     state.week=(state.week||[]).filter(value=>value!=="Use what I have first");
     save("state",state);
     localStorage.setItem(versionKey,APP_VERSION);
-    try{
-      if("caches" in window){for(const key of await caches.keys()){if(key.startsWith("dinner-made-easy-")&&key!==`dinner-made-easy-v${APP_VERSION}`)await caches.delete(key)}}
-      if("serviceWorker" in navigator){for(const reg of await navigator.serviceWorker.getRegistrations())await reg.update()}
-    }catch{}
     logEvent("app_version_changed",{from:previous||"unknown",to:APP_VERSION});
+  }
+  if(isNewBuild){
+    localStorage.setItem(buildKey,BUILD_ID);
+    try{
+      if("caches" in window){for(const key of await caches.keys()){if(key.startsWith("dinner-made-easy-"))await caches.delete(key)}}
+      if("serviceWorker" in navigator){
+        for(const reg of await navigator.serviceWorker.getRegistrations()){
+          await reg.update();
+          reg.waiting?.postMessage("SKIP_WAITING");
+        }
+      }
+    }catch{}
+    logEvent("app_build_changed",{from:previousBuild||"unknown",to:BUILD_ID});
   }
 }
 prepareCurrentAppVersion();
 if("serviceWorker" in navigator){
-  navigator.serviceWorker.register(`/service-worker.js?v=${APP_VERSION}`,{updateViaCache:"none"}).catch(()=>{});
+  navigator.serviceWorker.register(`/service-worker.js?v=${APP_VERSION}-${BUILD_ID}`,{updateViaCache:"none"}).catch(()=>{});
 }
 renderPrefs();
 renderCalendar();

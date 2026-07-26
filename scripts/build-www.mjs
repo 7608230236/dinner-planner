@@ -5,6 +5,7 @@
 import { cp, rm, mkdir } from "node:fs/promises";
 import { resolve, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
+import { execFileSync } from "node:child_process";
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const wwwDir = resolve(root, "www");
@@ -29,3 +30,8 @@ for (const entry of filesAndDirs) {
 }
 
 console.log(`Built www/ with ${filesAndDirs.length} entries.`);
+
+// Give this native build its own unique build ID too, same reason as the
+// Netlify web deploy - so the app can tell "this is a fresh install" apart
+// from "the exact same build reopened."
+execFileSync(process.execPath, [resolve(root, "scripts/inject-build-id.mjs"), wwwDir], { stdio: "inherit" });

@@ -41,13 +41,13 @@ test('all local static assets referenced by index exist', async () => {
   }
 });
 
-test('service worker caches every app module', async () => {
+test('service worker caches every app module with a build-id-aware cache-busting query', async () => {
   const worker = await text('service-worker.js');
   for (const asset of [
-    '/css/styles.css?v=60',
-    '/js/ingredient-engine.js?v=60',
-    '/js/app.js?v=60',
-    '/js/developer.js?v=60'
+    '/css/styles.css?v=${APP_VERSION}-${BUILD_ID}',
+    '/js/ingredient-engine.js?v=${APP_VERSION}-${BUILD_ID}',
+    '/js/app.js?v=${APP_VERSION}-${BUILD_ID}',
+    '/js/developer.js?v=${APP_VERSION}-${BUILD_ID}'
   ]) assert.ok(worker.includes(asset), `missing ${asset}`);
 });
 

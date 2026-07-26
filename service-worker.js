@@ -1,14 +1,15 @@
 const APP_VERSION = "60";
-const CACHE_NAME = `dinner-made-easy-v${APP_VERSION}`;
+const BUILD_ID = "__BUILD_ID__";
+const CACHE_NAME = `dinner-made-easy-v${APP_VERSION}-${BUILD_ID}`;
 const APP_SHELL = [
   "/",
   "/index.html",
   "/manifest.json",
-  "/css/styles.css?v=60",
-  "/js/ingredient-engine.js?v=60",
-  "/js/recipes.js?v=60",
-  "/js/app.js?v=60",
-  "/js/developer.js?v=60",
+  `/css/styles.css?v=${APP_VERSION}-${BUILD_ID}`,
+  `/js/ingredient-engine.js?v=${APP_VERSION}-${BUILD_ID}`,
+  `/js/recipes.js?v=${APP_VERSION}-${BUILD_ID}`,
+  `/js/app.js?v=${APP_VERSION}-${BUILD_ID}`,
+  `/js/developer.js?v=${APP_VERSION}-${BUILD_ID}`,
   "/hero-family-kitchen.jpg",
   "/icon-192.png",
   "/icon-512.png"
