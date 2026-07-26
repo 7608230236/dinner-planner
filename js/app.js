@@ -551,6 +551,7 @@ function stableJitter(text){
 function recipeProtein(r){
   if(r.tags.includes("beef"))return "beef";
   if(r.tags.includes("chicken"))return "chicken";
+  if(r.tags.includes("lamb"))return "lamb";
   return null;
 }
 

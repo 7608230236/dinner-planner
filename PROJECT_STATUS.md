@@ -3,7 +3,7 @@
 Single source of truth for what works, what's broken, and what changed.
 Update this file every time a fix is made or verified — don't rely on chat history.
 
-Last updated: 2026-07-24 by Claude
+Last updated: 2026-07-26 by Claude
 
 ---
 
@@ -238,6 +238,10 @@ Reviewed the actual code against the brief's trust principles and your household
 ---
 
 ## Change log
+
+- **2026-07-26** — Expanded the recipe library from 50 base dishes (500 recipes = 50 dishes × 10 side variants) to 100 base dishes (750 recipes = 100 dishes × 5 side variants), per user request for more real variety. Added 50 new families spread evenly across cuisines and kept the same meat/dairy/pareve ratio (375/225/150). All new recipes generated and validated against every household kosher rule (no fish/tofu/turkey/broccoli/cauliflower/cilantro, no dairy in any meat recipe, "Cholov Yisroel" present on every dairy recipe, not spicy, hands ≤20 min, total time ≤35 min unless oven/bbq). Also extended protein tracking to recognize lamb (previously only beef/chicken) since new lamb dishes were added. Verified: 0 validation errors across all 250 new recipes, 0 id/title/family collisions with the existing 500, all 38 tests pass.
+
+- **2026-07-26** — Fixed real bug: Replace on a single day could swap the current dish for a same-family variant (e.g. "Lemon Herb Chicken — with Rice" → "Lemon Herb Chicken — with Potatoes") — which looks like only the side/condiment changed instead of getting a genuinely different meal. Root cause: the recipe library is built from a small number of base dishes each repeated with several side-dish variants, and `chooseUniqueRecipe` only excluded the exact recipe id being replaced, not its whole family. Fixed by excluding the current dish's family first, falling back to same-family only if nothing else fits that day's restrictions. Verified with a permanent regression test across 40 random plans × every day of the week — confirmed Replace never repeats the same family.
 
 - **2026-07-24** — Fixed real bug: recipe variety only tracked dish family (e.g. burger vs. taco vs. meatloaf), not protein, so three different-family ground-beef dishes could stack in one week undetected (the exact bug the user hit). Added protein-level tracking using existing recipe tag data. Verified across 25 random plan builds, not just one.
 

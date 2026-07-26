@@ -1,5 +1,13 @@
 # Changelog
 
+## Unreleased
+
+### Added
+- Expanded recipe library from 500 to 750 recipes (50 to 100 base dishes), spread evenly across cuisines, keeping the same meat/dairy/pareve ratio. Added lamb as a tracked protein alongside beef and chicken.
+
+### Fixed
+- Replace on a single day could swap to a same-family variant of the current dish (looked like only the side/condiment changed). Replace now excludes the current dish's whole family first.
+
 ## v60.0.0 — Complete diagnostics and pantry reliability
 
 ### Added

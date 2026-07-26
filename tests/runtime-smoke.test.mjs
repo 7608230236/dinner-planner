@@ -429,11 +429,12 @@ test('a stale plan rebuilds itself automatically on render - no manual tap requi
   assert.doesNotMatch(html, /This plan is from a previous week/, 'a successful auto-rebuild should not still show the manual-refresh warning');
 });
 
-test('recipe protein tracking correctly identifies beef and chicken dishes', async () => {
+test('recipe protein tracking correctly identifies beef, chicken, and lamb dishes', async () => {
   const { context } = await boot();
   const api = context.window.__dinnerPlannerTest;
   assert.equal(api.recipeProtein({ tags: ['beef', 'kid'] }), 'beef');
   assert.equal(api.recipeProtein({ tags: ['chicken', 'simple'] }), 'chicken');
+  assert.equal(api.recipeProtein({ tags: ['lamb', 'grill'] }), 'lamb');
   assert.equal(api.recipeProtein({ tags: ['dairy', 'pasta'] }), null, 'a non-protein-specific recipe should not be forced into a protein bucket');
 });
 

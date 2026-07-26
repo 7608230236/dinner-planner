@@ -13,18 +13,19 @@ async function loadRecipes(){
   return context.window.DinnerRecipes;
 }
 
-test('recipe library contains 500 unique complete dinners',async()=>{
+test('recipe library contains 750 unique complete dinners',async()=>{
   const recipes=await loadRecipes();
-  assert.equal(recipes.length,500);
-  assert.equal(new Set(Array.from(recipes,r=>r.id)).size,500);
-  assert.equal(new Set(Array.from(recipes,r=>r.title)).size,500);
+  assert.equal(recipes.length,750);
+  assert.equal(new Set(Array.from(recipes,r=>r.id)).size,750);
+  assert.equal(new Set(Array.from(recipes,r=>r.title)).size,750);
   assert.ok(recipes.every(r=>r.family&&r.kind&&r.tags.length&&r.ingredients.length>=4&&r.steps.length===4));
+  assert.equal(new Set(Array.from(recipes,r=>r.family)).size,100);
 });
 
 test('recipe mix has enough meat, dairy, pareve, and break-fast choices',async()=>{
   const recipes=await loadRecipes();
   const counts=Object.fromEntries(['meat','dairy','pareve'].map(kind=>[kind,recipes.filter(r=>r.kind===kind).length]));
-  assert.deepEqual(counts,{meat:250,dairy:150,pareve:100});
+  assert.deepEqual(counts,{meat:375,dairy:225,pareve:150});
   assert.ok(recipes.filter(r=>r.tags.includes('break-fast')).length>=6);
 });
 
