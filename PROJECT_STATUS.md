@@ -76,6 +76,8 @@ Rebuilt the desktop (≥960px) layout to match the reference mockup style:
 
 **Done:** hero photo updated to the full family (parents + two kids) matching the same warm kitchen style. Also caught and fixed a real bug while checking it: the photo container was being stretched to match the text column's height on desktop, cropping the sides of the photo and cutting off part of the family. Fixed by sizing the photo box to its actual aspect ratio instead. Verified via screenshot before and after the fix — confirmed the whole family is visible now.
 
+**Upgraded further (same day):** user wanted this fully automatic, not just a warning requiring a manual tap. Changed `renderWeekSection` to auto-rebuild a stale plan on render (using `replaceUnlocked: true`, so any locked meal moves to its matching new date instead of being wiped). The orange warning now only appears in the rare fallback case where auto-rebuild itself fails (e.g. exclusions filter out every recipe). Verified in a real browser: locked a meal, simulated a week passing, confirmed the plan silently rebuilt itself with correct current dates while the locked meal survived, and no warning was shown. All three CI workflows (QA, Android, iOS) pass clean on this change.
+
 ## Root cause fix: "app not updating" (2026-07-24)
 
 After the calendar auto-refresh fix, user reported the app still wasn't updating. Dug in properly instead of suggesting another cache-clear, and found the actual root cause — not a browser quirk, a real gap in our own code.
@@ -218,6 +220,8 @@ Reviewed the actual code against the brief's trust principles and your household
 ---
 
 ## Change log
+
+- **2026-07-24** — Stale weekly plans now rebuild themselves automatically instead of just showing a warning, per user request. Locked meals survive (moved to the new matching date). Verified in a real browser and via CI on GitHub.
 
 - **2026-07-24** — Found and fixed the real root cause of every "app not updating" report today: the cache/service-worker update check only fired when `APP_VERSION` changed, but that stayed at "60" through dozens of real deploys this session, so it silently did nothing all day. Added `BUILD_ID`, auto-injected from the git commit on every deploy (web and native), so update detection now fires every time regardless. Verified for real against actual file copies, and confirmed passing on GitHub's own CI servers across all three workflows (QA, Android, iOS).
 
