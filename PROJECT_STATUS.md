@@ -78,6 +78,16 @@ Rebuilt the desktop (≥960px) layout to match the reference mockup style:
 
 **Upgraded further (same day):** user wanted this fully automatic, not just a warning requiring a manual tap. Changed `renderWeekSection` to auto-rebuild a stale plan on render (using `replaceUnlocked: true`, so any locked meal moves to its matching new date instead of being wiped). The orange warning now only appears in the rare fallback case where auto-rebuild itself fails (e.g. exclusions filter out every recipe). Verified in a real browser: locked a meal, simulated a week passing, confirmed the plan silently rebuilt itself with correct current dates while the locked meal survived, and no warning was shown. All three CI workflows (QA, Android, iOS) pass clean on this change.
 
+## Bug: recipe variety only tracked dish type, not protein (2026-07-24)
+
+User reported getting three different ground-beef dishes in one week (Beef Burgers, Beef Tacos, Mini Meatloaves).
+
+**Root cause:** the recipe library already tags each recipe's actual protein (`beef`, `chicken`) correctly, but the variety logic only tracked `family` (a dish-type label like `beef-burgers`, `beef-tacos`, `mini-meatloaf`) to avoid repeats. Since these are three genuinely different families, the family check never caught that they're all ground beef — nothing was tracking protein at all.
+
+**Fix:** added `recipeProtein()` and `usedProteins` tracking alongside the existing family tracking, in `buildPlanForWeek`, `chooseUniqueRecipe`, and `replaceDay`. A repeat protein now takes a moderate scoring penalty (not a hard ban — with only two protein tags in the library, chicken/beef inevitably repeat some across a 5-day week, especially with 3 meat nights; the goal is discouraging over-concentration, not eliminating all repeats).
+
+**Verified statistically, not just once:** since this is score-weighted rather than a hard rule, a single test run proves little. Built 25 random plans and confirmed no more than 2 of the same protein ever land in one 5-day week across all of them.
+
 ## Root cause fix: "app not updating" (2026-07-24)
 
 After the calendar auto-refresh fix, user reported the app still wasn't updating. Dug in properly instead of suggesting another cache-clear, and found the actual root cause — not a browser quirk, a real gap in our own code.
@@ -220,6 +230,8 @@ Reviewed the actual code against the brief's trust principles and your household
 ---
 
 ## Change log
+
+- **2026-07-24** — Fixed real bug: recipe variety only tracked dish family (e.g. burger vs. taco vs. meatloaf), not protein, so three different-family ground-beef dishes could stack in one week undetected (the exact bug the user hit). Added protein-level tracking using existing recipe tag data. Verified across 25 random plan builds, not just one.
 
 - **2026-07-24** — Stale weekly plans now rebuild themselves automatically instead of just showing a warning, per user request. Locked meals survive (moved to the new matching date). Verified in a real browser and via CI on GitHub.
 
