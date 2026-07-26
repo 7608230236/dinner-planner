@@ -216,6 +216,30 @@ test('repeatedly tapping Replace on the same day explores real variety instead o
   );
 });
 
+test('Replace is free to switch a day between meat, dairy, and pareve on a normal (non-restricted) date, not locked to the day\'s original kind', async () => {
+  const {context}=await boot();
+  const api=context.window.__dinnerPlannerTest;
+  api.buildPlanForWeek('this',{});
+  const state=api.getState();
+  const day=state.plan[0].day;
+  const originalKind=api.getRecipe(state.plan[0].id).kind;
+  const kindsSeen=new Set();
+  for(let i=0;i<60;i++){
+    api.replaceDay('this',day);
+    const after=api.getState();
+    const entry=after.plan.find(p=>p.day===day);
+    kindsSeen.add(api.getRecipe(entry.id).kind);
+  }
+  assert.ok(
+    kindsSeen.size>=2,
+    `60 taps of Replace only ever produced kind "${[...kindsSeen].join(', ')}" - Replace should be free to land on meat, dairy, or pareve, not locked to whichever kind the day started as`
+  );
+  assert.ok(
+    [...kindsSeen].some(k=>k!==originalKind),
+    `Replace never left the day's original kind (${originalKind}) across 60 taps`
+  );
+});
+
 test('built meals obey the calendar rule for their dates and validation passes', async () => {
   const {context,elements}=await boot();
   elements.get('buildWeekBtn').click();

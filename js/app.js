@@ -730,11 +730,17 @@ function replaceDay(weekKey,day){
   const usedFamilies=new Set(plan.filter(p=>p.day!==day).map(p=>recipeFamily(getRecipe(p.id))));
   const usedProteins=new Set(plan.filter(p=>p.day!==day).map(p=>recipeProtein(getRecipe(p.id))).filter(Boolean));
   const currentRecipe=getRecipe(current.id);
+  // Deliberately no targetKind here: the meat/dairy/pareve pattern per day
+  // (e.g. "Monday is a meat night") is just an internal habit used when
+  // auto-building a whole week for variety - it isn't a rule the user set.
+  // Replace should be free to land on any kind, limited only by what the
+  // user actually controls: permanent household rules, this week's
+  // settings, and the Jewish calendar (recipeAllowed/recipeAllowedOnDate,
+  // both still applied inside chooseUniqueRecipe below).
   const chosen=chooseUniqueRecipe({
     usedIds,
     usedFamilies,
     usedProteins,
-    targetKind:targetKinds(dates)[index],
     date,
     bannedIds:new Set([current.id]),
     bannedFamilies:new Set([recipeFamily(currentRecipe)])
