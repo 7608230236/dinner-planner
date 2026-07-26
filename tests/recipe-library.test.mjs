@@ -58,3 +58,19 @@ test('cooking steps are actionable, not vague filler (the actual bug: "cook unti
     }
   }
 });
+
+test('a recipe\'s declared total time is honest about what its own steps actually require (the actual bug: birria declared "90 min" while its own step said to braise 2.5-3 hours)',async()=>{
+  const recipes=await loadRecipes();
+  for(const recipe of recipes){
+    const declaredMin=Number.parseInt(recipe.time,10);
+    const allSteps=recipe.steps.join(' ');
+    for(const hm of allSteps.matchAll(/(\d+(?:\.\d+)?)-?(\d+(?:\.\d+)?)?\s*hours?/gi)){
+      const hi=hm[2]?Number.parseFloat(hm[2]):Number.parseFloat(hm[1]);
+      assert.ok(hi*60<=declaredMin,`${recipe.id} declares "${recipe.time}" but a step says "${hm[0]}"`);
+    }
+    for(const mm of allSteps.matchAll(/(\d+)-?(\d+)?\s*minutes?/gi)){
+      const hi=mm[2]?Number.parseFloat(mm[2]):Number.parseFloat(mm[1]);
+      assert.ok(hi<=declaredMin+5,`${recipe.id} declares "${recipe.time}" but a step says "${mm[0]}"`);
+    }
+  }
+});
