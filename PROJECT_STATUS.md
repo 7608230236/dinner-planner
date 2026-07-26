@@ -76,6 +76,20 @@ Rebuilt the desktop (≥960px) layout to match the reference mockup style:
 
 **Done:** hero photo updated to the full family (parents + two kids) matching the same warm kitchen style. Also caught and fixed a real bug while checking it: the photo container was being stretched to match the text column's height on desktop, cropping the sides of the photo and cutting off part of the family. Fixed by sizing the photo box to its actual aspect ratio instead. Verified via screenshot before and after the fix — confirmed the whole family is visible now.
 
+## Root cause fix: "app not updating" (2026-07-24)
+
+After the calendar auto-refresh fix, user reported the app still wasn't updating. Dug in properly instead of suggesting another cache-clear, and found the actual root cause — not a browser quirk, a real gap in our own code.
+
+**The bug:** `prepareCurrentAppVersion()` — the function responsible for clearing old caches and nudging the service worker to update — only ran its logic `if (previous !== APP_VERSION)`. But `APP_VERSION` has been `"60"` for this *entire session*, through dozens of real deploys. So that check has been silently doing nothing, all day, every deploy. Every "stale" report today (photo not loading, household sync, calendar) likely traced back to this same gap, not separate one-off caching flukes.
+
+**The fix:** added `BUILD_ID`, a value that changes automatically on every single deploy (injected from the git commit — Netlify's `COMMIT_REF` for the web deploy, GitHub's `GITHUB_SHA` for native app builds, a timestamp as a local-dev fallback). Update-detection now keys off `BUILD_ID` instead of `APP_VERSION`, so it fires on every real deploy regardless of whether the feature-facing version number changes. `APP_VERSION` ("v60") stays as the stable, user-visible feature version — unrelated concern, unchanged.
+
+Also updated the service worker's own cache name and all asset cache-busting query strings to include `BUILD_ID`, so the browser can tell every deploy apart, not just ones where we remembered to bump a number.
+
+**Verified for real:** ran the injection script against actual copies of `index.html`, `service-worker.js`, and `js/app.js` and confirmed the same build ID lands consistently in all three and that the files remain valid. Also ran it through the native-app build path (`build-www.mjs`) and confirmed the same. All three CI workflows (QA, Android, iOS) passed on GitHub's own servers with this change included.
+
+**What this means going forward:** this class of "why isn't my change showing up" issue should now be rare — every deploy automatically busts its own cache. The in-app "Reload latest app" button still exists as a manual backstop, but shouldn't be needed as a matter of routine anymore.
+
 ## Bug: stale Tisha B'Av info after a week passed (2026-07-24)
 
 User reported the app still showed Tisha B'Av restrictions/dishes after the calendar week had genuinely moved on (this surfaced right after Shabbos — a real day-boundary crossing while the app sat unused).
@@ -204,6 +218,8 @@ Reviewed the actual code against the brief's trust principles and your household
 ---
 
 ## Change log
+
+- **2026-07-24** — Found and fixed the real root cause of every "app not updating" report today: the cache/service-worker update check only fired when `APP_VERSION` changed, but that stayed at "60" through dozens of real deploys this session, so it silently did nothing all day. Added `BUILD_ID`, auto-injected from the git commit on every deploy (web and native), so update detection now fires every time regardless. Verified for real against actual file copies, and confirmed passing on GitHub's own CI servers across all three workflows (QA, Android, iOS).
 
 - **2026-07-24** — Strengthened the calendar auto-refresh: user reported it still required a manual refresh. Added focus/pageshow listeners (iOS home-screen PWA mode is unreliable with visibilitychange alone), shortened the backstop interval, and extended it to refresh the plan sections too. Verified with a real Playwright clock-fast-forward test plus a permanent lightweight regression test.
 - **2026-07-24** — Fixed real bug: stale Tisha B'Av calendar/plan info after a week passed (surfaced right after Shabbos). Two root causes: calendar banner never re-checked itself over time, and the plan had no tracking of which week it was built for. Both fixed; verified with a real Playwright test simulating a week rollover plus an actual page reload.
