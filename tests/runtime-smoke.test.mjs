@@ -170,6 +170,33 @@ test('replace unlocked preserves locked meals and keeps the plan unique', async 
   assert.equal(new Set(after.plan.map(entry=>entry.id)).size,5);
 });
 
+test('Replace on a single day never swaps to a same-family variant (the actual bug: "Lemon Herb Chicken with Rice" replaced by "Lemon Herb Chicken with Potatoes" - looks like only the side dish changed)', async () => {
+  const {context}=await boot();
+  const api=context.window.__dinnerPlannerTest;
+  api.buildPlanForWeek('this',{});
+  // Run many times across different starting plans/days since the choice is scored, not fixed.
+  for(let i=0;i<40;i++){
+    api.buildPlanForWeek('this',{});
+    const before=api.getState();
+    for(const entry of before.plan){
+      const state=api.getState();
+      const currentRecipe=api.getRecipe(entry.id);
+      const currentFamily=api.recipeFamily(currentRecipe);
+      api.replaceDay('this',entry.day);
+      const after=api.getState();
+      const newEntry=after.plan.find(p=>p.day===entry.day);
+      const newRecipe=api.getRecipe(newEntry.id);
+      assert.notEqual(newEntry.id,entry.id,`Replace on ${entry.day} returned the exact same recipe`);
+      assert.notEqual(
+        api.recipeFamily(newRecipe),
+        currentFamily,
+        `Replace on ${entry.day} swapped "${currentRecipe.title}" for "${newRecipe.title}" - same family (${currentFamily}), just a different side/condiment`
+      );
+      api.setState(state); // reset so each day in this plan is tested independently
+    }
+  }
+});
+
 test('built meals obey the calendar rule for their dates and validation passes', async () => {
   const {context,elements}=await boot();
   elements.get('buildWeekBtn').click();

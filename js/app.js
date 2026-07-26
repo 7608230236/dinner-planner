@@ -625,9 +625,16 @@ function targetKinds(dates=plannerDates()){
   });
 }
 
-function chooseUniqueRecipe({usedIds,usedFamilies,usedProteins=new Set(),targetKind,date,bannedIds=new Set()}){
+function chooseUniqueRecipe({usedIds,usedFamilies,usedProteins=new Set(),targetKind,date,bannedIds=new Set(),bannedFamilies=new Set()}){
   const allowed=RECIPES.filter(r=>recipeAllowed(r)&&recipeAllowedOnDate(r,date));
-  let candidates=allowed.filter(r=>!usedIds.has(r.id)&&!bannedIds.has(r.id));
+  // Recipe families each contain many near-identical variants that only swap
+  // a side dish (e.g. "Lemon Herb Chicken — with Rice" vs "— with Potatoes").
+  // When replacing one specific day, first try to exclude the current dish's
+  // own family too, so "Replace" gives a genuinely different meal instead of
+  // the same base dish with a different condiment. Only fall back to
+  // allowing that family again if nothing else fits the day's restrictions.
+  let candidates=allowed.filter(r=>!usedIds.has(r.id)&&!bannedIds.has(r.id)&&!bannedFamilies.has(recipeFamily(r)));
+  if(!candidates.length) candidates=allowed.filter(r=>!usedIds.has(r.id)&&!bannedIds.has(r.id));
   if(!candidates.length) candidates=allowed.filter(r=>!usedIds.has(r.id));
   if(!candidates.length) candidates=allowed;
   return candidates.sort((a,b)=>scoreRecipe(b,targetKind,usedFamilies,usedProteins)-scoreRecipe(a,targetKind,usedFamilies,usedProteins))[0];
@@ -713,13 +720,15 @@ function replaceDay(weekKey,day){
   const usedIds=new Set(plan.filter(p=>p.day!==day).map(p=>p.id));
   const usedFamilies=new Set(plan.filter(p=>p.day!==day).map(p=>recipeFamily(getRecipe(p.id))));
   const usedProteins=new Set(plan.filter(p=>p.day!==day).map(p=>recipeProtein(getRecipe(p.id))).filter(Boolean));
+  const currentRecipe=getRecipe(current.id);
   const chosen=chooseUniqueRecipe({
     usedIds,
     usedFamilies,
     usedProteins,
     targetKind:targetKinds(dates)[index],
     date,
-    bannedIds:new Set([current.id])
+    bannedIds:new Set([current.id]),
+    bannedFamilies:new Set([recipeFamily(currentRecipe)])
   });
 
   if(chosen){
@@ -2094,6 +2103,7 @@ window.__dinnerPlannerTest={
   recipeAllowed,
   recipeFamily,
   recipeProtein,
+  getRecipe,
   targetKinds,
   hebrewDateParts,
   calendarRuleForDate,
