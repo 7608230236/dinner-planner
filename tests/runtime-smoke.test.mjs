@@ -350,6 +350,29 @@ test('no plan at all is never flagged as stale (nothing to warn about)', async (
   assert.equal(api.isPlanStale('this'), false);
 });
 
+test('the app detects a day change and re-renders the calendar and plan without needing a manual reload', async () => {
+  const { context } = await boot();
+  const api = context.window.__dinnerPlannerTest;
+  const banner = context.document.getElementById('calendarBanner');
+
+  // Overwrite with a sentinel value first - if refreshCalendarIfDayChanged doesn't
+  // actually re-render, this sentinel will still be sitting there afterward.
+  banner.innerHTML = 'SENTINEL-NOT-YET-REFRESHED';
+
+  // Force the app to believe it last rendered on a day far in the past,
+  // exactly the situation left by the app sitting open/backgrounded across Shabbos.
+  api.setLastRenderedCalendarDayForTest('2020-01-01');
+  api.refreshCalendarIfDayChanged();
+
+  assert.notEqual(banner.innerHTML, 'SENTINEL-NOT-YET-REFRESHED', 'a detected day change must trigger a real re-render, not silently do nothing');
+
+  // A second call with no further day change must NOT re-render again (dedup check) -
+  // overwrite with a second sentinel and confirm it survives untouched.
+  banner.innerHTML = 'SENTINEL-SHOULD-NOT-BE-TOUCHED-AGAIN';
+  api.refreshCalendarIfDayChanged();
+  assert.equal(banner.innerHTML, 'SENTINEL-SHOULD-NOT-BE-TOUCHED-AGAIN', 'without an actual day change, it should not re-render again on every check');
+});
+
 test('v60 starts with every agreed household preference enabled', async () => {
   const {context}=await boot();
   const state=context.window.__dinnerPlannerTest.getState();

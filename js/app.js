@@ -2012,12 +2012,16 @@ function refreshCalendarIfDayChanged(){
   if(today!==lastRenderedCalendarDay){
     lastRenderedCalendarDay=today;
     renderCalendar();
+    renderWeekSection("this");
+    renderWeekSection("next");
   }
 }
 document.addEventListener("visibilitychange",()=>{
   if(document.visibilityState==="visible")refreshCalendarIfDayChanged();
 });
-setInterval(refreshCalendarIfDayChanged,60000);
+window.addEventListener("focus",refreshCalendarIfDayChanged);
+window.addEventListener("pageshow",refreshCalendarIfDayChanged);
+setInterval(refreshCalendarIfDayChanged,15000);
 renderStoreSelection("meat");
 renderStoreSelection("supermarket");
 renderWeekSection("this");
@@ -2058,6 +2062,8 @@ window.__dinnerPlannerTest={
   setRecipeRating,
   scoreRecipe,
   isPlanStale,
+  refreshCalendarIfDayChanged,
+  setLastRenderedCalendarDayForTest:day=>{lastRenderedCalendarDay=day},
   createHousehold,
   joinHousehold,
   leaveHousehold,
