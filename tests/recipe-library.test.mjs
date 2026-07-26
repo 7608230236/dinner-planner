@@ -43,3 +43,18 @@ test('library enforces household kosher and ingredient rules',async()=>{
     assert.ok(total<=35||recipe.tags.includes('oven')||recipe.tags.includes('bbq'),`${recipe.id} exceeds the non-oven time limit`);
   }
 });
+
+test('cooking steps are actionable, not vague filler (the actual bug: "cook until fully cooked" with no time, temp, or technique, and two recipes literally repeating the same step twice)',async()=>{
+  const recipes=await loadRecipes();
+  const vague=/^cook until fully cooked\.?$/i;
+  for(const recipe of recipes){
+    assert.equal(new Set(recipe.steps).size,recipe.steps.length,`${recipe.id} has a literal duplicate step`);
+    assert.ok(
+      recipe.steps.some(s=>/\d/.test(s)),
+      `${recipe.id} has no time, temperature, or quantity in any step - purely vague instructions`
+    );
+    for(const step of recipe.steps){
+      assert.ok(!vague.test(step.trim()),`${recipe.id} has a fully generic, non-actionable step: "${step}"`);
+    }
+  }
+});
