@@ -51,12 +51,12 @@
           <div class="portion-line"><b>Portions</b><div class="counter"><button class="circle" id="minusPortions">−</button><span class="count" id="portionCount">5</span><button class="circle" id="plusPortions">+</button></div></div>
           <div class="tiny">Set before building the week.</div>
         </div>
-        <div class="grid2">
+        <button type="button" class="btn full" id="buildWeekBtn" style="margin-top:12px">Build this week's dinners</button>
+        <div id="buildStatus" class="status" aria-live="polite"></div>
+        <div class="grid2" style="margin-top:12px">
           <button class="btn secondary" onclick="scrollToSection('prefs')">Set preferences</button>
           <button class="btn secondary" onclick="scrollToSection('stores')">Set stores</button>
         </div>
-        <button type="button" class="btn full" id="buildWeekBtn" style="margin-top:12px">Build this week's dinners</button>
-        <div id="buildStatus" class="status" aria-live="polite"></div>
         <button type="button" class="btn secondary full" id="buildNextWeekBtnHome" style="margin-top:10px">Plan next week too</button>
         <button type="button" class="support support-button" id="usePantryBtn"><b>Use what I already have</b><br><span>Pantry, fridge, freezer, or typed ingredients.</span></button>
       </div>
