@@ -548,7 +548,13 @@ function stableJitter(text){
   return ((h >>> 0) % 1000) / 1000;
 }
 
-function scoreRecipe(r,targetKind,usedFamilies){
+function recipeProtein(r){
+  if(r.tags.includes("beef"))return "beef";
+  if(r.tags.includes("chicken"))return "chicken";
+  return null;
+}
+
+function scoreRecipe(r,targetKind,usedFamilies,usedProteins=new Set()){
   let score=stableJitter(`${r.id}:${state.planNonce||0}`);
   if(targetKind && r.kind===targetKind) score+=4;
   if(state.week.includes("Kid-friendly") && r.tags.includes("kid")) score+=3;
@@ -577,6 +583,12 @@ function scoreRecipe(r,targetKind,usedFamilies){
   const family=recipeFamily(r);
   if(usedFamilies.has(family)) score-=6;
   if((state.recentPlans||[]).flat().includes(r.id)) score-=1;
+
+  // Family alone isn't enough: "Beef Burgers", "Beef Tacos", and "Mini Meatloaves"
+  // are three different families but the same protein, and would otherwise happily
+  // stack in the same week. Penalize repeating the same protein across the week.
+  const protein=recipeProtein(r);
+  if(protein && usedProteins.has(protein)) score-=3;
 
   const rating=(state.recipeRatings||{})[r.id];
   if(rating==="up") score+=5;
@@ -613,12 +625,12 @@ function targetKinds(dates=plannerDates()){
   });
 }
 
-function chooseUniqueRecipe({usedIds,usedFamilies,targetKind,date,bannedIds=new Set()}){
+function chooseUniqueRecipe({usedIds,usedFamilies,usedProteins=new Set(),targetKind,date,bannedIds=new Set()}){
   const allowed=RECIPES.filter(r=>recipeAllowed(r)&&recipeAllowedOnDate(r,date));
   let candidates=allowed.filter(r=>!usedIds.has(r.id)&&!bannedIds.has(r.id));
   if(!candidates.length) candidates=allowed.filter(r=>!usedIds.has(r.id));
   if(!candidates.length) candidates=allowed;
-  return candidates.sort((a,b)=>scoreRecipe(b,targetKind,usedFamilies)-scoreRecipe(a,targetKind,usedFamilies))[0];
+  return candidates.sort((a,b)=>scoreRecipe(b,targetKind,usedFamilies,usedProteins)-scoreRecipe(a,targetKind,usedFamilies,usedProteins))[0];
 }
 
 function buildPlanForWeek(weekKey="this",{replaceUnlocked=false}={}){
@@ -636,6 +648,7 @@ function buildPlanForWeek(weekKey="this",{replaceUnlocked=false}={}){
   const lockMap=state[lockedField]||{};
   const usedIds=new Set();
   const usedFamilies=new Set();
+  const usedProteins=new Set();
   const dates=plannerDatesForWeek(weekKey);
   const kinds=targetKinds(dates);
   const newPlan=[];
@@ -650,6 +663,8 @@ function buildPlanForWeek(weekKey="this",{replaceUnlocked=false}={}){
         newPlan.push({...old,date:isoLocalDate(date)});
         usedIds.add(r.id);
         usedFamilies.add(recipeFamily(r));
+        const lockedProtein=recipeProtein(r);
+        if(lockedProtein)usedProteins.add(lockedProtein);
         continue;
       }
     }
@@ -660,6 +675,7 @@ function buildPlanForWeek(weekKey="this",{replaceUnlocked=false}={}){
     const chosen=chooseUniqueRecipe({
       usedIds,
       usedFamilies,
+      usedProteins,
       targetKind:kinds[i],
       date,
       bannedIds:banned
@@ -669,6 +685,8 @@ function buildPlanForWeek(weekKey="this",{replaceUnlocked=false}={}){
       newPlan.push({day,id:chosen.id,date:isoLocalDate(date)});
       usedIds.add(chosen.id);
       usedFamilies.add(recipeFamily(chosen));
+      const chosenProtein=recipeProtein(chosen);
+      if(chosenProtein)usedProteins.add(chosenProtein);
     }
   }
 
@@ -694,9 +712,11 @@ function replaceDay(weekKey,day){
   const date=dates[index].date;
   const usedIds=new Set(plan.filter(p=>p.day!==day).map(p=>p.id));
   const usedFamilies=new Set(plan.filter(p=>p.day!==day).map(p=>recipeFamily(getRecipe(p.id))));
+  const usedProteins=new Set(plan.filter(p=>p.day!==day).map(p=>recipeProtein(getRecipe(p.id))).filter(Boolean));
   const chosen=chooseUniqueRecipe({
     usedIds,
     usedFamilies,
+    usedProteins,
     targetKind:targetKinds(dates)[index],
     date,
     bannedIds:new Set([current.id])
@@ -2073,6 +2093,7 @@ setTimeout(()=>{try{runValidationSuite()}catch(error){recordRuntimeError("valida
 window.__dinnerPlannerTest={
   recipeAllowed,
   recipeFamily,
+  recipeProtein,
   targetKinds,
   hebrewDateParts,
   calendarRuleForDate,

@@ -402,9 +402,40 @@ test('a stale plan rebuilds itself automatically on render - no manual tap requi
   assert.doesNotMatch(html, /This plan is from a previous week/, 'a successful auto-rebuild should not still show the manual-refresh warning');
 });
 
+test('recipe protein tracking correctly identifies beef and chicken dishes', async () => {
+  const { context } = await boot();
+  const api = context.window.__dinnerPlannerTest;
+  assert.equal(api.recipeProtein({ tags: ['beef', 'kid'] }), 'beef');
+  assert.equal(api.recipeProtein({ tags: ['chicken', 'simple'] }), 'chicken');
+  assert.equal(api.recipeProtein({ tags: ['dairy', 'pasta'] }), null, 'a non-protein-specific recipe should not be forced into a protein bucket');
+});
+
+test('a built week never stacks the same protein across most of the meat nights (the actual bug: three separate ground-beef dishes in one week)', async () => {
+  const { context } = await boot();
+  const api = context.window.__dinnerPlannerTest;
+
+  // This is inherently about score weighting, not a hard rule, so check it holds
+  // across many builds rather than trusting a single lucky/unlucky draw.
+  for (let i = 0; i < 25; i++) {
+    api.buildPlan();
+    const plan = api.getState().plan;
+    const proteins = plan
+      .map(entry => {
+        const recipe = context.window.DinnerRecipes?.find?.(r => r.id === entry.id);
+        return recipe ? api.recipeProtein(recipe) : null;
+      })
+      .filter(Boolean);
+    const beefCount = proteins.filter(p => p === 'beef').length;
+    const chickenCount = proteins.filter(p => p === 'chicken').length;
+    assert.ok(beefCount <= 2, `beef appeared ${beefCount} times in a single 5-day plan - the exact bug reported`);
+    assert.ok(chickenCount <= 2, `chicken appeared ${chickenCount} times in a single 5-day plan`);
+  }
+});
+
+
+
+
 test('v60 starts with every agreed household preference enabled', async () => {
-
-
   const {context}=await boot();
   const state=context.window.__dinnerPlannerTest.getState();
   const required=[
