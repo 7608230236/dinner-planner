@@ -846,7 +846,7 @@ function renderWeekSection(weekKey="this",{alreadyRebuilt=false}={}){
       <div>
         <div class="meal-title">${esc(r.title)}</div>
         <div class="hebrew-date">${esc(FULL_DATE_FMT.format(date))} · ${esc(hebrewDateParts(date).label)}</div>
-        <div class="meal-meta">${kindLabel(r.kind)} · ${esc(r.time)} · ${esc(r.cost||"")} · ${esc(r.desc)}</div>
+        <div class="meal-meta">${kindLabel(r.kind)} · ${esc(displayedTime(r))} · ${esc(r.cost||"")} · ${esc(r.desc)}</div>
         ${rule.note?`<div class="observance ${rule.type==='tisha'?'tisha':''}">${esc(rule.note)}</div>`:""}
       </div>
       <div class="meal-actions">
@@ -888,6 +888,23 @@ function scaleQuantity(qty){
   return `${rounded} ${match[2]}`.trim();
 }
 
+// Ingredient quantities scale with Portions, but a recipe's declared cook
+// time is written for the base 5 portions and never adjusts on its own.
+// That's fine for casseroles, braises, and one-pot dishes - a bigger dish
+// or a fuller pot barely takes longer. It's NOT fine for recipes cooked in
+// discrete stovetop rounds (breaded cutlets, pan-fried patties, crepes,
+// searing in a single pan) - those genuinely take longer at larger
+// portions because only so much fits in a pan at once. Recipes are tagged
+// "batch-limited" for exactly this case; everything else is left alone.
+function displayedTime(r){
+  const base=Number.parseInt(r.time,10);
+  if(!Number.isFinite(base) || !r.tags.includes("batch-limited")) return r.time;
+  const extraBatches=Math.max(0,Math.ceil(state.portions/5)-1);
+  if(!extraBatches) return r.time;
+  const minutesPerExtraBatch=8;
+  return `${base+extraBatches*minutesPerExtraBatch} min`;
+}
+
 function showRecipe(id,weekKey="this"){
   const r=getRecipe(id);
   if(!r)return;
@@ -904,9 +921,10 @@ function showRecipe(id,weekKey="this"){
       <div class="chips">
         <span class="chip on">${kindLabel(r.kind)}</span>
         <span class="chip">${esc(r.hands)} hands-on</span>
-        <span class="chip">${esc(r.time)} total</span>
+        <span class="chip">${esc(displayedTime(r))} total</span>
         ${r.cost?`<span class="chip">About ${esc(r.cost)} per portion</span>`:""}
       </div>
+      ${r.tags.includes("batch-limited") && state.portions>5?`<p class="muted">This is cooked in stovetop batches, so the total time above is longer than the base recipe to account for frying/searing multiple rounds at ${state.portions} portions.</p>`:""}
       ${ratingButtons(r.id,"modal")}
     </div>
     <details class="have-summary">
@@ -2119,6 +2137,7 @@ window.__dinnerPlannerTest={
   recipeFamily,
   recipeProtein,
   getRecipe,
+  displayedTime,
   targetKinds,
   hebrewDateParts,
   calendarRuleForDate,

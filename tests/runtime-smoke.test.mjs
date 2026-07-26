@@ -506,6 +506,38 @@ test('a built week never stacks the same protein across most of the meat nights 
 
 
 
+test('cook time honestly grows with portions for batch-limited dishes (pan-fried/breaded/crepes), but not for casseroles or one-pot dishes, since only stovetop-batch cooking is actually affected by larger quantities', async () => {
+  const {context}=await boot();
+  const api=context.window.__dinnerPlannerTest;
+
+  const recipes=context.window.DinnerRecipes;
+  const batchLimited=recipes.filter(r=>r.tags.includes('batch-limited'));
+  const notBatchLimited=recipes.filter(r=>!r.tags.includes('batch-limited'));
+  assert.ok(batchLimited.length>0,'expected at least one batch-limited recipe to exist');
+  assert.ok(notBatchLimited.length>0,'expected at least one non-batch-limited recipe to exist');
+
+  const state=api.getState();
+
+  state.portions=5;
+  api.setState(state);
+  const baseTimeBatch=api.displayedTime(batchLimited[0]);
+  const baseTimeNormal=api.displayedTime(notBatchLimited[0]);
+  assert.equal(baseTimeBatch,batchLimited[0].time,'at base portions, displayed time should equal the declared time');
+
+  state.portions=15;
+  api.setState(state);
+  const bigTimeBatch=api.displayedTime(batchLimited[0]);
+  const bigTimeNormal=api.displayedTime(notBatchLimited[0]);
+
+  assert.notEqual(bigTimeBatch,baseTimeBatch,'a batch-limited dish should take longer at 15 portions than at 5');
+  assert.ok(
+    Number.parseInt(bigTimeBatch,10) > Number.parseInt(baseTimeBatch,10),
+    `expected ${bigTimeBatch} > ${baseTimeBatch} for a batch-limited dish scaled to 15 portions`
+  );
+  assert.equal(bigTimeNormal,baseTimeNormal,'a casserole/one-pot/braise dish should NOT show a longer time just because portions increased');
+  assert.equal(bigTimeNormal,notBatchLimited[0].time,'a non-batch-limited dish should always show its declared time regardless of portions');
+});
+
 test('v60 starts with every agreed household preference enabled', async () => {
   const {context}=await boot();
   const state=context.window.__dinnerPlannerTest.getState();
