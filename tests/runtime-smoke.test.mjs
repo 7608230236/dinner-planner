@@ -320,6 +320,36 @@ test('recipe ratings survive a normalizeState pass and are not accidentally wipe
   assert.equal(state.recipeRatings[plan[1].id], 'down');
 });
 
+test('a freshly built plan is not flagged as stale', async () => {
+  const { context } = await boot();
+  const api = context.window.__dinnerPlannerTest;
+  api.buildPlan();
+  assert.equal(api.isPlanStale('this'), false, 'a plan built for the current week should not be stale');
+});
+
+test('a plan whose stored dates belong to a previous week is correctly flagged as stale', async () => {
+  const { context } = await boot();
+  const api = context.window.__dinnerPlannerTest;
+  api.buildPlan();
+  const state = api.getState();
+  // Simulate a week having passed: shift every stored plan date back by 7 days,
+  // exactly what happens if the app is left open (or reopened) a week later
+  // without rebuilding - this is the bug the user actually hit around Tisha B'Av.
+  state.plan = state.plan.map(entry => {
+    const shifted = new Date(entry.date + 'T12:00:00');
+    shifted.setDate(shifted.getDate() - 7);
+    return { ...entry, date: shifted.toISOString().slice(0, 10) };
+  });
+  api.setState(state);
+  assert.equal(api.isPlanStale('this'), true, 'a plan built for a different week must be flagged as stale, not silently shown as current');
+});
+
+test('no plan at all is never flagged as stale (nothing to warn about)', async () => {
+  const { context } = await boot();
+  const api = context.window.__dinnerPlannerTest;
+  assert.equal(api.isPlanStale('this'), false);
+});
+
 test('v60 starts with every agreed household preference enabled', async () => {
   const {context}=await boot();
   const state=context.window.__dinnerPlannerTest.getState();

@@ -740,6 +740,13 @@ function setRecipeRating(recipeId,value){
   save("state",state);
 }
 
+function isPlanStale(weekKey){
+  const plan=state[planProp(weekKey)]||[];
+  if(!plan.length)return false;
+  const currentDates=plannerDatesForWeek(weekKey);
+  return plan.some((entry,i)=>entry.date && currentDates[i] && entry.date!==isoLocalDate(currentDates[i].date));
+}
+
 function renderWeekSection(weekKey="this"){
   const plan=state[planProp(weekKey)]||[];
   const locks=state[lockedProp(weekKey)]||{};
@@ -759,7 +766,13 @@ function renderWeekSection(weekKey="this"){
     return;
   }
 
-  $(target).innerHTML=plan.map(p=>{
+  const staleNotice=isPlanStale(weekKey)
+    ? `<div class="notice" style="border:1px solid #d97706;background:#fff7ed;color:#7c2d12">
+        <b>This plan is from a previous week.</b> The dates shown below no longer match today's calendar — tap "Build this week's dinners" to refresh it.
+      </div>`
+    : "";
+
+  $(target).innerHTML=staleNotice+plan.map(p=>{
     const r=getRecipe(p.id);
     if(!r)return "";
     const locked=!!locks[p.day];
@@ -1993,6 +2006,18 @@ if("serviceWorker" in navigator){
 }
 renderPrefs();
 renderCalendar();
+let lastRenderedCalendarDay=isoLocalDate(new Date());
+function refreshCalendarIfDayChanged(){
+  const today=isoLocalDate(new Date());
+  if(today!==lastRenderedCalendarDay){
+    lastRenderedCalendarDay=today;
+    renderCalendar();
+  }
+}
+document.addEventListener("visibilitychange",()=>{
+  if(document.visibilityState==="visible")refreshCalendarIfDayChanged();
+});
+setInterval(refreshCalendarIfDayChanged,60000);
 renderStoreSelection("meat");
 renderStoreSelection("supermarket");
 renderWeekSection("this");
@@ -2032,6 +2057,7 @@ window.__dinnerPlannerTest={
   inventoryMatchesIngredient,
   setRecipeRating,
   scoreRecipe,
+  isPlanStale,
   createHousehold,
   joinHousehold,
   leaveHousehold,
