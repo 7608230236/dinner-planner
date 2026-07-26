@@ -373,7 +373,38 @@ test('the app detects a day change and re-renders the calendar and plan without 
   assert.equal(banner.innerHTML, 'SENTINEL-SHOULD-NOT-BE-TOUCHED-AGAIN', 'without an actual day change, it should not re-render again on every check');
 });
 
+test('a stale plan rebuilds itself automatically on render - no manual tap required', async () => {
+  const { context } = await boot();
+  const api = context.window.__dinnerPlannerTest;
+  api.buildPlan();
+  const original = api.getState();
+  const originalFirstDayId = original.plan[0].id;
+
+  // Lock the first day only, then simulate a week having passed (same shift as
+  // the isPlanStale tests above - this mirrors exactly what the user hit after Shabbos).
+  const state = api.getState();
+  state.locked = { [state.plan[0].day]: true };
+  state.plan = state.plan.map(entry => {
+    const shifted = new Date(entry.date + 'T12:00:00');
+    shifted.setDate(shifted.getDate() - 7);
+    return { ...entry, date: shifted.toISOString().slice(0, 10) };
+  });
+  api.setState(state);
+  assert.equal(api.isPlanStale('this'), true, 'sanity check: the plan should be stale before rendering');
+
+  // This is exactly what real app boot / day-change detection calls.
+  api.renderWeekSection('this');
+
+  const html = context.document.getElementById('weekList').innerHTML;
+  const afterState = api.getState();
+  assert.equal(api.isPlanStale('this'), false, 'after auto-rebuild, the plan must no longer be flagged as stale');
+  assert.equal(afterState.plan[0].id, originalFirstDayId, 'the locked day\'s recipe must survive the automatic rebuild');
+  assert.doesNotMatch(html, /This plan is from a previous week/, 'a successful auto-rebuild should not still show the manual-refresh warning');
+});
+
 test('v60 starts with every agreed household preference enabled', async () => {
+
+
   const {context}=await boot();
   const state=context.window.__dinnerPlannerTest.getState();
   const required=[

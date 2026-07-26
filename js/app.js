@@ -629,7 +629,7 @@ function buildPlanForWeek(weekKey="this",{replaceUnlocked=false}={}){
   if(!allowed.length){
     const target = weekKey==="next" ? "nextWeekList" : "weekList";
     $(target).innerHTML='<div class="notice">No recipes match these choices. Remove an exclusion and try again.</div>';
-    return;
+    return false;
   }
 
   const oldPlan=[...(state[planField]||[])];
@@ -680,6 +680,7 @@ function buildPlanForWeek(weekKey="this",{replaceUnlocked=false}={}){
   save("state",state);
   renderWeekSection(weekKey);
   renderShopping();
+  return true;
 }
 
 function replaceDay(weekKey,day){
@@ -753,9 +754,21 @@ function isPlanStale(weekKey){
   return plan.some((entry,i)=>entry.date && currentDates[i] && entry.date!==isoLocalDate(currentDates[i].date));
 }
 
-function renderWeekSection(weekKey="this"){
+function renderWeekSection(weekKey="this",{alreadyRebuilt=false}={}){
   const plan=state[planProp(weekKey)]||[];
   const locks=state[lockedProp(weekKey)]||{};
+
+  if(plan.length && !alreadyRebuilt && isPlanStale(weekKey)){
+    // The stored plan belongs to a previous week. Rebuild it automatically -
+    // replaceUnlocked keeps any locked meals (just moving them to the new
+    // week's matching date) while refreshing everything else, so this is
+    // never a silent full wipe of choices the user deliberately locked in.
+    const rebuilt=buildPlanForWeek(weekKey,{replaceUnlocked:true});
+    if(rebuilt)return; // buildPlanForWeek already re-rendered with fresh data
+    // If it couldn't rebuild (e.g. no recipes match current exclusions), fall
+    // through and render the stale plan with a warning rather than looping.
+  }
+
   const target=weekKey==="next"?"nextWeekList":"weekList";
   const lockAllButton=$(weekKey==="next"?"lockNextWeekBtn":"lockWeekBtn");
   const allLocked=plan.length>0&&plan.every(entry=>Boolean(locks[entry.day]));
@@ -2067,6 +2080,7 @@ window.__dinnerPlannerTest={
   plannerDates,
   recipeAllowedOnDate,
   buildPlan:(opts)=>buildPlanForWeek("this",opts),
+  renderWeekSection,
   buildPlanForWeek,
   replaceDay,
   lockAllForWeek,
