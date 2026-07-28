@@ -1,0 +1,41 @@
+name: Generate iOS Signing Request (one-time setup)
+
+# This creates the two files needed to get an Apple Distribution Certificate:
+# - ios_distribution.key (your private key - keep this safe)
+# - ios_distribution.csr (upload this one to Apple's "Create a New Certificate" page)
+#
+# Run this from the GitHub website: Actions tab -> this workflow -> "Run workflow"
+# button. No commands to type on your own computer.
+
+on:
+  workflow_dispatch:
+    inputs:
+      email:
+        description: "Your Apple ID email"
+        required: true
+        default: "mats.sellei11@gmail.com"
+      name:
+        description: "Your name"
+        required: true
+        default: "Mats Sellei"
+
+jobs:
+  generate:
+    runs-on: macos-latest
+    steps:
+      - name: Generate private key
+        run: openssl genrsa -out ios_distribution.key 2048
+
+      - name: Generate certificate signing request
+        run: |
+          openssl req -new -key ios_distribution.key -out ios_distribution.csr \
+            -subj "/emailAddress=${{ inputs.email }}/CN=${{ inputs.name }}/C=US"
+
+      - name: Upload both files
+        uses: actions/upload-artifact@v4
+        with:
+          name: ios-signing-request
+          path: |
+            ios_distribution.key
+            ios_distribution.csr
+          retention-days: 7
