@@ -72,7 +72,8 @@ jobs:
         env:
           IOS_PRIVATE_KEY_PEM: ${{ secrets.IOS_PRIVATE_KEY_PEM }}
         run: |
-          set -e
+          set -euxo pipefail
+          exec > >(tee /tmp/signing-step.log) 2>&1
           KEYCHAIN_PASSWORD=$(openssl rand -base64 24)
           P12_PASSWORD=$(openssl rand -base64 24)
 
@@ -90,7 +91,8 @@ jobs:
           security set-keychain-settings -lut 21600 build.keychain
           security unlock-keychain -p "$KEYCHAIN_PASSWORD" build.keychain
           security import ios_distribution.p12 -k build.keychain -P "$P12_PASSWORD" -T /usr/bin/codesign
-          security list-keychain -d user -s build.keychain login.keychain
+          EXISTING_KEYCHAINS=$(security list-keychains -d user | sed 's/[\"]//g')
+          security list-keychains -d user -s build.keychain $EXISTING_KEYCHAINS
           security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k "$KEYCHAIN_PASSWORD" build.keychain
 
           # Install the provisioning profile where Xcode expects to find it
@@ -106,6 +108,14 @@ jobs:
 
           # Clean up loose files with the private key/passwords in them
           rm -f ios_distribution.key ios_distribution.pem ios_distribution.p12
+
+      - name: Upload signing step log on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: signing-step-log
+          path: /tmp/signing-step.log
+          retention-days: 7
 
       - name: Archive (signed, release configuration)
         working-directory: ios/App
