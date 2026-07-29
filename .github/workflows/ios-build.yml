@@ -95,12 +95,11 @@ jobs:
 
           # Install the provisioning profile where Xcode expects to find it
           mkdir -p ~/Library/MobileDevice/Provisioning\ Profiles
-          PROFILE_UUID=$(security cms -D -i ios/signing/Dinner_Made_Easy.mobileprovision | \
-            /usr/libexec/PlistBuddy -c "Print :UUID" /dev/stdin)
+          security cms -D -i ios/signing/Dinner_Made_Easy.mobileprovision > /tmp/profile.plist
+          PROFILE_UUID=$(/usr/libexec/PlistBuddy -c "Print :UUID" /tmp/profile.plist)
+          TEAM_ID=$(/usr/libexec/PlistBuddy -c "Print :TeamIdentifier:0" /tmp/profile.plist)
           cp ios/signing/Dinner_Made_Easy.mobileprovision \
             ~/Library/MobileDevice/Provisioning\ Profiles/"$PROFILE_UUID".mobileprovision
-          TEAM_ID=$(security cms -D -i ios/signing/Dinner_Made_Easy.mobileprovision | \
-            /usr/libexec/PlistBuddy -c "Print :TeamIdentifier:0" /dev/stdin)
 
           echo "PROFILE_UUID=$PROFILE_UUID" >> "$GITHUB_ENV"
           echo "TEAM_ID=$TEAM_ID" >> "$GITHUB_ENV"
