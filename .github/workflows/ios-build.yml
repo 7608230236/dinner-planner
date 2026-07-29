@@ -72,10 +72,12 @@ jobs:
         env:
           IOS_PRIVATE_KEY_PEM: ${{ secrets.IOS_PRIVATE_KEY_PEM }}
         run: |
-          set -euxo pipefail
+          set -euo pipefail
           exec > >(tee /tmp/signing-step.log) 2>&1
+          set -x
           KEYCHAIN_PASSWORD=$(openssl rand -base64 24)
           P12_PASSWORD=$(openssl rand -base64 24)
+          { set +x; } 2>/dev/null
 
           # Turn the checked-in certificate + the private key secret into a .p12
           echo "$IOS_PRIVATE_KEY_PEM" > ios_distribution.key
@@ -84,16 +86,22 @@ jobs:
             -inkey ios_distribution.key \
             -in ios_distribution.pem \
             -out ios_distribution.p12 \
-            -password pass:"$P12_PASSWORD"
+            -password pass:"$P12_PASSWORD" \
+            -legacy
+          set -x
 
           # Create a temporary keychain for this build only and import the certificate
           security create-keychain -p "$KEYCHAIN_PASSWORD" build.keychain
           security set-keychain-settings -lut 21600 build.keychain
           security unlock-keychain -p "$KEYCHAIN_PASSWORD" build.keychain
+          { set +x; } 2>/dev/null
           security import ios_distribution.p12 -k build.keychain -P "$P12_PASSWORD" -T /usr/bin/codesign
+          set -x
           EXISTING_KEYCHAINS=$(security list-keychains -d user | sed 's/[\"]//g')
           security list-keychains -d user -s build.keychain $EXISTING_KEYCHAINS
+          { set +x; } 2>/dev/null
           security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k "$KEYCHAIN_PASSWORD" build.keychain
+          set -x
 
           # Install the provisioning profile where Xcode expects to find it
           mkdir -p ~/Library/MobileDevice/Provisioning\ Profiles
