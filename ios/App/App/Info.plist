@@ -26,6 +26,8 @@
 	<string>Dinner Made Easy uses your camera to take pictures of your pantry, fridge, and freezer so it can suggest meals based on what you already have.</string>
 	<key>NSPhotoLibraryUsageDescription</key>
 	<string>Dinner Made Easy lets you choose existing photos of your pantry, fridge, or freezer so it can suggest meals based on what you already have.</string>
+	<key>ITSAppUsesNonExemptEncryption</key>
+	<false/>
 	<key>LSRequiresIPhoneOS</key>
 	<true/>
 	<key>UILaunchStoryboardName</key>
