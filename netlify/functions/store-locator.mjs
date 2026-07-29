@@ -1,9 +1,17 @@
+// See pantry-ai.mjs for why these are needed (native app calls this cross-origin).
+const CORS_HEADERS = {
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
+  "Access-Control-Allow-Headers": "Content-Type"
+};
+
 function json(body, statusCode = 200) {
   return {
     statusCode,
     headers: {
       "Content-Type": "application/json",
-      "Cache-Control": "no-store"
+      "Cache-Control": "no-store",
+      ...CORS_HEADERS
     },
     body: JSON.stringify(body)
   };
@@ -112,6 +120,10 @@ async function searchPlaces(apiKey, lat, lng, textQuery) {
 }
 
 export async function handler(event) {
+  if (event.httpMethod === "OPTIONS") {
+    return { statusCode: 204, headers: CORS_HEADERS, body: "" };
+  }
+
   if (event.httpMethod !== "POST") {
     return json({ error: "Use POST" }, 405);
   }

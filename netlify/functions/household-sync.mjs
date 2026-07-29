@@ -14,12 +14,20 @@ function getHouseholdStore() {
   return getStore("households");
 }
 
+// See pantry-ai.mjs for why these are needed (native app calls this cross-origin).
+const CORS_HEADERS = {
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
+  "Access-Control-Allow-Headers": "Content-Type"
+};
+
 function json(body, statusCode = 200) {
   return {
     statusCode,
     headers: {
       "Content-Type": "application/json",
-      "Cache-Control": "no-store"
+      "Cache-Control": "no-store",
+      ...CORS_HEADERS
     },
     body: JSON.stringify(body)
   };
@@ -34,6 +42,10 @@ const CODE_PATTERN = /^[ABCDEFGHJKMNPQRSTUVWXYZ23456789]{6,10}$/;
 const MAX_PAYLOAD_CHARACTERS = 2_000_000;
 
 export async function handler(event) {
+  if (event.httpMethod === "OPTIONS") {
+    return { statusCode: 204, headers: CORS_HEADERS, body: "" };
+  }
+
   let store;
 
   try {

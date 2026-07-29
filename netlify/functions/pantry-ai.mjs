@@ -117,6 +117,10 @@ const PANTRY_RESPONSE_SCHEMA = {
 };
 
 export async function handler(event) {
+  if (event.httpMethod === "OPTIONS") {
+    return { statusCode: 204, headers: CORS_HEADERS, body: "" };
+  }
+
   if (event.httpMethod !== "POST") {
     return json(
       {
@@ -642,13 +646,26 @@ function parseJson(text) {
   return null;
 }
 
+// The native iOS/Android app calls these functions from a different origin
+// than the website (Capacitor's internal WebView origin, not this Netlify
+// domain), which makes every request cross-origin. Without these headers,
+// the app's requests are silently blocked by CORS before the response ever
+// reaches the app's JavaScript - the website works fine either way since
+// same-origin requests don't need CORS headers at all.
+const CORS_HEADERS = {
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
+  "Access-Control-Allow-Headers": "Content-Type"
+};
+
 function json(obj, statusCode = 200) {
   return {
     statusCode,
     headers: {
       "Content-Type": "application/json",
       "Cache-Control": "no-store",
-      "X-Content-Type-Options": "nosniff"
+      "X-Content-Type-Options": "nosniff",
+      ...CORS_HEADERS
     },
     body: JSON.stringify(obj)
   };

@@ -83,3 +83,61 @@ test('store locator places a closer explicitly kosher result before farther dire
   const body = JSON.parse(response.body);
   assert.equal(body.stores[0].name, 'Nearby Kosher Market');
 });
+
+test('every function includes CORS headers on every response (the actual bug: the native iOS/Android app calls these cross-origin, unlike the website, and was being silently blocked without these headers)', async () => {
+  const { handler: householdHandler } = await import('../netlify/functions/household-sync.mjs');
+
+  for (const [name, handler, method] of [
+    ['pantry-ai', pantryHandler, 'OPTIONS'],
+    ['pantry-ai', pantryHandler, 'POST'],
+    ['store-locator', storeHandler, 'OPTIONS'],
+    ['store-locator', storeHandler, 'POST'],
+    ['household-sync', householdHandler, 'OPTIONS'],
+    ['household-sync', householdHandler, 'GET'],
+  ]) {
+    const event = method === 'OPTIONS'
+      ? { httpMethod: 'OPTIONS' }
+      : method === 'GET'
+        ? { httpMethod: 'GET', queryStringParameters: { code: 'BADCODE' } }
+        : { httpMethod: 'POST', body: JSON.stringify({}) };
+    const response = await handler(event);
+    assert.equal(
+      response.headers?.['Access-Control-Allow-Origin'],
+      '*',
+      `${name} (${method}) is missing Access-Control-Allow-Origin - the native app would be silently blocked`
+    );
+  }
+});
+
+test('household-sync surfaces a proper JSON error (not a crash) when the Blobs store is unavailable - this is a real production risk: if Netlify\'s automatic Blobs context injection fails (a documented platform issue) and NETLIFY_BLOBS_SITE_ID/NETLIFY_BLOBS_TOKEN are not set as a fallback, every sync/join attempt fails this way', async () => {
+  const { handler } = await import('../netlify/functions/household-sync.mjs');
+  delete process.env.NETLIFY_BLOBS_SITE_ID;
+  delete process.env.SITE_ID;
+  delete process.env.NETLIFY_BLOBS_TOKEN;
+
+  const response = await handler({ httpMethod: 'GET', queryStringParameters: { code: 'ABCDEFGH' } });
+  const body = JSON.parse(response.body);
+  assert.equal(response.statusCode, 500);
+  assert.match(body.error, /Blobs store unavailable/);
+  assert.equal(response.headers?.['Access-Control-Allow-Origin'], '*');
+});
+
+test('household-sync validates codes and payloads correctly once the Blobs store is available', async () => {
+  process.env.NETLIFY_BLOBS_SITE_ID = 'test-site-id';
+  process.env.NETLIFY_BLOBS_TOKEN = 'test-token';
+  const { handler } = await import('../netlify/functions/household-sync.mjs?fresh=' + Date.now());
+
+  const badGet = await handler({ httpMethod: 'GET', queryStringParameters: { code: 'nope' } });
+  assert.equal(badGet.statusCode, 400);
+  assert.match(JSON.parse(badGet.body).error, /Invalid household code/);
+
+  const badPost = await handler({ httpMethod: 'POST', body: JSON.stringify({ code: 'ABCDEFGH' }) });
+  assert.equal(badPost.statusCode, 400);
+  assert.match(JSON.parse(badPost.body).error, /Missing state/);
+
+  const badMethod = await handler({ httpMethod: 'DELETE' });
+  assert.equal(badMethod.statusCode, 405);
+
+  delete process.env.NETLIFY_BLOBS_SITE_ID;
+  delete process.env.NETLIFY_BLOBS_TOKEN;
+});
