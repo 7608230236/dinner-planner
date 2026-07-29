@@ -1135,44 +1135,75 @@ function renderStoreResults(scope,stores){
   });
 }
 
+async function getDeviceLocation(){
+  // Inside the native app, navigator.geolocation does not reliably bridge to
+  // the device's real location services - the Capacitor Geolocation plugin
+  // is required for that. Without it, calls just hang forever with no
+  // permission prompt ever appearing (the actual bug this fixes). On the
+  // website there's no Capacitor bridge, so navigator.geolocation is correct there.
+  const capGeo=window.Capacitor?.Plugins?.Geolocation;
+  if(capGeo){
+    const permission=await capGeo.checkPermissions().catch(()=>null);
+    if(permission&&permission.location!=="granted"){
+      const requested=await capGeo.requestPermissions().catch(()=>null);
+      if(!requested||requested.location!=="granted"){
+        throw new Error("permission-denied");
+      }
+    }
+    const position=await capGeo.getCurrentPosition({enableHighAccuracy:false,timeout:12000});
+    return {latitude:position.coords.latitude,longitude:position.coords.longitude};
+  }
+
+  if(!navigator.geolocation)throw new Error("unsupported");
+
+  return new Promise((resolve,reject)=>{
+    navigator.geolocation.getCurrentPosition(
+      position=>resolve({latitude:position.coords.latitude,longitude:position.coords.longitude}),
+      ()=>reject(new Error("permission-denied")),
+      {enableHighAccuracy:false,timeout:12000,maximumAge:300000}
+    );
+  });
+}
+
 async function findNearbyStores(scope){
   const status=$(`${scope}Status`);
   const results=$(`${scope}Results`);
   status.textContent="Finding your location…";
   results.innerHTML="";
 
-  if(!navigator.geolocation){
-    status.textContent="Location is not available on this device.";
+  let location;
+  try{
+    location=await getDeviceLocation();
+  }catch(error){
+    status.textContent=error?.message==="unsupported"
+      ?"Location is not available on this device."
+      :"Allow location access to see nearby stores.";
     return;
   }
 
-  navigator.geolocation.getCurrentPosition(async position=>{
-    save("location",{lat:position.coords.latitude,lng:position.coords.longitude});
-    renderCalendar();
-    status.textContent="Finding nearby kosher stores…";
-    try{
-      const response=await fetch(`${API_ORIGIN}/.netlify/functions/store-locator`,{
-        method:"POST",
-        headers:{"Content-Type":"application/json"},
-        body:JSON.stringify({
-          lat:position.coords.latitude,
-          lng:position.coords.longitude,
-          scope
-        })
-      });
+  save("location",{lat:location.latitude,lng:location.longitude});
+  renderCalendar();
+  status.textContent="Finding nearby kosher stores…";
+  try{
+    const response=await fetch(`${API_ORIGIN}/.netlify/functions/store-locator`,{
+      method:"POST",
+      headers:{"Content-Type":"application/json"},
+      body:JSON.stringify({
+        lat:location.latitude,
+        lng:location.longitude,
+        scope
+      })
+    });
 
-      const data=await response.json().catch(()=>({}));
-      if(!response.ok)throw new Error(data.error||"Store search failed");
+    const data=await response.json().catch(()=>({}));
+    if(!response.ok)throw new Error(data.error||"Store search failed");
 
-      const stores=data.stores||[];
-      status.textContent=stores.length?"Choose a nearby kosher store below.":"No nearby kosher stores were found."
-      renderStoreResults(scope,stores);
-    }catch(error){
-      status.textContent="Nearby kosher stores could not be loaded. Please try again."
-    }
-  },()=>{
-    status.textContent="Allow location access to see nearby stores.";
-  },{enableHighAccuracy:false,timeout:12000,maximumAge:300000});
+    const stores=data.stores||[];
+    status.textContent=stores.length?"Choose a nearby kosher store below.":"No nearby kosher stores were found."
+    renderStoreResults(scope,stores);
+  }catch(error){
+    status.textContent="Nearby kosher stores could not be loaded. Please try again."
+  }
 }
 
 function pantryPhotoById(id){
