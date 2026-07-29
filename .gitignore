@@ -11,3 +11,6 @@ ios/App/App.xcodeproj/project.xcworkspace/xcuserdata/
 ios/App/App.xcworkspace/xcuserdata/
 *.log
 .DS_Store
+
+# Local Netlify folder
+.netlify
