@@ -49,3 +49,119 @@ jobs:
           name: ios-build-log
           path: ios/App/build/Logs
           retention-days: 7
+
+  signed-build:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build web assets
+        run: npm run build:www
+
+      - name: Sync Capacitor
+        run: npx cap sync ios
+
+      - name: Set up signing (certificate + private key + provisioning profile)
+        env:
+          IOS_PRIVATE_KEY_PEM: ${{ secrets.IOS_PRIVATE_KEY_PEM }}
+        run: |
+          set -e
+          KEYCHAIN_PASSWORD=$(openssl rand -base64 24)
+          P12_PASSWORD=$(openssl rand -base64 24)
+
+          # Turn the checked-in certificate + the private key secret into a .p12
+          echo "$IOS_PRIVATE_KEY_PEM" > ios_distribution.key
+          openssl x509 -in ios/signing/distribution.cer -inform DER -out ios_distribution.pem -outform PEM
+          openssl pkcs12 -export \
+            -inkey ios_distribution.key \
+            -in ios_distribution.pem \
+            -out ios_distribution.p12 \
+            -password pass:"$P12_PASSWORD"
+
+          # Create a temporary keychain for this build only and import the certificate
+          security create-keychain -p "$KEYCHAIN_PASSWORD" build.keychain
+          security set-keychain-settings -lut 21600 build.keychain
+          security unlock-keychain -p "$KEYCHAIN_PASSWORD" build.keychain
+          security import ios_distribution.p12 -k build.keychain -P "$P12_PASSWORD" -T /usr/bin/codesign
+          security list-keychain -d user -s build.keychain login.keychain
+          security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k "$KEYCHAIN_PASSWORD" build.keychain
+
+          # Install the provisioning profile where Xcode expects to find it
+          mkdir -p ~/Library/MobileDevice/Provisioning\ Profiles
+          PROFILE_UUID=$(security cms -D -i ios/signing/Dinner_Made_Easy.mobileprovision | \
+            /usr/libexec/PlistBuddy -c "Print :UUID" /dev/stdin)
+          cp ios/signing/Dinner_Made_Easy.mobileprovision \
+            ~/Library/MobileDevice/Provisioning\ Profiles/"$PROFILE_UUID".mobileprovision
+          TEAM_ID=$(security cms -D -i ios/signing/Dinner_Made_Easy.mobileprovision | \
+            /usr/libexec/PlistBuddy -c "Print :TeamIdentifier:0" /dev/stdin)
+
+          echo "PROFILE_UUID=$PROFILE_UUID" >> "$GITHUB_ENV"
+          echo "TEAM_ID=$TEAM_ID" >> "$GITHUB_ENV"
+
+          # Clean up loose files with the private key/passwords in them
+          rm -f ios_distribution.key ios_distribution.pem ios_distribution.p12
+
+      - name: Archive (signed, release configuration)
+        working-directory: ios/App
+        run: |
+          xcodebuild -project App.xcodeproj -scheme App \
+            -sdk iphoneos -configuration Release \
+            -archivePath build/App.xcarchive \
+            CODE_SIGN_STYLE=Manual \
+            CODE_SIGN_IDENTITY="Apple Distribution" \
+            PROVISIONING_PROFILE_SPECIFIER="$PROFILE_UUID" \
+            DEVELOPMENT_TEAM="$TEAM_ID" \
+            archive
+
+      - name: Export a signed .ipa
+        working-directory: ios/App
+        run: |
+          cat > ExportOptions.plist << EOF
+          <?xml version="1.0" encoding="UTF-8"?>
+          <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+          <plist version="1.0">
+          <dict>
+            <key>method</key>
+            <string>app-store-connect</string>
+            <key>teamID</key>
+            <string>$TEAM_ID</string>
+            <key>signingStyle</key>
+            <string>manual</string>
+            <key>provisioningProfiles</key>
+            <dict>
+              <key>com.dinnermadeeasy.app</key>
+              <string>$PROFILE_UUID</string>
+            </dict>
+          </dict>
+          </plist>
+          EOF
+          xcodebuild -exportArchive \
+            -archivePath build/App.xcarchive \
+            -exportPath build/export \
+            -exportOptionsPlist ExportOptions.plist
+
+      - name: Clean up the temporary keychain
+        if: always()
+        run: security delete-keychain build.keychain || true
+
+      - name: Upload the signed .ipa
+        uses: actions/upload-artifact@v4
+        with:
+          name: Dinner-Made-Easy-signed-ipa
+          path: ios/App/build/export/*.ipa
+          retention-days: 30
+
+      - name: Upload build log on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ios-signed-build-log
+          path: ios/App/build/Logs
+          retention-days: 7
