@@ -175,6 +175,32 @@ jobs:
           path: ios/App/build/export/*.ipa
           retention-days: 30
 
+      - name: Upload to TestFlight
+        env:
+          APP_STORE_CONNECT_API_KEY_P8: ${{ secrets.APP_STORE_CONNECT_API_KEY_P8 }}
+          APP_STORE_CONNECT_KEY_ID: ${{ secrets.APP_STORE_CONNECT_KEY_ID }}
+          APP_STORE_CONNECT_ISSUER_ID: ${{ secrets.APP_STORE_CONNECT_ISSUER_ID }}
+        run: |
+          set -euo pipefail
+          exec > >(tee /tmp/testflight-upload.log) 2>&1
+          set -x
+          mkdir -p ~/private_keys
+          echo "$APP_STORE_CONNECT_API_KEY_P8" > ~/private_keys/AuthKey_"$APP_STORE_CONNECT_KEY_ID".p8
+          IPA_PATH=$(find ios/App/build/export -name "*.ipa" | head -n1)
+          xcrun altool --upload-app \
+            --type ios \
+            --file "$IPA_PATH" \
+            --apiKey "$APP_STORE_CONNECT_KEY_ID" \
+            --apiIssuer "$APP_STORE_CONNECT_ISSUER_ID"
+
+      - name: Upload TestFlight log on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: testflight-upload-log
+          path: /tmp/testflight-upload.log
+          retention-days: 7
+
       - name: Upload build log on failure
         if: failure()
         uses: actions/upload-artifact@v4
