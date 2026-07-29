@@ -3,7 +3,7 @@
 Single source of truth for what works, what's broken, and what changed.
 Update this file every time a fix is made or verified — don't rely on chat history.
 
-Last updated: 2026-07-28 by Claude
+Last updated: 2026-07-29 by Claude
 
 ---
 
@@ -148,8 +148,11 @@ Same approach as Android — Capacitor wraps the existing web app.
 - **Verified: a full signed build succeeded end to end** - every step (archive, export, upload) completed, and a real, non-empty (1.26 MB) signed `.ipa` was produced. Confirmed via the GitHub Actions API, not assumed.
 
 **Not yet done:**
-- Uploading the signed `.ipa` to TestFlight / App Store Connect (currently just sits as a downloadable build artifact - next step is either manual upload via Transporter, or automating it with an App Store Connect API key)
 - App Store listing (screenshots, description) - reference doc already prepared with pre-filled text for most fields
+- Actually testing the TestFlight build on a real device
+- Eventually submitting for App Store review (currently only reaches TestFlight, not the public App Store)
+
+**TestFlight upload: done and verified.** Set up an App Store Connect API key (Key ID + Issuer ID + .p8 private key, stored as GitHub secrets `APP_STORE_CONNECT_KEY_ID`/`APP_STORE_CONNECT_ISSUER_ID`/`APP_STORE_CONNECT_API_KEY_P8`). Added an `xcrun altool --upload-app` step to `ios-build.yml` that runs automatically after every successful signed build. Hit and fixed a real bug: the `.p8` secret got saved without its `-----BEGIN/END PRIVATE KEY-----` header/footer lines (a copy-paste mishap), causing `altool` to report "does not contain a valid authentication key." Diagnosed via the actual failure log (not guessed), fixed by re-pasting the complete key. **Confirmed via the GitHub Actions API: the "Upload to TestFlight" step now completes successfully on every push to main.**
 
 ## Dish ratings (2026-07-24)
 
@@ -240,6 +243,8 @@ Reviewed the actual code against the brief's trust principles and your household
 ---
 
 ## Change log
+
+- **2026-07-29** — Automated TestFlight upload, verified working end to end. Set up an App Store Connect API key together with the user (live, step by step). Fixed a real bug found via the actual failure log: the API key secret was pasted without its PEM header/footer lines, causing altool to reject it as invalid. Re-run after the fix confirmed the "Upload to TestFlight" step completes successfully via the GitHub Actions API - every push to main now produces a signed build that lands in TestFlight automatically.
 
 - **2026-07-28** — iOS code signing completed and verified end to end. Walked through the Apple Developer Portal live with the user (App ID, distribution certificate via a no-terminal-needed GitHub Actions CSR generator, App Store provisioning profile). Fixed two real signing bugs found via actual failed build logs (PlistBuddy/stdin, OpenSSL 3.x PKCS12 compatibility). Confirmed via the GitHub Actions API: full signed archive + export succeeded, producing a real 1.26 MB signed .ipa.
 
