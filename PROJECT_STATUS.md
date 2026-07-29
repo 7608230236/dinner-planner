@@ -3,7 +3,7 @@
 Single source of truth for what works, what's broken, and what changed.
 Update this file every time a fix is made or verified — don't rely on chat history.
 
-Last updated: 2026-07-26 by Claude
+Last updated: 2026-07-28 by Claude
 
 ---
 
@@ -135,19 +135,21 @@ Linked from the app's Settings section. Included in native Android/iOS builds to
 
 **Not legal advice — this is a good-faith draft.** Worth a quick real review before actual store submission, especially given it touches children's data indirectly.
 
-## Native iOS app (2026-07-24)
+## Native iOS app (2026-07-24, signing completed 2026-07-28)
 
 Same approach as Android — Capacitor wraps the existing web app.
 
 - Repo now has `ios/` (native Xcode project), same `capacitor.config.json`/`resources/`/`scripts/build-www.mjs` as Android reuse.
 - **Builds via GitHub Actions on `macos-latest` runners — no Mac needed on the user's end**, since GitHub's macOS runners include Xcode.
 - Hit and fixed a real issue: `xcodebuild -derivedDataPath` requires a scheme (not just a target), but Capacitor's generated project doesn't include a shared scheme by default (Xcode only creates one on first interactive open, which never happens in CI). Fixed by hand-authoring a proper shared `.xcscheme` file. This also matters for later: a real signed archive build (`xcodebuild archive`) requires a scheme too, so this was needed eventually regardless.
-- **First successful build confirmed** — compiles cleanly for iOS Simulator (unsigned) on GitHub's macOS runner.
+- **Code signing is done and verified working.** User has an Apple Developer account (Team ID H38376B6RX). Walked through, together in real time: registering the App ID (`com.dinnermadeeasy.app`), generating a CSR without any local terminal (via a one-click GitHub Actions workflow - `ios-generate-csr.yml` - that generates the key+CSR on GitHub's own macOS runner so the user never has to install or run anything locally), creating an Apple Distribution Certificate, and creating an App Store provisioning profile. The certificate (`ios/signing/distribution.cer`) and provisioning profile (`ios/signing/Dinner_Made_Easy.mobileprovision`, valid through July 2027) are committed to the private repo - low risk on their own since neither is usable without the private key, which is instead stored only as the `IOS_PRIVATE_KEY_PEM` repository secret.
+- `ios-build.yml` now has a second job (`signed-build`) that imports the cert+key into a temporary keychain, installs the provisioning profile, runs a real `xcodebuild archive` (Release, manual signing) and `xcodebuild -exportArchive`, and uploads the resulting signed `.ipa` as a build artifact. The temporary keychain is deleted at the end of every run regardless of outcome.
+- Hit and fixed two real bugs along the way, both confirmed via actual failed run logs (not guessed): (1) `PlistBuddy` can't reliably read a piped/stdin plist - fixed by writing to a real temp file first; (2) `security import` failed with a misleading "MAC verification failed (wrong password?)" error - actual cause was GitHub's macOS runner using OpenSSL 3.x, which defaults to AES-256/SHA-256 PKCS12 encryption that Apple's Security framework can't parse. Fixed with `-legacy` on `openssl pkcs12 -export`.
+- **Verified: a full signed build succeeded end to end** - every step (archive, export, upload) completed, and a real, non-empty (1.26 MB) signed `.ipa` was produced. Confirmed via the GitHub Actions API, not assumed.
 
-**Not yet done (bigger lift than Android on this front):**
-- Code signing — Apple requires this even to install on your own physical iPhone for testing, unlike Android's sideloadable debug APK. Needs your Apple Developer certificate + provisioning profile added as GitHub secrets (user should add these directly, not route through chat, same principle as the Android signing key).
-- App Store Connect submission
-- App Store listing (screenshots, description, privacy policy)
+**Not yet done:**
+- Uploading the signed `.ipa` to TestFlight / App Store Connect (currently just sits as a downloadable build artifact - next step is either manual upload via Transporter, or automating it with an App Store Connect API key)
+- App Store listing (screenshots, description) - reference doc already prepared with pre-filled text for most fields
 
 ## Dish ratings (2026-07-24)
 
@@ -238,6 +240,8 @@ Reviewed the actual code against the brief's trust principles and your household
 ---
 
 ## Change log
+
+- **2026-07-28** — iOS code signing completed and verified end to end. Walked through the Apple Developer Portal live with the user (App ID, distribution certificate via a no-terminal-needed GitHub Actions CSR generator, App Store provisioning profile). Fixed two real signing bugs found via actual failed build logs (PlistBuddy/stdin, OpenSSL 3.x PKCS12 compatibility). Confirmed via the GitHub Actions API: full signed archive + export succeeded, producing a real 1.26 MB signed .ipa.
 
 - **2026-07-26** — Addressed a real gap the user caught: ingredient quantities already scale with the Portions control (up to 4x at 20 portions), but displayed cook time never did, even though stovetop-batch-limited dishes (breaded cutlets, pan-fried patties, crepes, searing in one pan) genuinely take longer for a bigger household - you can only fit so much in one pan at a time. Casseroles, braises, and one-pot dishes don't have this problem, so they're deliberately left untouched. Tagged the 50 genuinely batch-limited recipes, added explicit batching guidance to their steps (e.g. "fry in 2 batches"), gave cheese-wraps a full-batch oven alternative instead, and added a `displayedTime()` function that adds realistic time for extra batches only on tagged recipes. Verified: non-batch-limited dishes show the exact same time at any portion count; batch-limited dishes scale up correctly (e.g. potato latkes: 35 min at 5 portions -> 59 min at 20). Added a permanent regression test.
 
