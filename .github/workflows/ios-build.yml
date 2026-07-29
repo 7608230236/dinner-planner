@@ -1,5 +1,6 @@
 name: iOS Build
 # Re-run: verifying APP_STORE_CONNECT_API_KEY_P8 secret fix
+# Trigger build 30 at the user's request to re-test TestFlight group assignment
 
 on:
   push:
