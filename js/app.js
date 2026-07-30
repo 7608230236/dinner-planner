@@ -1940,7 +1940,14 @@ async function ensureSocialLoginInitialized(){
   const plugin=window.Capacitor?.Plugins?.SocialLogin;
   if(!plugin)return null;
   if(!socialLoginInitialized){
-    await plugin.initialize({apple:{clientId:"com.dinnermadeeasy.app"}});
+    await plugin.initialize({
+      apple:{clientId:"com.dinnermadeeasy.app"},
+      google:{
+        webClientId:"523517537145-epln9fprdg80demjgoqt78p8p30hjg25.apps.googleusercontent.com",
+        iOSClientId:"523517537145-mi9gc1u7qncsoc6681gb28rok2oikeg7.apps.googleusercontent.com",
+        iOSServerClientId:"523517537145-epln9fprdg80demjgoqt78p8p30hjg25.apps.googleusercontent.com"
+      }
+    });
     socialLoginInitialized=true;
   }
   return plugin;
@@ -1979,11 +1986,20 @@ $("appleSignInBtn").onclick=async()=>{
 };
 
 $("googleSignInBtn").onclick=async()=>{
-  // Sign in with Google needs a Google Cloud OAuth client set up first,
-  // separate from Sign in with Apple - shows a clear message instead of
-  // silently failing until that's configured.
   $("communityStatus").className="notice";
-  $("communityStatus").textContent="Sign in with Google is being set up - use Sign in with Apple for now.";
+  $("communityStatus").textContent="Opening Sign in with Google…";
+  try{
+    const plugin=await ensureSocialLoginInitialized();
+    if(!plugin)throw new Error("Sign-in is only available in the app, not this web preview.");
+    const res=await plugin.login({provider:"google",options:{scopes:["email","profile"]}});
+    const idToken=res?.result?.idToken;
+    if(!idToken)throw new Error("Google did not return a sign-in token.");
+    const name=res?.result?.profile?.name||"";
+    await completeCommunitySignIn("google",idToken,name);
+  }catch(error){
+    $("communityStatus").className="notice error";
+    $("communityStatus").textContent=error?.message||"Sign in with Google failed.";
+  }
 };
 
 $("communitySignOutBtn").onclick=()=>{
