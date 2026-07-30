@@ -25,6 +25,7 @@
       <button type="button" class="nav-link" data-showview="week">Recipes</button>
       <button type="button" class="nav-link" data-showview="pantry">Pantry <span class="nav-badge">NEW</span></button>
       <button type="button" class="nav-link" data-showview="shopping">Shopping Lists</button>
+      <button type="button" class="nav-link" data-showview="community">Community</button>
       <button type="button" class="nav-link" data-showview="stores">Stores</button>
       <button type="button" class="nav-link" data-showview="home">Jewish Calendar</button>
       <button type="button" class="nav-link" data-showview="household">Family Account</button>
@@ -53,6 +54,7 @@
         <button type="button" class="nav-link" data-showview="week">Recipes</button>
         <button type="button" class="nav-link" data-showview="pantry">Pantry</button>
         <button type="button" class="nav-link" data-showview="shopping">Shopping Lists</button>
+      <button type="button" class="nav-link" data-showview="community">Community</button>
         <button type="button" class="nav-link" data-showview="stores">Stores</button>
         <button type="button" class="nav-link" data-showview="home">Jewish Calendar</button>
         <button type="button" class="nav-link" data-showview="household">Family Account</button>
@@ -306,6 +308,44 @@
         </div>
         <div class="tiny">Choose both weeks if you want to shop early.</div>
         <div id="shoppingList"></div>
+      </section>
+
+      <section class="card" id="community">
+        <h2 class="section-title">Community recipes</h2>
+        <p class="muted">Recipes shared by other families using this app. Anyone can browse - sharing your own or adding a comment needs a quick sign-in.</p>
+        <div class="notice" style="margin-top:10px">Every recipe here is automatically checked and relabeled to Chabad kosher standards before it's shown - no fish, shellfish, pork, tofu, turkey, or meat/dairy mixing, and all dairy is marked Cholov Yisroel - regardless of what the person who shared it personally keeps.</div>
+
+        <div id="communitySignedOut">
+          <div class="row" style="margin-top:14px;gap:10px">
+            <button class="btn secondary" id="appleSignInBtn" type="button">🍎 Sign in with Apple</button>
+            <button class="btn secondary" id="googleSignInBtn" type="button">Sign in with Google</button>
+          </div>
+          <div class="tiny" style="margin-top:6px">Only needed to share a recipe, video, or comment - browsing is always open.</div>
+        </div>
+
+        <div id="communitySignedIn" class="hidden">
+          <div class="row" style="justify-content:space-between;align-items:center;margin-top:10px">
+            <div class="tiny">Signed in as <b id="communityUserName"></b></div>
+            <button class="btn small secondary" id="communitySignOutBtn" type="button">Sign out</button>
+          </div>
+          <button class="btn full" id="shareRecipeBtn" type="button" style="margin-top:10px">Share a recipe</button>
+        </div>
+
+        <div id="communityStatus" class="notice" aria-live="polite">Loading community recipes…</div>
+
+        <div id="shareRecipeForm" class="hidden" style="margin-top:14px">
+          <input id="communityTitle" class="text-input" placeholder="Recipe title">
+          <div id="communityIngredients" style="margin-top:8px"></div>
+          <button class="btn small secondary" id="addCommunityIngredientBtn" type="button" style="margin-top:6px">+ Add ingredient</button>
+          <div id="communitySteps" style="margin-top:12px"></div>
+          <button class="btn small secondary" id="addCommunityStepBtn" type="button" style="margin-top:6px">+ Add step</button>
+          <div class="scan-actions" style="margin-top:14px">
+            <button class="btn full" id="submitCommunityRecipeBtn" type="button">Submit for review</button>
+            <button class="btn secondary small" id="cancelCommunityRecipeBtn" type="button">Cancel</button>
+          </div>
+        </div>
+
+        <div id="communityRecipeList" style="margin-top:14px"></div>
       </section>
 
       <section class="card developer-panel hidden" id="developerPanel" aria-labelledby="developerTitle">

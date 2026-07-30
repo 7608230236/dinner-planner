@@ -479,6 +479,7 @@ const VIEW_SECTIONS={
   week:["week","nextWeek"],
   pantry:["pantry","receiptScan"],
   shopping:["shopping"],
+  community:["community"],
   stores:["stores"],
   household:["household"],
   prefs:["prefs","weekSettings"]
@@ -1911,6 +1912,197 @@ $("cancelReceiptBtn").onclick=()=>{
   $("receiptStatus").textContent="Add a receipt photo to get started.";
 };
 
+// ===== Community recipes =====
+let communitySession=null;
+let communityDraft=null;
+
+function loadCommunitySession(){
+  try{
+    const raw=localStorage.getItem("communitySession");
+    if(raw)communitySession=JSON.parse(raw);
+  }catch{communitySession=null}
+}
+function saveCommunitySession(){
+  try{
+    if(communitySession)localStorage.setItem("communitySession",JSON.stringify(communitySession));
+    else localStorage.removeItem("communitySession");
+  }catch{}
+}
+function renderCommunitySignInState(){
+  const signedIn=Boolean(communitySession?.sessionToken);
+  $("communitySignedOut")?.classList.toggle("hidden",signedIn);
+  $("communitySignedIn")?.classList.toggle("hidden",!signedIn);
+  if(signedIn&&$("communityUserName"))$("communityUserName").textContent=communitySession.user?.name||"you";
+}
+
+let socialLoginInitialized=false;
+async function ensureSocialLoginInitialized(){
+  const plugin=window.Capacitor?.Plugins?.SocialLogin;
+  if(!plugin)return null;
+  if(!socialLoginInitialized){
+    await plugin.initialize({apple:{clientId:"com.dinnermadeeasy.app"}});
+    socialLoginInitialized=true;
+  }
+  return plugin;
+}
+
+async function completeCommunitySignIn(provider,idToken,name){
+  const response=await fetch(`${API_ORIGIN}/.netlify/functions/auth-verify`,{
+    method:"POST",
+    headers:{"Content-Type":"application/json"},
+    body:JSON.stringify({provider,idToken,name})
+  });
+  const data=await response.json().catch(()=>({}));
+  if(!response.ok)throw new Error(data.error||"Sign-in failed.");
+  communitySession={sessionToken:data.sessionToken,user:data.user};
+  saveCommunitySession();
+  renderCommunitySignInState();
+  $("communityStatus").className="notice success";
+  $("communityStatus").textContent=`Signed in as ${data.user.name}.`;
+}
+
+$("appleSignInBtn").onclick=async()=>{
+  $("communityStatus").className="notice";
+  $("communityStatus").textContent="Opening Sign in with Apple…";
+  try{
+    const plugin=await ensureSocialLoginInitialized();
+    if(!plugin)throw new Error("Sign-in is only available in the app, not this web preview.");
+    const res=await plugin.login({provider:"apple",options:{scopes:["email","name"]}});
+    const idToken=res?.result?.idToken;
+    if(!idToken)throw new Error("Apple did not return a sign-in token.");
+    const name=[res?.result?.profile?.givenName,res?.result?.profile?.familyName].filter(Boolean).join(" ");
+    await completeCommunitySignIn("apple",idToken,name);
+  }catch(error){
+    $("communityStatus").className="notice error";
+    $("communityStatus").textContent=error?.message||"Sign in with Apple failed.";
+  }
+};
+
+$("googleSignInBtn").onclick=async()=>{
+  // Sign in with Google needs a Google Cloud OAuth client set up first,
+  // separate from Sign in with Apple - shows a clear message instead of
+  // silently failing until that's configured.
+  $("communityStatus").className="notice";
+  $("communityStatus").textContent="Sign in with Google is being set up - use Sign in with Apple for now.";
+};
+
+$("communitySignOutBtn").onclick=()=>{
+  communitySession=null;
+  saveCommunitySession();
+  renderCommunitySignInState();
+  $("shareRecipeForm").classList.add("hidden");
+};
+
+async function loadCommunityRecipes(){
+  $("communityStatus").className="notice";
+  $("communityStatus").textContent="Loading community recipes…";
+  try{
+    const response=await fetch(`${API_ORIGIN}/.netlify/functions/community-recipes`);
+    const data=await response.json().catch(()=>({}));
+    if(!response.ok)throw new Error(data.error||"Could not load community recipes.");
+    const recipes=data.recipes||[];
+    renderCommunityRecipes(recipes);
+    $("communityStatus").className="notice";
+    $("communityStatus").textContent=recipes.length?`${recipes.length} recipe${recipes.length===1?"":"s"} shared by the community.`:"No community recipes yet — be the first to share one!";
+  }catch(error){
+    $("communityStatus").className="notice error";
+    $("communityStatus").textContent=error?.message||"Could not load community recipes.";
+  }
+}
+
+function renderCommunityRecipes(recipes){
+  const list=$("communityRecipeList");
+  if(!list)return;
+  list.innerHTML=recipes.map(r=>`
+    <div class="meal-card" style="grid-template-columns:1fr">
+      <div>
+        <div class="meal-title">${esc(r.title)}</div>
+        <div class="meal-meta">${kindLabel(r.kind)} · Shared by ${esc(r.submittedByName||"a community cook")}</div>
+        ${r.kashrutNotes?`<div class="tiny" style="margin-top:6px">${esc(r.kashrutNotes)}</div>`:""}
+        <details style="margin-top:8px">
+          <summary>View recipe</summary>
+          <div style="margin-top:8px">
+            ${(r.ingredients||[]).map(i=>`<div>• ${esc(i.name)}${i.amount?` <span class="qty">— ${esc(i.amount)}</span>`:""}</div>`).join("")}
+          </div>
+          <ol style="margin-top:8px;padding-left:18px">
+            ${(r.steps||[]).map(s=>`<li>${esc(s)}</li>`).join("")}
+          </ol>
+        </details>
+      </div>
+    </div>`).join("")||'<div class="notice">No community recipes yet.</div>';
+}
+
+$("shareRecipeBtn").onclick=()=>{
+  communityDraft={ingredients:[{name:"",amount:""}],steps:[""]};
+  renderCommunityDraft();
+  $("communityTitle").value="";
+  $("shareRecipeForm").classList.remove("hidden");
+};
+
+$("cancelCommunityRecipeBtn").onclick=()=>{
+  communityDraft=null;
+  $("shareRecipeForm").classList.add("hidden");
+};
+
+$("addCommunityIngredientBtn").onclick=()=>{
+  communityDraft.ingredients.push({name:"",amount:""});
+  renderCommunityDraft();
+};
+$("addCommunityStepBtn").onclick=()=>{
+  communityDraft.steps.push("");
+  renderCommunityDraft();
+};
+
+function renderCommunityDraft(){
+  $("communityIngredients").innerHTML=communityDraft.ingredients.map((ing,i)=>`
+    <div class="row" style="gap:6px;margin-top:6px">
+      <input type="text" class="text-input" data-ing-name="${i}" placeholder="Ingredient" value="${esc(ing.name)}" style="flex:2">
+      <input type="text" class="text-input" data-ing-amount="${i}" placeholder="Amount" value="${esc(ing.amount)}" style="flex:1">
+    </div>`).join("");
+  $("communitySteps").innerHTML=communityDraft.steps.map((step,i)=>`
+    <div style="margin-top:6px">
+      <textarea class="text-input" data-step="${i}" placeholder="Step ${i+1}" rows="2">${esc(step)}</textarea>
+    </div>`).join("");
+  document.querySelectorAll("[data-ing-name]").forEach(el=>{el.onchange=()=>{communityDraft.ingredients[Number(el.dataset.ingName)].name=el.value}});
+  document.querySelectorAll("[data-ing-amount]").forEach(el=>{el.onchange=()=>{communityDraft.ingredients[Number(el.dataset.ingAmount)].amount=el.value}});
+  document.querySelectorAll("[data-step]").forEach(el=>{el.onchange=()=>{communityDraft.steps[Number(el.dataset.step)]=el.value}});
+}
+
+$("submitCommunityRecipeBtn").onclick=async()=>{
+  if(!communitySession?.sessionToken){
+    $("communityStatus").className="notice error";
+    $("communityStatus").textContent="Please sign in first.";
+    return;
+  }
+  const title=$("communityTitle").value.trim();
+  const ingredients=(communityDraft?.ingredients||[]).filter(i=>i.name.trim());
+  const steps=(communityDraft?.steps||[]).map(s=>s.trim()).filter(Boolean);
+  if(!title||!ingredients.length||!steps.length){
+    $("communityStatus").className="notice error";
+    $("communityStatus").textContent="Please add a title, at least one ingredient, and at least one step.";
+    return;
+  }
+  $("communityStatus").className="notice";
+  $("communityStatus").textContent="Checking your recipe against kosher standards…";
+  try{
+    const response=await fetch(`${API_ORIGIN}/.netlify/functions/community-recipes`,{
+      method:"POST",
+      headers:{"Content-Type":"application/json"},
+      body:JSON.stringify({sessionToken:communitySession.sessionToken,title,ingredients,steps})
+    });
+    const data=await response.json().catch(()=>({}));
+    if(!response.ok)throw new Error(data.error||"Could not publish this recipe.");
+    $("shareRecipeForm").classList.add("hidden");
+    communityDraft=null;
+    $("communityStatus").className="notice success";
+    $("communityStatus").textContent="Recipe shared! It's now visible to the community.";
+    loadCommunityRecipes();
+  }catch(error){
+    $("communityStatus").className="notice error";
+    $("communityStatus").textContent=error?.message||"Could not publish this recipe.";
+  }
+};
+
 function inventoryMatchesIngredient(name){
   const target=canonicalIngredient(name);
   if(!target)return false;
@@ -2394,6 +2586,9 @@ buildShoppingForWeek("next");
 save("state",state);
 renderShopping();
 renderHouseholdSection();
+loadCommunitySession();
+renderCommunitySignInState();
+loadCommunityRecipes();
 showView("home");
 if(householdCode){
   pullHouseholdState();

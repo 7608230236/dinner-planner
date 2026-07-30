@@ -61,7 +61,10 @@ function createRuntime(){
     'leaveHouseholdBtn','copyHouseholdCodeBtn','shareHouseholdCodeBtn','deviceNameInput',
     'receiptPhotoInput','receiptStatus','receiptReviewArea','receiptReviewList','addReceiptItemsBtn','cancelReceiptBtn',
     'home','week','nextWeek','pantry','receiptScan','shopping','stores','prefs','weekSettings',
-    'mobileMenuBtn','mobileNavCloseBtn','mobileNavOverlay'
+    'mobileMenuBtn','mobileNavCloseBtn','mobileNavOverlay',
+    'community','communitySignedOut','communitySignedIn','appleSignInBtn','googleSignInBtn','communityUserName','communitySignOutBtn',
+    'shareRecipeBtn','communityStatus','shareRecipeForm','communityTitle','communityIngredients','addCommunityIngredientBtn',
+    'communitySteps','addCommunityStepBtn','submitCommunityRecipeBtn','cancelCommunityRecipeBtn','communityRecipeList'
   ])];
   const elements=new Map(ids.map(id=>[id,new FakeElement(id)]));
   elements.get('photoLocation').value='Pantry';
