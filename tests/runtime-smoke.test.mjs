@@ -670,3 +670,22 @@ test('offering to delete just-scanned photos removes only those photos (keeping 
   assert.equal(after.have.length,1,'the pantry item should NOT be removed - its data was already extracted');
   assert.equal(after.have[0].thumbnail,'data:already-saved-crop','the item keeps its own standalone thumbnail after the source photo is gone');
 });
+
+test('pantry suggestions show real variety instead of several near-identical variants of the same dish (the actual bug: a scan showing 5 slightly different "Loaded Baked Potatoes" versions crowded out every other suggestion, since near-identical variants naturally score almost the same)', async () => {
+  const {context,elements}=await boot();
+  const api=context.window.__dinnerPlannerTest;
+  const state=api.getState();
+  state.have=[
+    {id:'i1',item:'potatoes',qty:5,unit:'lb',confidence:'user',observations:[]},
+    {id:'i2',item:'cheddar cheese',qty:1,unit:'bag',confidence:'user',observations:[]},
+    {id:'i3',item:'rice',qty:2,unit:'cup',confidence:'user',observations:[]}
+  ];
+  api.setState(state);
+  context.window.renderHave();
+
+  const html=elements.get('pantrySuggestions').innerHTML;
+  const ids=[...html.matchAll(/data-pantry-recipe="([^"]+)"/g)].map(m=>m[1]);
+  assert.ok(ids.length>0,'should show at least one suggestion');
+  const families=ids.map(id=>api.recipeFamily(api.getRecipe(id)));
+  assert.equal(new Set(families).size,families.length,`expected every suggestion to be from a different family, got: ${families.join(', ')}`);
+});

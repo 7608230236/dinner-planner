@@ -2132,12 +2132,28 @@ function inventoryMatchesIngredient(name){
 function renderPantrySuggestions(){
   const box=$("pantrySuggestions");
   if(!state.have.length){box.innerHTML='<div class="notice">Add or scan ingredients to see recipe ideas.</div>';return}
-  const suggestions=RECIPES.filter(recipeAllowed).map(r=>{
+  const scored=RECIPES.filter(recipeAllowed).map(r=>{
     const ingredients=r.ingredients.map(([name])=>name).filter(name=>name && !/optional|oil spray|olive oil/i.test(name));
     const matched=ingredients.filter(inventoryMatchesIngredient).length;
     const missing=Math.max(0,ingredients.length-matched);
     return {r,matched,missing,total:ingredients.length,score:matched*4-missing};
-  }).filter(x=>x.matched>0).sort((a,b)=>b.score-a.score||a.missing-b.missing).slice(0,5);
+  }).filter(x=>x.matched>0).sort((a,b)=>b.score-a.score||a.missing-b.missing);
+
+  // Keep only the single best-scoring recipe per family, so near-identical
+  // variants of the same dish (e.g. several "Loaded Baked Potatoes" add-in
+  // versions) can't crowd out real variety in the suggestion list - the
+  // actual bug: because variants share almost the same ingredients, they
+  // score almost identically and can otherwise sweep the whole top 5.
+  const seenFamilies=new Set();
+  const suggestions=[];
+  for(const item of scored){
+    const family=recipeFamily(item.r);
+    if(seenFamilies.has(family))continue;
+    seenFamilies.add(family);
+    suggestions.push(item);
+    if(suggestions.length>=5)break;
+  }
+
   box.innerHTML=suggestions.length?suggestions.map(x=>`
     <div class="suggestion-card">
       <div><b>${esc(x.r.title)}</b><div class="tiny">You have ${x.matched} of ${x.total} main ingredients · buy about ${x.missing}</div></div>
