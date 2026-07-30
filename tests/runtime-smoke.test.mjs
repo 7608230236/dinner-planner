@@ -639,3 +639,31 @@ test('showView shows only the sections for the requested page and hides everythi
   api.showView('shopping');
   assert.equal(elements.get('mobileNavOverlay').classList.contains('hidden'),true,'navigating should close the mobile menu');
 });
+
+test('offering to delete just-scanned photos removes only those photos (keeping their already-extracted pantry items intact) when accepted, and removes nothing when declined - this keeps the photo list from growing indefinitely once items are safely saved', async () => {
+  const {context}=await boot();
+  const api=context.window.__dinnerPlannerTest;
+  const state=api.getState();
+  state.pantryPhotos=[
+    {id:'photo-a',location:'Fridge',status:'scanned'},
+    {id:'photo-b',location:'Pantry',status:'scanned'}
+  ];
+  state.have=[{id:'item-1',item:'milk',qty:1,unit:'gallon',confidence:'medium',sourcePhotoIds:['photo-a'],sourceLocations:['Fridge'],observations:[],thumbnail:'data:already-saved-crop'}];
+  api.setState(state);
+
+  // Decline: nothing should change.
+  context.window.confirm=()=>false;
+  const declined=api.offerToDeleteScannedPhotos(['photo-a','photo-b']);
+  assert.equal(declined,false);
+  assert.equal(api.getState().pantryPhotos.length,2,'declining should keep both photos');
+
+  // Accept: only the listed photos should be removed, the pantry item (with its own standalone thumbnail) stays.
+  context.window.confirm=()=>true;
+  const accepted=api.offerToDeleteScannedPhotos(['photo-a']);
+  assert.equal(accepted,true);
+  const after=api.getState();
+  assert.equal(after.pantryPhotos.length,1,'only the specified photo should be removed');
+  assert.equal(after.pantryPhotos[0].id,'photo-b');
+  assert.equal(after.have.length,1,'the pantry item should NOT be removed - its data was already extracted');
+  assert.equal(after.have[0].thumbnail,'data:already-saved-crop','the item keeps its own standalone thumbnail after the source photo is gone');
+});

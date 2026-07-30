@@ -1759,6 +1759,21 @@ async function analyzePictures(){
   button.disabled=false;
   renderHave();
   renderShopping();
+
+  // The photos themselves are no longer needed once their items are
+  // safely in the pantry (each item's thumbnail is already a standalone
+  // saved crop, not a live reference to the photo) - offer to clear them
+  // out in one prompt rather than letting the photo list grow indefinitely.
+  offerToDeleteScannedPhotos(pending.filter(p=>p.status==="scanned").map(p=>p.id));
+}
+
+function offerToDeleteScannedPhotos(justScannedIds){
+  if(!justScannedIds.length)return false;
+  if(!confirm(`${justScannedIds.length} photo${justScannedIds.length===1?"":"s"} scanned and saved to your pantry. Delete the photo${justScannedIds.length===1?"":"s"} now to keep things tidy?`))return false;
+  state.pantryPhotos=(state.pantryPhotos||[]).filter(p=>!justScannedIds.includes(p.id));
+  save("state",state);
+  renderHave();
+  return true;
 }
 
 $("receiptPhotoInput").addEventListener("change",async event=>{
@@ -2418,5 +2433,6 @@ window.__dinnerPlannerTest={
   buildSyncPayload,
   getHouseholdCode:()=>householdCode,
   downloadJson,
-  showView
+  showView,
+  offerToDeleteScannedPhotos
 };
