@@ -1244,7 +1244,12 @@ function pantryPhotoById(id){
   return (state.pantryPhotos||[]).find(p=>p.id===id);
 }
 
-function categoryEmoji(category){
+function categoryEmoji(category,unit){
+  // Container shape first, since it's often more visually recognizable
+  // than the food category alone (a bottle of ketchup vs. a jar of jam
+  // both being "condiment" looked the same before).
+  const byUnit={bottle:"🧴",jar:"🫙",can:"🥫",box:"📦",bag:"🛍️",loaf:"🍞",bunch:"🌿",clove:"🧄",bulb:"🧅"};
+  if(unit&&byUnit[unit])return byUnit[unit];
   return ({produce:"🥬",meat:"🥩",dairy:"🥛",frozen:"❄️","dry goods":"🥫",canned:"🥫",condiment:"🧂",other:"🍽️"})[category]||"🍽️";
 }
 
@@ -1446,7 +1451,7 @@ function renderInventory(){
     const image=item.thumbnail || (source&&source.image) || "";
     const confidenceText=confidence==="user"?"Confirmed by you":confidence==="high"?"High confidence":"Needs review";
     return `<div class="inventory-card">
-      ${image?`<img src="${image}" alt="${item.thumbnail?"Detected item":"Source photo"} for ${esc(item.item)}">`:`<div class="inventory-fallback">${categoryEmoji(item.category)}</div>`}
+      ${image?`<img src="${image}" alt="${item.thumbnail?"Detected item":"Source photo"} for ${esc(item.item)}">`:`<div class="inventory-fallback">${categoryEmoji(item.category,item.unit)}</div>`}
       <div class="inventory-body">
         <div class="inventory-name">${esc(item.item)}</div>
         <div class="inventory-qty">${esc(formatQty(item))}</div>
