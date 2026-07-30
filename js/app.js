@@ -466,6 +466,38 @@ function renderCalendar(base=new Date()){
 
 function esc(s){return String(s??"").replace(/[&<>"']/g,m=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[m]))}
 function scrollToSection(id){$(id)?.scrollIntoView({behavior:"smooth",block:"start"})}
+
+// Every nav link points at one of these views. Sections that live under the
+// same nav item (e.g. this week + next week, or preferences + weekly
+// settings) are grouped together so they show/hide as one unit. This is
+// the actual fix for the app feeling impossible to use once the pantry
+// grew large: previously every section sat on one continuously scrolling
+// page, so a big pantry (photos + inventory + receipt scanner) dragged the
+// whole app down with it. Now only the active view's sections are visible.
+const VIEW_SECTIONS={
+  home:["home"],
+  week:["week","nextWeek"],
+  pantry:["pantry","receiptScan"],
+  shopping:["shopping"],
+  stores:["stores"],
+  household:["household"],
+  prefs:["prefs","weekSettings"]
+};
+function showView(view){
+  if(!VIEW_SECTIONS[view])view="home";
+  for(const [key,ids] of Object.entries(VIEW_SECTIONS)){
+    for(const id of ids){
+      const el=$(id);
+      if(el)el.classList.toggle("hidden",key!==view);
+    }
+  }
+  closeMobileNav();
+  if(typeof window!=="undefined"&&window.scrollTo)window.scrollTo({top:0,behavior:"instant"});
+  state.activeView=view;
+}
+function openMobileNav(){$("mobileNavOverlay")?.classList.remove("hidden")}
+function closeMobileNav(){$("mobileNavOverlay")?.classList.add("hidden")}
+
 function renderChips(container, items, selected, onClick){
   $(container).innerHTML=items.map(x=>`<button type="button" class="chip ${selected.includes(x)?'on':''}" data-chip="${esc(x)}">${esc(x)}</button>`).join("");
   $(container).querySelectorAll("[data-chip]").forEach(b=>b.onclick=()=>onClick(b.dataset.chip));
@@ -969,7 +1001,7 @@ function addMissing(id,weekKey="this"){
   save("state",state);
   renderShopping();
   $("recipeDialog").close();
-  scrollToSection("shopping");
+  showView("shopping");
 }
 
 function buildShoppingForWeek(weekKey){
@@ -1060,7 +1092,7 @@ function renderShopping(){
           </label>
           <div class="row">
             <button type="button" class="btn small secondary" data-copy="${esc(i.name)}">Copy item</button>
-            ${url?`<a class="btn small ghost" href="${esc(url)}" target="_blank" rel="noopener">Open store</a>`:`<button type="button" class="btn small ghost" onclick="scrollToSection('stores')">Choose store</button>`}
+            ${url?`<a class="btn small ghost" href="${esc(url)}" target="_blank" rel="noopener">Open store</a>`:`<button type="button" class="btn small ghost" onclick="showView('stores')">Choose store</button>`}
           </div>
         </div>`).join("")}
     </div>`;
@@ -1824,17 +1856,21 @@ $("addReceiptItemsBtn").onclick=()=>{
       label:item.name,
       qty:item.qty,
       unit:item.unit||"unknown",
-      confidence:item.confidence||"medium",
+      // The receipt review screen (checking the box, editing the name/qty)
+      // IS the user confirming this item - it should not also need
+      // re-confirming in the main pantry list, unlike a fresh photo scan
+      // the user hasn't looked at yet.
+      confidence:"user",
       category:item.category||"other",
       perishable:Boolean(item.expiresOn),
       expiresOn:item.expiresOn||null,
       sourcePhotoIds:[],
       sourceLocations:["Receipt"],
-      reviewed:false,
+      reviewed:true,
       thumbnail:"",
       evidence:item.rawText||"",
       quantityBasis:"label",
-      observations:[{location:"Receipt",qty:item.qty,unit:item.unit||"unknown",confidence:item.confidence||"medium",evidence:item.rawText||"",quantityBasis:"label",bbox:null}]
+      observations:[{location:"Receipt",qty:item.qty,unit:item.unit||"unknown",confidence:"user",evidence:item.rawText||"",quantityBasis:"label",bbox:null}]
     });
     if(result==="added")added++; else updated++;
   }
@@ -2110,7 +2146,7 @@ $("plusPortions").onclick=()=>{
   renderShopping();
 };
 
-$("savePrefsBtn").onclick=()=>{save("state",state);scrollToSection("weekSettings")};
+$("savePrefsBtn").onclick=()=>{save("state",state);showView("prefs")};
 $("createHouseholdBtn")?.addEventListener("click",()=>{createHousehold()});
 $("joinHouseholdBtn")?.addEventListener("click",()=>{joinHousehold($("joinHouseholdCode").value)});
 $("leaveHouseholdBtn")?.addEventListener("click",()=>{leaveHousehold()});
@@ -2152,7 +2188,7 @@ function runBuild(weekKey="this",replaceUnlocked=false){
       throw new Error("The weekly plan was incomplete.");
     }
     status.textContent=weekKey==="next"?"Next week is ready.":"Your week is ready.";
-    requestAnimationFrame(()=>scrollToSection(weekKey==="next"?"nextWeek":"week"));
+    requestAnimationFrame(()=>showView("week"));
   }catch(error){
     console.error(error);
     state[planProp(weekKey)]=[];
@@ -2174,7 +2210,16 @@ $("buildNextWeekBtn").onclick=()=>runBuild("next",false);
 $("lockNextWeekBtn").onclick=()=>lockAllForWeek("next");
 $("replaceNextUnlockedBtn").onclick=()=>runBuild("next",true);
 $("buildNextWeekBtnHome").onclick=()=>runBuild("next",false);
-$("usePantryBtn").onclick=()=>scrollToSection("pantry");
+$("usePantryBtn").onclick=()=>showView("pantry");
+
+$("mobileMenuBtn")?.addEventListener("click",openMobileNav);
+$("mobileNavCloseBtn")?.addEventListener("click",closeMobileNav);
+$("mobileNavOverlay")?.addEventListener("click",event=>{
+  if(event.target===$("mobileNavOverlay"))closeMobileNav();
+});
+document.querySelectorAll("[data-showview]").forEach(btn=>{
+  btn.addEventListener("click",()=>showView(btn.dataset.showview));
+});
 $("addCustomExcludeBtn").onclick=addCustomExclude;
 $("addTypedBtn").onclick=()=>$("typedBox").classList.toggle("hidden");
 $("saveTypedBtn").onclick=addTyped;
@@ -2329,6 +2374,7 @@ buildShoppingForWeek("next");
 save("state",state);
 renderShopping();
 renderHouseholdSection();
+showView("home");
 if(householdCode){
   pullHouseholdState();
   startHouseholdPolling();
@@ -2371,5 +2417,6 @@ window.__dinnerPlannerTest={
   pullHouseholdState,
   buildSyncPayload,
   getHouseholdCode:()=>householdCode,
-  downloadJson
+  downloadJson,
+  showView
 };

@@ -56,6 +56,12 @@ body{padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset
 .nav-link:hover{background:var(--soft)}
 .nav-badge{background:var(--green2);color:var(--green);font-size:.65rem;font-weight:900;border-radius:999px;padding:2px 7px;letter-spacing:.02em}
 .sidebar-footer{margin-top:auto;padding-top:18px}
+.mobile-nav-overlay{position:fixed;inset:0;background:rgba(20,25,22,.4);z-index:50;display:flex;justify-content:flex-end}
+.mobile-nav-overlay.hidden{display:none!important}
+.mobile-nav-panel{width:min(300px,84vw);height:100%;background:var(--paper);box-shadow:-16px 0 44px rgba(35,45,35,.18);padding:20px 16px;overflow-y:auto;display:flex;flex-direction:column}
+.mobile-nav-head{display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:14px}
+.mobile-nav-close{border:1px solid var(--line);background:var(--soft);border-radius:14px;width:36px;height:36px;font-size:1rem;line-height:1}
+@media(min-width:960px){.mobile-nav-overlay{display:none!important}}
 .sidebar-card{background:var(--soft);border:1px solid var(--line);border-radius:18px;padding:14px;font-size:.85rem;color:var(--muted);line-height:1.5}
 
 /* Hero two-column layout */

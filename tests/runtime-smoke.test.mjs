@@ -59,7 +59,9 @@ function createRuntime(){
     'developerStatus','reportBugBtn','runValidationBtn','copyDebugBtn','downloadDebugBtn','clearCacheBtn','unregisterWorkerBtn','clearLogsBtn','closeDeveloperBtn',
     'household','householdSetup','householdActive','householdStatus','householdCodeDisplay','createHouseholdBtn','joinHouseholdBtn','joinHouseholdCode',
     'leaveHouseholdBtn','copyHouseholdCodeBtn','shareHouseholdCodeBtn','deviceNameInput',
-    'receiptPhotoInput','receiptStatus','receiptReviewArea','receiptReviewList','addReceiptItemsBtn','cancelReceiptBtn'
+    'receiptPhotoInput','receiptStatus','receiptReviewArea','receiptReviewList','addReceiptItemsBtn','cancelReceiptBtn',
+    'home','week','nextWeek','pantry','receiptScan','shopping','stores','prefs','weekSettings',
+    'mobileMenuBtn','mobileNavCloseBtn','mobileNavOverlay'
   ])];
   const elements=new Map(ids.map(id=>[id,new FakeElement(id)]));
   elements.get('photoLocation').value='Pantry';
@@ -612,4 +614,28 @@ test('downloadJson tries the native Share Sheet first (the actual bug: a plain B
   context.window.navigator.share=undefined;
   const downloaded=await api.downloadJson('report.json',{hello:'world'});
   assert.equal(downloaded,'downloaded');
+});
+
+test('showView shows only the sections for the requested page and hides everything else (the actual bug: the sidebar/menu looked like real page navigation but was only scroll-to-anchor, so a large pantry section - photos, inventory, receipt scanner - dragged the whole single continuously-scrolling app down with it)', async () => {
+  const {context,elements}=await boot();
+  const api=context.window.__dinnerPlannerTest;
+
+  api.showView('pantry');
+  assert.equal(elements.get('pantry').classList.contains('hidden'),false,'pantry should be visible on the pantry view');
+  assert.equal(elements.get('receiptScan').classList.contains('hidden'),false,'receiptScan is grouped with pantry and should also be visible');
+  assert.equal(elements.get('week').classList.contains('hidden'),true,'other views should be hidden');
+  assert.equal(elements.get('shopping').classList.contains('hidden'),true,'other views should be hidden');
+  assert.equal(elements.get('home').classList.contains('hidden'),true,'other views should be hidden');
+
+  api.showView('week');
+  assert.equal(elements.get('week').classList.contains('hidden'),false,'week should be visible on the week view');
+  assert.equal(elements.get('nextWeek').classList.contains('hidden'),false,'nextWeek is grouped with week and should also be visible');
+  assert.equal(elements.get('pantry').classList.contains('hidden'),true,'switching views should hide the previous one');
+
+  // Switching views should also close the mobile menu, since the sidebar
+  // is desktop-only and the hamburger menu is the only way to navigate on
+  // the phone the user is actually using.
+  elements.get('mobileNavOverlay').classList.remove('hidden');
+  api.showView('shopping');
+  assert.equal(elements.get('mobileNavOverlay').classList.contains('hidden'),true,'navigating should close the mobile menu');
 });

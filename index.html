@@ -20,15 +20,15 @@
       <span class="brand-text">Dinner<br>made easy.</span>
     </div>
     <nav class="sidebar-nav" aria-label="Main">
-      <button type="button" class="nav-link" onclick="scrollToSection('home')">Home</button>
-      <button type="button" class="nav-link" onclick="scrollToSection('week')">Weekly Plan</button>
-      <button type="button" class="nav-link" onclick="scrollToSection('week')">Recipes</button>
-      <button type="button" class="nav-link" onclick="scrollToSection('pantry')">Pantry <span class="nav-badge">NEW</span></button>
-      <button type="button" class="nav-link" onclick="scrollToSection('shopping')">Shopping Lists</button>
-      <button type="button" class="nav-link" onclick="scrollToSection('stores')">Stores</button>
-      <button type="button" class="nav-link" onclick="scrollToSection('home')">Jewish Calendar</button>
-      <button type="button" class="nav-link" onclick="scrollToSection('household')">Family Account</button>
-      <button type="button" class="nav-link" onclick="scrollToSection('prefs')">Settings</button>
+      <button type="button" class="nav-link" data-showview="home">Home</button>
+      <button type="button" class="nav-link" data-showview="week">Weekly Plan</button>
+      <button type="button" class="nav-link" data-showview="week">Recipes</button>
+      <button type="button" class="nav-link" data-showview="pantry">Pantry <span class="nav-badge">NEW</span></button>
+      <button type="button" class="nav-link" data-showview="shopping">Shopping Lists</button>
+      <button type="button" class="nav-link" data-showview="stores">Stores</button>
+      <button type="button" class="nav-link" data-showview="home">Jewish Calendar</button>
+      <button type="button" class="nav-link" data-showview="household">Family Account</button>
+      <button type="button" class="nav-link" data-showview="prefs">Settings</button>
     </nav>
     <div class="sidebar-footer">
       <div class="sidebar-card">Free. Private. No ads.<br>Made for families like yours. <span aria-hidden="true">💚</span></div>
@@ -38,7 +38,27 @@
   <div class="wrap">
   <div class="top">
     <div class="brand">Dinner Made Easy <button type="button" class="version-pill" id="versionBadge" aria-label="App version 60">v60</button></div>
-    <button class="menu" type="button" onclick="scrollToSection('prefs')" aria-label="Open preferences">☰</button>
+    <button class="menu" type="button" id="mobileMenuBtn" aria-label="Open menu">☰</button>
+  </div>
+
+  <div class="mobile-nav-overlay hidden" id="mobileNavOverlay">
+    <div class="mobile-nav-panel">
+      <div class="mobile-nav-head">
+        <span class="sidebar-brand"><span class="brand-mark" aria-hidden="true">🍲</span><span class="brand-text">Dinner<br>made easy.</span></span>
+        <button type="button" class="mobile-nav-close" id="mobileNavCloseBtn" aria-label="Close menu">✕</button>
+      </div>
+      <nav class="sidebar-nav" aria-label="Main">
+        <button type="button" class="nav-link" data-showview="home">Home</button>
+        <button type="button" class="nav-link" data-showview="week">Weekly Plan</button>
+        <button type="button" class="nav-link" data-showview="week">Recipes</button>
+        <button type="button" class="nav-link" data-showview="pantry">Pantry</button>
+        <button type="button" class="nav-link" data-showview="shopping">Shopping Lists</button>
+        <button type="button" class="nav-link" data-showview="stores">Stores</button>
+        <button type="button" class="nav-link" data-showview="home">Jewish Calendar</button>
+        <button type="button" class="nav-link" data-showview="household">Family Account</button>
+        <button type="button" class="nav-link" data-showview="prefs">Settings</button>
+      </nav>
+    </div>
   </div>
 
   <section class="hero" id="home">
@@ -54,8 +74,8 @@
         <button type="button" class="btn full" id="buildWeekBtn" style="margin-top:12px">Build this week's dinners</button>
         <div id="buildStatus" class="status" aria-live="polite"></div>
         <div class="grid2" style="margin-top:12px">
-          <button class="btn secondary" onclick="scrollToSection('prefs')">Set preferences</button>
-          <button class="btn secondary" onclick="scrollToSection('stores')">Set stores</button>
+          <button class="btn secondary" onclick="showView('prefs')">Set preferences</button>
+          <button class="btn secondary" onclick="showView('stores')">Set stores</button>
         </div>
         <button type="button" class="btn secondary full" id="buildNextWeekBtnHome" style="margin-top:10px">Plan next week too</button>
         <button type="button" class="support support-button" id="usePantryBtn"><b>Use what I already have</b><br><span>Pantry, fridge, freezer, or typed ingredients.</span></button>
