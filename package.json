@@ -23,6 +23,7 @@
   },
   "dependencies": {
     "@capacitor/geolocation": "^8.2.0",
-    "@netlify/blobs": "^10.7.9"
+    "@netlify/blobs": "^10.7.9",
+    "jose": "^6.2.5"
   }
 }
