@@ -71,7 +71,8 @@ let state=load("state",{
   nextShopping:[],
   shoppingChecked:{this:{},next:{},combined:{}},
   shoppingView:"this",
-  recentPlans:[]
+  recentPlans:[],
+  receiptReview:[]
 });
 
 function normalizeState(raw){
@@ -155,6 +156,7 @@ function normalizeState(raw){
       : {this:{},next:{},combined:{}},
     shoppingView: ["this","next","combined"].includes(clean.shoppingView) ? clean.shoppingView : (Array.isArray(clean.nextPlan) && clean.nextPlan.length ? "combined" : "this"),
     recentPlans: Array.isArray(clean.recentPlans) ? clean.recentPlans : [],
+    receiptReview: Array.isArray(clean.receiptReview) ? clean.receiptReview : [],
     recipeRatings: (clean.recipeRatings && typeof clean.recipeRatings === "object" && !Array.isArray(clean.recipeRatings)) ? clean.recipeRatings : {},
     planNonce: Number.isFinite(Number(clean.planNonce)) ? Number(clean.planNonce) : 0,
     updatedAt: Number.isFinite(Number(clean.updatedAt)) ? Number(clean.updatedAt) : 0
@@ -1275,6 +1277,7 @@ function mergePantryItem(incoming){
   existing.sourcePhotoIds=[...new Set([...(existing.sourcePhotoIds||[]),...(incoming.sourcePhotoIds||[])])];
   existing.sourceLocations=[...new Set([...(existing.sourceLocations||[existing.location]),incoming.location])];
   existing.perishable=Boolean(existing.perishable||incoming.perishable);
+  if(incoming.expiresOn&&(incomingIsStronger||!existing.expiresOn))existing.expiresOn=incoming.expiresOn;
   return "updated";
 }
 
@@ -1417,6 +1420,7 @@ function renderInventory(){
         <div class="inventory-qty">${esc(formatQty(item))}</div>
         <span class="confidence ${confidence}">${confidenceText}</span>
         ${item.evidence?`<div class="inventory-evidence">Seen as: ${esc(item.evidence)}</div>`:""}
+        ${item.expiresOn?`<div class="inventory-evidence">Best by ${esc(item.expiresOn)}</div>`:""}
         <div class="inventory-actions">
           <button type="button" data-decitem="${actualIndex}" aria-label="Decrease quantity">−</button>
           <button type="button" data-edititem="${actualIndex}">Edit</button>
@@ -1724,6 +1728,132 @@ async function analyzePictures(){
   renderHave();
   renderShopping();
 }
+
+$("receiptPhotoInput").addEventListener("change",async event=>{
+  const file=event.target.files?.[0];
+  event.target.value="";
+  if(!file||!file.type.startsWith("image/"))return;
+  $("receiptStatus").className="notice";
+  $("receiptStatus").textContent="Reading your receipt…";
+  state.receiptReview=[];
+  renderReceiptReview();
+  try{
+    // Receipts need to stay legible (small print, many lines), so use a
+    // larger/higher-quality compression than the kitchen-photo default.
+    const image=await compressKitchenPhoto(file,1400,0.75);
+    const response=await fetch(`${API_ORIGIN}/.netlify/functions/receipt-scan`,{
+      method:"POST",
+      headers:{"Content-Type":"application/json"},
+      body:JSON.stringify({image,purchaseDate:new Date().toISOString().slice(0,10),photoId:`receipt-${Date.now()}`})
+    });
+    const data=await response.json().catch(()=>({}));
+    if(!response.ok)throw new Error(data.error||`Scan failed (${response.status})`);
+    const items=Array.isArray(data.items)?data.items:[];
+    if(!items.length){
+      $("receiptStatus").className="notice warning";
+      $("receiptStatus").textContent="No grocery items were found. Try a clearer, flatter photo of the receipt.";
+      return;
+    }
+    state.receiptReview=items.map(item=>({
+      id:`receipt-item-${Date.now()}-${Math.random().toString(36).slice(2,8)}`,
+      name:item.name,
+      rawText:item.rawText||"",
+      qty:Number.isFinite(item.qty)?item.qty:1,
+      unit:item.unit||"unknown",
+      category:item.category||"other",
+      confidence:item.confidence||"medium",
+      expiresOn:item.expiresOn||null,
+      checked:true
+    }));
+    $("receiptStatus").className="notice success";
+    $("receiptStatus").textContent=`Found ${items.length} item${items.length===1?"":"s"}. Review below, then add to your pantry.`;
+    renderReceiptReview();
+  }catch(error){
+    $("receiptStatus").className="notice error";
+    $("receiptStatus").textContent=error?.message||"Could not read the receipt. Please try again.";
+  }
+});
+
+function renderReceiptReview(){
+  const items=state.receiptReview||[];
+  const area=$("receiptReviewArea");
+  const list=$("receiptReviewList");
+  if(!items.length){area.classList.add("hidden");list.innerHTML="";return}
+  area.classList.remove("hidden");
+  list.innerHTML=items.map(item=>`
+    <div class="row" style="align-items:center;gap:8px;padding:8px 0;border-bottom:1px solid var(--line)">
+      <input type="checkbox" data-receipt-check="${item.id}" ${item.checked?"checked":""} aria-label="Include ${esc(item.name)}">
+      <input type="text" class="text-input" data-receipt-name="${item.id}" value="${esc(item.name)}" style="flex:1" aria-label="Item name">
+      <input type="number" class="text-input" data-receipt-qty="${item.id}" value="${item.qty}" min="0" step="0.5" style="width:64px" aria-label="Quantity">
+      <span class="tiny muted">${esc(item.unit)}</span>
+      ${item.expiresOn?`<span class="tiny muted">best by ${esc(item.expiresOn)}</span>`:""}
+    </div>`).join("");
+  list.querySelectorAll("[data-receipt-check]").forEach(el=>{
+    el.onchange=()=>{
+      const item=items.find(i=>i.id===el.dataset.receiptCheck);
+      if(item)item.checked=el.checked;
+    };
+  });
+  list.querySelectorAll("[data-receipt-name]").forEach(el=>{
+    el.onchange=()=>{
+      const item=items.find(i=>i.id===el.dataset.receiptName);
+      if(item)item.name=el.value.trim().slice(0,80);
+    };
+  });
+  list.querySelectorAll("[data-receipt-qty]").forEach(el=>{
+    el.onchange=()=>{
+      const item=items.find(i=>i.id===el.dataset.receiptQty);
+      if(item)item.qty=Number(el.value)||1;
+    };
+  });
+}
+
+$("addReceiptItemsBtn").onclick=()=>{
+  const items=(state.receiptReview||[]).filter(item=>item.checked&&item.name.trim());
+  if(!items.length){
+    $("receiptStatus").className="notice";
+    $("receiptStatus").textContent="No items selected.";
+    return;
+  }
+  let added=0,updated=0;
+  for(const item of items){
+    const result=mergePantryItem({
+      id:`item-${Date.now()}-${Math.random().toString(36).slice(2,8)}`,
+      location:"Receipt",
+      item:item.name,
+      label:item.name,
+      qty:item.qty,
+      unit:item.unit||"unknown",
+      confidence:item.confidence||"medium",
+      category:item.category||"other",
+      perishable:Boolean(item.expiresOn),
+      expiresOn:item.expiresOn||null,
+      sourcePhotoIds:[],
+      sourceLocations:["Receipt"],
+      reviewed:false,
+      thumbnail:"",
+      evidence:item.rawText||"",
+      quantityBasis:"label",
+      observations:[{location:"Receipt",qty:item.qty,unit:item.unit||"unknown",confidence:item.confidence||"medium",evidence:item.rawText||"",quantityBasis:"label",bbox:null}]
+    });
+    if(result==="added")added++; else updated++;
+  }
+  state.receiptReview=[];
+  buildShoppingForWeek("this");
+  buildShoppingForWeek("next");
+  save("state",state);
+  renderHave();
+  renderReceiptReview();
+  $("receiptStatus").className="notice success";
+  $("receiptStatus").textContent=`Added ${added+updated} item${added+updated===1?"":"s"} to your pantry (${added} new, ${updated} matched to something already there).`;
+};
+
+$("cancelReceiptBtn").onclick=()=>{
+  state.receiptReview=[];
+  renderReceiptReview();
+  $("receiptStatus").className="notice";
+  $("receiptStatus").textContent="Add a receipt photo to get started.";
+};
 
 function inventoryMatchesIngredient(name){
   const target=canonicalIngredient(name);

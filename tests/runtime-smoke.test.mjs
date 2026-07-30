@@ -58,7 +58,8 @@ function createRuntime(){
     'versionBadge','developerPanel','developerSummary','developerValidation','developerPantry','developerAi','developerShopping','developerTimeline','developerErrors','developerStorage',
     'developerStatus','reportBugBtn','runValidationBtn','copyDebugBtn','downloadDebugBtn','clearCacheBtn','unregisterWorkerBtn','clearLogsBtn','closeDeveloperBtn',
     'household','householdSetup','householdActive','householdStatus','householdCodeDisplay','createHouseholdBtn','joinHouseholdBtn','joinHouseholdCode',
-    'leaveHouseholdBtn','copyHouseholdCodeBtn','shareHouseholdCodeBtn','deviceNameInput'
+    'leaveHouseholdBtn','copyHouseholdCodeBtn','shareHouseholdCodeBtn','deviceNameInput',
+    'receiptPhotoInput','receiptStatus','receiptReviewArea','receiptReviewList','addReceiptItemsBtn','cancelReceiptBtn'
   ])];
   const elements=new Map(ids.map(id=>[id,new FakeElement(id)]));
   elements.get('photoLocation').value='Pantry';
@@ -563,4 +564,25 @@ test('2026 Nine Days and Tisha B’Av dates follow the required dinner rules', a
   const tenAvDinner=rule(new Date(2026,6,24,18));
   assert.equal(tenAvDinner.type,'normal');
   assert.deepEqual(Array.from(tenAvDinner.allowedKinds),['meat','dairy','pareve']);
+});
+
+test('receipt review items that are checked get added to the pantry with their estimated expiration date, and unchecked/edited items are respected', async () => {
+  const {context,elements}=await boot();
+  const api=context.window.__dinnerPlannerTest;
+  const state=api.getState();
+  state.receiptReview=[
+    {id:'r1',name:'Whole milk',rawText:'GV WHL MLK GAL',qty:1,unit:'gallon',category:'dairy',confidence:'high',expiresOn:'2026-08-08',checked:true},
+    {id:'r2',name:'Canned beans',rawText:'BLK BEANS',qty:3,unit:'can',category:'canned',confidence:'high',expiresOn:'2027-07-29',checked:false}
+  ];
+  api.setState(state);
+
+  elements.get('addReceiptItemsBtn').click();
+
+  const after=api.getState();
+  assert.equal(after.receiptReview.length,0,'the review list should clear once items are added');
+  const milk=after.have.find(item=>item.item==='Whole milk');
+  assert.ok(milk,'the checked item should be added to the pantry');
+  assert.equal(milk.expiresOn,'2026-08-08');
+  assert.equal(milk.unit,'gallon');
+  assert.equal(after.have.find(item=>item.item==='Canned beans'),undefined,'the unchecked item should NOT be added');
 });

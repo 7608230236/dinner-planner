@@ -253,6 +253,28 @@
         </div>
       </section>
 
+      <section class="card" id="receiptScan">
+        <div class="scan-head">
+          <div>
+            <h2 class="section-title">Scan a receipt</h2>
+            <p class="muted">After you shop, snap a photo of your receipt. We'll pull out the items and estimate how long each one keeps, so your pantry stays up to date without re-scanning your fridge.</p>
+          </div>
+        </div>
+        <label for="receiptPhotoInput" class="btn secondary small">🧾 Snap or add receipt photo</label>
+        <input id="receiptPhotoInput" class="photo-input" type="file" accept="image/*" capture="environment">
+        <div id="receiptStatus" class="notice" aria-live="polite">Add a receipt photo to get started.</div>
+        <div id="receiptReviewArea" class="hidden">
+          <div class="row" style="justify-content:space-between;margin:12px 0 8px">
+            <h3 style="margin:0">Review before adding</h3>
+          </div>
+          <div id="receiptReviewList"></div>
+          <div class="scan-actions">
+            <button class="btn full" id="addReceiptItemsBtn" type="button">Add checked items to pantry</button>
+            <button class="btn secondary small" id="cancelReceiptBtn" type="button">Cancel</button>
+          </div>
+        </div>
+      </section>
+
       <section class="card" id="shopping">
         <h2 class="section-title">Shopping list</h2>
         <p class="muted">Grouped by the stores you chose.</p>

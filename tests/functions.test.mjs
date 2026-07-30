@@ -2,6 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { handler as pantryHandler } from '../netlify/functions/pantry-ai.mjs';
 import { handler as storeHandler } from '../netlify/functions/store-locator.mjs';
+import { handler as receiptHandler } from '../netlify/functions/receipt-scan.mjs';
 
 const originalFetch = global.fetch;
 const originalOpenAIKey = process.env.OPENAI_API_KEY;
@@ -90,6 +91,8 @@ test('every function includes CORS headers on every response (the actual bug: th
   for (const [name, handler, method] of [
     ['pantry-ai', pantryHandler, 'OPTIONS'],
     ['pantry-ai', pantryHandler, 'POST'],
+    ['receipt-scan', receiptHandler, 'OPTIONS'],
+    ['receipt-scan', receiptHandler, 'POST'],
     ['store-locator', storeHandler, 'OPTIONS'],
     ['store-locator', storeHandler, 'POST'],
     ['household-sync', householdHandler, 'OPTIONS'],
@@ -140,4 +143,51 @@ test('household-sync validates codes and payloads correctly once the Blobs store
 
   delete process.env.NETLIFY_BLOBS_SITE_ID;
   delete process.env.NETLIFY_BLOBS_TOKEN;
+});
+
+test('receipt scan extracts grocery items, computes an expiration date from the estimated shelf life, and rejects non-grocery lines (tax/total/etc)', async () => {
+  process.env.OPENAI_API_KEY = 'test-key';
+  global.fetch = async () => new Response(JSON.stringify({
+    id: 'resp_test',
+    output_text: JSON.stringify({
+      items: [
+        { name: 'Whole milk', rawText: 'GV WHL MLK GAL', qty: 1, unit: 'gallon', category: 'dairy', estimatedShelfLifeDays: 10, confidence: 'high' },
+        { name: 'Canned black beans', rawText: 'BLK BEANS 15OZ', qty: 3, unit: 'can', category: 'canned', estimatedShelfLifeDays: 365, confidence: 'high' },
+        { name: 'Tax', rawText: 'SALES TAX', qty: 1, unit: 'unknown', category: 'other', estimatedShelfLifeDays: null, confidence: 'high' },
+        { name: 'Total', rawText: 'TOTAL', qty: 1, unit: 'unknown', category: 'other', estimatedShelfLifeDays: null, confidence: 'high' }
+      ]
+    })
+  }), { status: 200, headers: { 'Content-Type': 'application/json' } });
+
+  const response = await receiptHandler({
+    httpMethod: 'POST',
+    body: JSON.stringify({ image: 'data:image/jpeg;base64,abc', purchaseDate: '2026-01-01', photoId: 'receipt-1' })
+  });
+  const body = JSON.parse(response.body);
+
+  assert.equal(response.statusCode, 200);
+  assert.equal(body.items.length, 2, 'tax/total lines should be rejected, not treated as groceries');
+  assert.equal(body.rejectedCount, 2);
+
+  const milk = body.items.find(i => i.name === 'Whole milk');
+  assert.equal(milk.expiresOn, '2026-01-11', 'purchase date + 10 day shelf life');
+
+  const beans = body.items.find(i => i.name === 'Canned black beans');
+  assert.equal(beans.qty, 3);
+  assert.equal(beans.expiresOn, '2027-01-01', 'purchase date + 365 day shelf life');
+});
+
+test('receipt scan requires a real image and handles OpenAI errors gracefully', async () => {
+  process.env.OPENAI_API_KEY = 'test-key';
+
+  const noImage = await receiptHandler({ httpMethod: 'POST', body: JSON.stringify({}) });
+  assert.equal(noImage.statusCode, 400);
+
+  global.fetch = async () => new Response(JSON.stringify({ error: { message: 'bad request' } }), { status: 400 });
+  const apiError = await receiptHandler({
+    httpMethod: 'POST',
+    body: JSON.stringify({ image: 'data:image/jpeg;base64,abc' })
+  });
+  assert.equal(apiError.statusCode, 500);
+  assert.match(JSON.parse(apiError.body).error, /bad request/);
 });
