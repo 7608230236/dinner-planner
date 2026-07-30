@@ -2061,6 +2061,27 @@ $("clearPhotosBtn").onclick=()=>{
   $("aiStatus").className="notice";
   $("aiStatus").textContent="Photos removed. Your inventory is still saved.";
 };
+$("rescanPhotosBtn").onclick=async()=>{
+  const photos=state.pantryPhotos||[];
+  if(!photos.length){
+    $("aiStatus").className="notice";
+    $("aiStatus").textContent="No saved photos to re-scan yet.";
+    return;
+  }
+  // Re-runs the AI on photos already saved on this device - no need to
+  // retake anything, useful after a scan-quality fix ships.
+  for(const photo of photos){
+    removePhotoObservations(photo.id);
+    photo.status="pending";
+    photo.error="";
+    photo.detectedCount=0;
+    photo.rawItems=[];
+    photo.rejectedItems=[];
+  }
+  save("state",state);
+  renderHave();
+  await analyzePictures();
+};
 $("addMorePhotosBtn").onclick=()=>$("photoInput").click();
 $("removeUsedBtn").onclick=()=>{
   state.pantryExpanded=true;

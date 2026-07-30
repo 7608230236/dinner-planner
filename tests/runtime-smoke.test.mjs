@@ -53,7 +53,7 @@ function createRuntime(){
     'weekList','nextWeekList','recipeModal','recipeDialog','shoppingList','meatSelected','supermarketSelected','meatResults','supermarketResults','meatStatus','supermarketStatus',
     'scanCount','pictureList','inventoryArea','inventorySummary','inventoryList','showAllInventoryBtn','pantryMemoryText','pantrySuggestions','typedItem','photoInput','photoLocation','aiStatus',
     'supportStatus','includeSupportPhotos','importSupportFix','buildStatus','nextBuildStatus','buildWeekBtn','lockWeekBtn','replaceUnlockedBtn','buildNextWeekBtn','lockNextWeekBtn','replaceNextUnlockedBtn',
-    'buildNextWeekBtnHome','usePantryBtn','addCustomExcludeBtn','addTypedBtn','typedBox','saveTypedBtn','analyzePicturesBtn','clearPhotosBtn','addMorePhotosBtn','removeUsedBtn','minusPortions',
+    'buildNextWeekBtnHome','usePantryBtn','addCustomExcludeBtn','addTypedBtn','typedBox','saveTypedBtn','analyzePicturesBtn','clearPhotosBtn','rescanPhotosBtn','addMorePhotosBtn','removeUsedBtn','minusPortions',
     'plusPortions','savePrefsBtn','quickShareSupportBtn','shareSupportBtn','downloadSupportBtn','copySupportBtn','reloadLatestBtn','editAllItemsBtn','shoppingSwitch',
     'versionBadge','developerPanel','developerSummary','developerValidation','developerPantry','developerAi','developerShopping','developerTimeline','developerErrors','developerStorage',
     'developerStatus','reportBugBtn','runValidationBtn','copyDebugBtn','downloadDebugBtn','clearCacheBtn','unregisterWorkerBtn','clearLogsBtn','closeDeveloperBtn',
