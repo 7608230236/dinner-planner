@@ -1911,12 +1911,30 @@ function makeSupportReport(includeImages=true){
   };
 }
 
-function downloadJson(filename,data){
-  const blob=new Blob([JSON.stringify(data,null,2)],{type:"application/json"});
+async function downloadJson(filename,data){
+  const text=JSON.stringify(data,null,2);
+  // Plain Blob + <a download> links don't reliably work inside the native
+  // app's WebView - there's no download manager registered there, so the
+  // click fires but nothing visibly happens (the actual bug this fixes).
+  // Try the native Share Sheet first (the same technique the separate
+  // "Use phone Share menu" button already uses successfully), and only
+  // fall back to the classic browser download link when sharing isn't
+  // available at all - which is the normal, working path on the website.
+  try{
+    const file=new File([text],filename,{type:"application/json"});
+    if(navigator.canShare && navigator.canShare({files:[file]})){
+      await navigator.share({title:"Dinner Made Easy",files:[file]});
+      return "shared";
+    }
+  }catch(error){
+    if(error?.name==="AbortError")return "cancelled";
+  }
+  const blob=new Blob([text],{type:"application/json"});
   const url=URL.createObjectURL(blob);
   const a=document.createElement("a");
   a.href=url;a.download=filename;document.body.appendChild(a);a.click();a.remove();
   setTimeout(()=>URL.revokeObjectURL(url),1000);
+  return "downloaded";
 }
 
 function supportInventoryFromFile(data){
@@ -1960,22 +1978,24 @@ async function shareSupportReport(){
 }
 
 $("shareSupportBtn").onclick=shareSupportReport;
-$("quickShareSupportBtn").onclick=()=>{
+$("quickShareSupportBtn").onclick=async()=>{
   const report=makeSupportReport(true);
-  downloadJson(`dinner-planner-support-${new Date().toISOString().slice(0,10)}.json`,report);
+  const outcome=await downloadJson(`dinner-planner-support-${new Date().toISOString().slice(0,10)}.json`,report);
   if($("supportStatus")){
+    if(outcome==="cancelled")return;
     $("supportStatus").className="notice success";
-    $("supportStatus").textContent="Support file downloaded. Attach it in ChatGPT using the + button.";
+    $("supportStatus").textContent=outcome==="shared"?"Support file shared. Attach it in ChatGPT using the + button.":"Support file downloaded. Attach it in ChatGPT using the + button.";
   }
-  logEvent("support_report_downloaded",{reportId:report.reportId,photosIncluded:true,source:"quick"});
+  logEvent("support_report_downloaded",{reportId:report.reportId,photosIncluded:true,source:"quick",outcome});
 };
 
-$("downloadSupportBtn").onclick=()=>{
+$("downloadSupportBtn").onclick=async()=>{
   const report=makeSupportReport($("includeSupportPhotos").checked);
-  downloadJson(`dinner-planner-support-${new Date().toISOString().slice(0,10)}.json`,report);
+  const outcome=await downloadJson(`dinner-planner-support-${new Date().toISOString().slice(0,10)}.json`,report);
+  if(outcome==="cancelled")return;
   $("supportStatus").className="notice success";
-  $("supportStatus").textContent="Support file downloaded. Upload it in our ChatGPT conversation.";
-  logEvent("support_report_downloaded",{reportId:report.reportId,photosIncluded:$("includeSupportPhotos").checked});
+  $("supportStatus").textContent=outcome==="shared"?"Support file shared. Upload it in our ChatGPT conversation.":"Support file downloaded. Upload it in our ChatGPT conversation.";
+  logEvent("support_report_downloaded",{reportId:report.reportId,photosIncluded:$("includeSupportPhotos").checked,outcome});
 };
 
 $("copySupportBtn").onclick=async()=>{
@@ -1985,9 +2005,10 @@ $("copySupportBtn").onclick=async()=>{
     $("supportStatus").className="notice success";
     $("supportStatus").textContent="Report copied. You can paste it into the chat.";
   }catch{
-    downloadJson("dinner-planner-support.json",report);
+    const outcome=await downloadJson("dinner-planner-support.json",report);
+    if(outcome==="cancelled")return;
     $("supportStatus").className="notice warning";
-    $("supportStatus").textContent="Copying was blocked, so the report was downloaded instead.";
+    $("supportStatus").textContent=outcome==="shared"?"Copying was blocked, so the report was shared instead.":"Copying was blocked, so the report was downloaded instead.";
   }
 };
 
@@ -2328,5 +2349,6 @@ window.__dinnerPlannerTest={
   leaveHousehold,
   pullHouseholdState,
   buildSyncPayload,
-  getHouseholdCode:()=>householdCode
+  getHouseholdCode:()=>householdCode,
+  downloadJson
 };

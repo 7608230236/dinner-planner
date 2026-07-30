@@ -109,7 +109,10 @@ function createRuntime(){
       onLine:true,
       userAgent:'Node smoke test',
       language:'en-US',
-      serviceWorker:{register:async()=>({}),getRegistrations:async()=>[]}
+      serviceWorker:{register:async()=>({}),getRegistrations:async()=>[]},
+      canShare:undefined,
+      share:undefined,
+      clipboard:{writeText:async()=>{}}
     },
     location:{href:'https://example.test/',pathname:'/',search:'',replace:()=>{}},
     screen:{width:390,height:844},
@@ -585,4 +588,28 @@ test('receipt review items that are checked get added to the pantry with their e
   assert.equal(milk.expiresOn,'2026-08-08');
   assert.equal(milk.unit,'gallon');
   assert.equal(after.have.find(item=>item.item==='Canned beans'),undefined,'the unchecked item should NOT be added');
+});
+
+test('downloadJson tries the native Share Sheet first (the actual bug: a plain Blob+<a download> link silently does nothing inside the native app\'s WebView, since there\'s no download manager registered there - only the separate Share button worked before this fix) and only falls back to a browser download link when sharing truly is not available', async () => {
+  const {context}=await boot();
+  const api=context.window.__dinnerPlannerTest;
+
+  // Case 1: native Share Sheet is available (the native app) - should be used.
+  let sharedWith=null;
+  context.window.navigator.canShare=()=>true;
+  context.window.navigator.share=async options=>{sharedWith=options;};
+  const shared=await api.downloadJson('report.json',{hello:'world'});
+  assert.equal(shared,'shared');
+  assert.ok(sharedWith&&Array.isArray(sharedWith.files)&&sharedWith.files.length===1,'navigator.share should be called with the file');
+
+  // Case 2: person closes/cancels the native share sheet - should not silently claim success.
+  context.window.navigator.share=async()=>{const err=new Error('cancelled');err.name='AbortError';throw err;};
+  const cancelled=await api.downloadJson('report.json',{hello:'world'});
+  assert.equal(cancelled,'cancelled');
+
+  // Case 3: no Share Sheet available at all (the website) - falls back to a normal download link.
+  context.window.navigator.canShare=undefined;
+  context.window.navigator.share=undefined;
+  const downloaded=await api.downloadJson('report.json',{hello:'world'});
+  assert.equal(downloaded,'downloaded');
 });

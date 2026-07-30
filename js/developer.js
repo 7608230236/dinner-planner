@@ -86,8 +86,8 @@
     };
   }
 
-  function download(filename,data){
-    bridge.downloadJson(filename,data);
+  async function download(filename,data){
+    return bridge.downloadJson(filename,data);
   }
 
   async function copyReport(){
@@ -96,8 +96,9 @@
       await navigator.clipboard.writeText(JSON.stringify(report,null,2));
       setStatus('Debug report copied. Paste it into the ChatGPT conversation.','success');
     }catch{
-      download(`dinner-planner-v${bridge.version}-debug.json`,report);
-      setStatus('Copying was blocked, so the debug report was downloaded.','warning');
+      const outcome=await download(`dinner-planner-v${bridge.version}-debug.json`,report);
+      if(outcome==='cancelled')return;
+      setStatus(outcome==='shared'?'Copying was blocked, so the debug report was shared.':'Copying was blocked, so the debug report was downloaded.','warning');
     }
   }
 
@@ -223,15 +224,17 @@
   byId('copyDebugBtn')?.addEventListener('click',copyReport);
   byId('downloadDebugBtn')?.addEventListener('click',async()=>{
     const report=await buildReport(true);
-    download(`dinner-planner-v${bridge.version}-debug-${new Date().toISOString().slice(0,10)}.json`,report);
-    setStatus('Debug report downloaded. Attach that one file in ChatGPT.','success');
+    const outcome=await download(`dinner-planner-v${bridge.version}-debug-${new Date().toISOString().slice(0,10)}.json`,report);
+    if(outcome==='cancelled')return;
+    setStatus(outcome==='shared'?'Debug report shared. Attach that one file in ChatGPT.':'Debug report downloaded. Attach that one file in ChatGPT.','success');
   });
   byId('reportBugBtn')?.addEventListener('click',async()=>{
     bridge.runValidationSuite();
     const report=await buildReport(true);
-    download(`dinner-planner-v${bridge.version}-bug-${new Date().toISOString().replace(/[:.]/g,'-')}.json`,report);
+    const outcome=await download(`dinner-planner-v${bridge.version}-bug-${new Date().toISOString().replace(/[:.]/g,'-')}.json`,report);
     await render();
-    setStatus('Bug report created. Attach the downloaded JSON file in ChatGPT using the + button.','success');
+    if(outcome==='cancelled')return;
+    setStatus(outcome==='shared'?'Bug report created. Attach the shared JSON file in ChatGPT using the + button.':'Bug report created. Attach the downloaded JSON file in ChatGPT using the + button.','success');
   });
   byId('clearLogsBtn')?.addEventListener('click',()=>{
     if(!confirm('Clear AI history, validation results, and error logs? Pantry and meal plans will stay.'))return;
