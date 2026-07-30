@@ -531,7 +531,8 @@ function sanitizeItem(raw) {
 
   if (
     quantityBasis === "label" &&
-    typeof qty === "number"
+    typeof qty === "number" &&
+    qty > 1
   ) {
     const countPattern = new RegExp(
       `(?:^|\\D)${Math.trunc(qty)}(?:\\D|$)`

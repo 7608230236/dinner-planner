@@ -167,7 +167,7 @@
     if(!['high','medium','user'].includes(confidence))reasons.push('invalid confidence');
     const evidence=String(item?.evidence||'').trim();
     if(confidence==='medium'&&!evidence)reasons.push('medium confidence without visible evidence');
-    if(String(item?.quantityBasis||'')==='label'&&Number.isFinite(qty)&&!new RegExp(`\\b${Math.trunc(qty)}\\b`).test(evidence))reasons.push('label quantity not supported by evidence');
+    if(String(item?.quantityBasis||'')==='label'&&Number.isFinite(qty)&&qty>1&&!new RegExp(`\\b${Math.trunc(qty)}\\b`).test(evidence))reasons.push('label quantity not supported by evidence');
     return {ok:reasons.length===0,reasons,name,canonical:canonicalIngredient(name)};
   }
 

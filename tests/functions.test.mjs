@@ -51,6 +51,30 @@ test('pantry AI rejects generic and malformed detections but keeps a supported c
   assert.equal(requestBody.text?.format?.strict, true);
 });
 
+test('pantry AI does not wrongly reject a single visible item (qty 1) just because its evidence text does not literally spell out the digit 1 - the actual bug found via a real scan where normal items like yogurt, sour cream, and margarine were all rejected this way', async () => {
+  process.env.OPENAI_API_KEY = 'test-key';
+  global.fetch = async () => new Response(JSON.stringify({
+    id: 'resp_test',
+    output_text: JSON.stringify({
+      items: [
+        { name: 'Margarine', qty: 1, unit: 'container', confidence: 'medium', category: 'dairy', perishable: true, evidence: 'a tub of margarine visible on the shelf', quantityBasis: 'label', bbox: null },
+        { name: 'canned beans', qty: 12, unit: 'can', confidence: 'high', category: 'canned', perishable: false, evidence: 'a stack of cans on the shelf', quantityBasis: 'label', bbox: null }
+      ]
+    })
+  }), { status: 200, headers: { 'Content-Type': 'application/json' } });
+
+  const response = await pantryHandler({
+    httpMethod: 'POST',
+    body: JSON.stringify({ image: 'data:image/jpeg;base64,abc', location: 'Fridge', photoId: 'photo-1' })
+  });
+  const body = JSON.parse(response.body);
+
+  assert.equal(response.statusCode, 200);
+  assert.ok(body.items.find(i => i.name === 'Margarine'), 'the qty-1 item should be accepted');
+  assert.equal(body.rejectedCount, 1, 'only the unsupported multi-count claim should be rejected');
+  assert.equal(body.rejectedItems[0].name, 'canned beans');
+});
+
 test('store locator returns local directory stores without a Google key', async () => {
   delete process.env.GOOGLE_MAPS_API_KEY;
   const response = await storeHandler({

@@ -61,3 +61,37 @@ test('shopping never creates a negative quantity', () => {
   assert.equal(result.diagnostics[0].remaining, 0);
   assert.deepEqual(result.shopping, []);
 });
+
+test('a single visible item (qty 1) is not wrongly rejected just because its natural-language evidence text does not literally spell out the digit 1 (the actual bug found via a real scan: "vanilla yogurt", "sour cream", "Margarine" and others were all rejected this way, even though nothing was actually wrong with the detection)', () => {
+  const result = engine.validateDetectedItem({
+    name: 'Margarine',
+    qty: 1,
+    unit: 'container',
+    confidence: 'medium',
+    evidence: 'a tub of margarine visible on the shelf',
+    quantityBasis: 'label'
+  });
+  assert.equal(result.ok, true, `should be accepted, but was rejected for: ${result.reasons.join(', ')}`);
+});
+
+test('a genuine multi-count label claim (e.g. "case of 12") still requires the evidence to actually mention that count - the real anti-hallucination safeguard this check exists for', () => {
+  const badCount = engine.validateDetectedItem({
+    name: 'canned beans',
+    qty: 12,
+    unit: 'can',
+    confidence: 'high',
+    evidence: 'a stack of cans on the shelf',
+    quantityBasis: 'label'
+  });
+  assert.ok(badCount.reasons.includes('label quantity not supported by evidence'));
+
+  const goodCount = engine.validateDetectedItem({
+    name: 'canned beans',
+    qty: 12,
+    unit: 'can',
+    confidence: 'high',
+    evidence: 'case label reads 12 cans',
+    quantityBasis: 'label'
+  });
+  assert.equal(goodCount.ok, true);
+});
