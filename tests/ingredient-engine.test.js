@@ -95,3 +95,14 @@ test('a genuine multi-count label claim (e.g. "case of 12") still requires the e
   });
   assert.equal(goodCount.ok, true);
 });
+
+test('Frank\'s RedHot and Buffalo Wing Sauce merge into one pantry item (the actual bug the user caught: the same physical bottle is labeled with both names, so the AI detected it as two separate products)', () => {
+  const names = [
+    "Frank's RedHot Original Cayenne Pepper Sauce",
+    "Frank's Red Hot",
+    'Buffalo Wing Sauce',
+    'buffalo sauce'
+  ];
+  const canonical = names.map(n => engine.canonicalIngredient(n));
+  assert.equal(new Set(canonical).size, 1, `expected all four names to canonicalize the same way, got: ${canonical.join(', ')}`);
+});

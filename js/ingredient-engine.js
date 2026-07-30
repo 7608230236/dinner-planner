@@ -40,6 +40,13 @@
     if(/\bricotta\b/.test(n))return 'ricotta cheese';
     if(/\b(cholov yisroel )?cheese\b/.test(n))return 'cheese';
 
+    // Frank's RedHot bottles are literally labeled "The Original Buffalo
+    // Wing Sauce" right on the front alongside the brand name - the AI can
+    // read the same bottle as two different products from those two
+    // printed names. Treat them as one pantry item. Checked against the
+    // raw text since "red" would otherwise be stripped out as a color word.
+    if(/\bbuffalo (wing )?sauce\b/.test(raw)||/\bfrank'?s?\s*red\s*hot\b/.test(raw))return 'buffalo hot sauce';
+
     if(/\bchicken (breast|cutlet)s?\b/.test(n))return 'chicken breast';
     if(/\bchicken thigh(s)?\b/.test(n))return 'chicken thigh';
     if(/\bchicken drumstick(s)?\b/.test(n))return 'chicken drumstick';
