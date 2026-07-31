@@ -1259,7 +1259,7 @@ function categoryEmoji(category,unit,itemName){
   // without requiring a rescan.
   if(/\begg/i.test(itemName||""))return "🥚";
   if(/\b(salmon|tuna|tilapia|cod|halibut|fish|gefilte)\b/i.test(itemName||""))return "🐟";
-  if(/\bhummus\b/i.test(itemName||""))return "🫘";
+  if(/\bhummus\b/i.test(itemName||""))return "🥣";
   return ({produce:"🥬",meat:"🥩",fish:"🐟",dairy:"🥛",eggs:"🥚",frozen:"❄️","dry goods":"🥫",canned:"🥫",condiment:"🧂",other:"🍽️"})[category]||"🍽️";
 }
 

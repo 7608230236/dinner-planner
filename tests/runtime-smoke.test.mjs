@@ -728,6 +728,6 @@ test('fish shows a fish icon, not a steak (same category-completeness gap as the
 test('hummus shows a hummus-appropriate icon, not a milk glass (hummus is chickpea-based/pareve, not dairy - same category-guessing gap as eggs and fish)', async () => {
   const {context}=await boot();
   const api=context.window.__dinnerPlannerTest;
-  assert.equal(api.categoryEmoji('dairy','container','Sabra Classic Hummus'),'🫘');
-  assert.equal(api.categoryEmoji('dairy','container','hummus container'),'🫘');
+  assert.equal(api.categoryEmoji('dairy','container','Sabra Classic Hummus'),'🥣');
+  assert.equal(api.categoryEmoji('dairy','container','hummus container'),'🥣');
 });
