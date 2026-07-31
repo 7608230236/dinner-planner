@@ -1,17 +1,34 @@
 import { getStore } from "@netlify/blobs";
 
-// Netlify's automatic Blobs context injection is documented to sometimes fail in
-// production even when everything is set up correctly (a known platform issue,
-// not specific to this app). Falling back to explicit siteID/token avoids that.
-function getHouseholdStore() {
+// Netlify's automatic Blobs context injection is documented to sometimes fail
+// in production even when everything is set up correctly. Explicit
+// siteID/token was added as a workaround for that - but the explicit
+// credentials can ALSO go stale/invalid on their own (confirmed happening in
+// production: every operation on the explicit-credential store returned a
+// 401, silently breaking every join/push/pull for real users). Try explicit
+// credentials first since they're normally more reliable, but if an actual
+// operation fails, retry once against the automatic-context store rather
+// than surfacing an error the user can't do anything about.
+function getHouseholdStores() {
   const siteID = process.env.NETLIFY_BLOBS_SITE_ID || process.env.SITE_ID;
   const token = process.env.NETLIFY_BLOBS_TOKEN;
+  const stores = [];
+  if (siteID && token) stores.push(getStore({ name: "households", siteID, token }));
+  stores.push(getStore("households"));
+  return stores;
+}
 
-  if (siteID && token) {
-    return getStore({ name: "households", siteID, token });
+async function withHouseholdStore(operation) {
+  const stores = getHouseholdStores();
+  let lastError;
+  for (const store of stores) {
+    try {
+      return await operation(store);
+    } catch (error) {
+      lastError = error;
+    }
   }
-
-  return getStore("households");
+  throw lastError;
 }
 
 // See pantry-ai.mjs for why these are needed (native app calls this cross-origin).
@@ -46,14 +63,6 @@ export async function handler(event) {
     return { statusCode: 204, headers: CORS_HEADERS, body: "" };
   }
 
-  let store;
-
-  try {
-    store = getHouseholdStore();
-  } catch (error) {
-    return json({ error: `Blobs store unavailable: ${error?.message || error}` }, 500);
-  }
-
   try {
     if (event.httpMethod === "GET") {
       const code = String(event.queryStringParameters?.code || "").toUpperCase();
@@ -62,7 +71,7 @@ export async function handler(event) {
         return json({ error: "Invalid household code." }, 400);
       }
 
-      const data = await store.get(code, { type: "json" });
+      const data = await withHouseholdStore(store => store.get(code, { type: "json" }));
 
       if (!data) {
         return json({ found: false });
@@ -105,7 +114,7 @@ export async function handler(event) {
         updatedBy: typeof body.deviceName === "string" ? body.deviceName.slice(0, 60) : ""
       };
 
-      await store.setJSON(code, payload);
+      await withHouseholdStore(store => store.setJSON(code, payload));
 
       return json({ ok: true, updatedAt: payload.updatedAt });
     }

@@ -136,7 +136,7 @@ test('every function includes CORS headers on every response (the actual bug: th
   }
 });
 
-test('household-sync surfaces a proper JSON error (not a crash) when the Blobs store is unavailable - this is a real production risk: if Netlify\'s automatic Blobs context injection fails (a documented platform issue) and NETLIFY_BLOBS_SITE_ID/NETLIFY_BLOBS_TOKEN are not set as a fallback, every sync/join attempt fails this way', async () => {
+test('household-sync surfaces a proper JSON error (not a crash) when no Blobs store is reachable at all - this is a real production risk: if both the explicit-credential store AND the automatic-context store fail (as actually happened in production - the explicit credentials went stale and every operation returned a 401), every sync/join attempt needs to fail loudly with a real message rather than crash or silently do nothing', async () => {
   const { handler } = await import('../netlify/functions/household-sync.mjs');
   delete process.env.NETLIFY_BLOBS_SITE_ID;
   delete process.env.SITE_ID;
@@ -145,7 +145,7 @@ test('household-sync surfaces a proper JSON error (not a crash) when the Blobs s
   const response = await handler({ httpMethod: 'GET', queryStringParameters: { code: 'ABCDEFGH' } });
   const body = JSON.parse(response.body);
   assert.equal(response.statusCode, 500);
-  assert.match(body.error, /Blobs store unavailable/);
+  assert.match(body.error, /Household sync failed/);
   assert.equal(response.headers?.['Access-Control-Allow-Origin'], '*');
 });
 
