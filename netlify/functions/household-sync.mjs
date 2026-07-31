@@ -39,15 +39,14 @@ const CORS_HEADERS = {
 };
 
 function json(body, statusCode = 200) {
-  return {
-    statusCode,
+  return new Response(JSON.stringify(body), {
+    status: statusCode,
     headers: {
       "Content-Type": "application/json",
       "Cache-Control": "no-store",
       ...CORS_HEADERS
-    },
-    body: JSON.stringify(body)
-  };
+    }
+  });
 }
 
 // 6-10 uppercase letters/digits, excluding easily-confused characters (0/O, 1/I/L).
@@ -58,14 +57,15 @@ const CODE_PATTERN = /^[ABCDEFGHJKMNPQRSTUVWXYZ23456789]{6,10}$/;
 // bad client can't fill storage or make every sync slow.
 const MAX_PAYLOAD_CHARACTERS = 2_000_000;
 
-export async function handler(event) {
-  if (event.httpMethod === "OPTIONS") {
-    return { statusCode: 204, headers: CORS_HEADERS, body: "" };
+export default async (request) => {
+  if (request.method === "OPTIONS") {
+    return new Response(null, { status: 204, headers: CORS_HEADERS });
   }
 
   try {
-    if (event.httpMethod === "GET") {
-      const code = String(event.queryStringParameters?.code || "").toUpperCase();
+    if (request.method === "GET") {
+      const url = new URL(request.url);
+      const code = String(url.searchParams.get("code") || "").toUpperCase();
 
       if (!CODE_PATTERN.test(code)) {
         return json({ error: "Invalid household code." }, 400);
@@ -80,11 +80,11 @@ export async function handler(event) {
       return json({ found: true, state: data.state, updatedAt: data.updatedAt, updatedBy: data.updatedBy || "" });
     }
 
-    if (event.httpMethod === "POST") {
+    if (request.method === "POST") {
       let body;
 
       try {
-        body = JSON.parse(event.body || "{}");
+        body = await request.json();
       } catch {
         return json({ error: "Invalid JSON body." }, 400);
       }
@@ -123,4 +123,4 @@ export async function handler(event) {
   } catch (error) {
     return json({ error: `Household sync failed: ${error?.message || error}` }, 500);
   }
-}
+};

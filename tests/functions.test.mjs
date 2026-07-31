@@ -110,7 +110,7 @@ test('store locator places a closer explicitly kosher result before farther dire
 });
 
 test('every function includes CORS headers on every response (the actual bug: the native iOS/Android app calls these cross-origin, unlike the website, and was being silently blocked without these headers)', async () => {
-  const { handler: householdHandler } = await import('../netlify/functions/household-sync.mjs');
+  const { default: householdHandler } = await import('../netlify/functions/household-sync.mjs');
 
   for (const [name, handler, method] of [
     ['pantry-ai', pantryHandler, 'OPTIONS'],
@@ -119,14 +119,10 @@ test('every function includes CORS headers on every response (the actual bug: th
     ['receipt-scan', receiptHandler, 'POST'],
     ['store-locator', storeHandler, 'OPTIONS'],
     ['store-locator', storeHandler, 'POST'],
-    ['household-sync', householdHandler, 'OPTIONS'],
-    ['household-sync', householdHandler, 'GET'],
   ]) {
     const event = method === 'OPTIONS'
       ? { httpMethod: 'OPTIONS' }
-      : method === 'GET'
-        ? { httpMethod: 'GET', queryStringParameters: { code: 'BADCODE' } }
-        : { httpMethod: 'POST', body: JSON.stringify({}) };
+      : { httpMethod: 'POST', body: JSON.stringify({}) };
     const response = await handler(event);
     assert.equal(
       response.headers?.['Access-Control-Allow-Origin'],
@@ -134,36 +130,42 @@ test('every function includes CORS headers on every response (the actual bug: th
       `${name} (${method}) is missing Access-Control-Allow-Origin - the native app would be silently blocked`
     );
   }
+
+  // household-sync is now a v2 (Request/Response) function, tested separately.
+  const optionsResponse = await householdHandler(new Request('https://x.test/household-sync', { method: 'OPTIONS' }));
+  assert.equal(optionsResponse.headers.get('Access-Control-Allow-Origin'), '*', 'household-sync (OPTIONS) is missing CORS header');
+  const getResponse = await householdHandler(new Request('https://x.test/household-sync?code=BADCODE'));
+  assert.equal(getResponse.headers.get('Access-Control-Allow-Origin'), '*', 'household-sync (GET) is missing CORS header');
 });
 
 test('household-sync surfaces a proper JSON error (not a crash) when no Blobs store is reachable at all - this is a real production risk: if both the explicit-credential store AND the automatic-context store fail (as actually happened in production - the explicit credentials went stale and every operation returned a 401), every sync/join attempt needs to fail loudly with a real message rather than crash or silently do nothing', async () => {
-  const { handler } = await import('../netlify/functions/household-sync.mjs');
+  const { default: handler } = await import('../netlify/functions/household-sync.mjs');
   delete process.env.NETLIFY_BLOBS_SITE_ID;
   delete process.env.SITE_ID;
   delete process.env.NETLIFY_BLOBS_TOKEN;
 
-  const response = await handler({ httpMethod: 'GET', queryStringParameters: { code: 'ABCDEFGH' } });
-  const body = JSON.parse(response.body);
-  assert.equal(response.statusCode, 500);
+  const response = await handler(new Request('https://x.test/household-sync?code=ABCDEFGH'));
+  const body = await response.json();
+  assert.equal(response.status, 500);
   assert.match(body.error, /Household sync failed/);
-  assert.equal(response.headers?.['Access-Control-Allow-Origin'], '*');
+  assert.equal(response.headers.get('Access-Control-Allow-Origin'), '*');
 });
 
 test('household-sync validates codes and payloads correctly once the Blobs store is available', async () => {
   process.env.NETLIFY_BLOBS_SITE_ID = 'test-site-id';
   process.env.NETLIFY_BLOBS_TOKEN = 'test-token';
-  const { handler } = await import('../netlify/functions/household-sync.mjs?fresh=' + Date.now());
+  const { default: handler } = await import('../netlify/functions/household-sync.mjs?fresh=' + Date.now());
 
-  const badGet = await handler({ httpMethod: 'GET', queryStringParameters: { code: 'nope' } });
-  assert.equal(badGet.statusCode, 400);
-  assert.match(JSON.parse(badGet.body).error, /Invalid household code/);
+  const badGet = await handler(new Request('https://x.test/household-sync?code=nope'));
+  assert.equal(badGet.status, 400);
+  assert.match((await badGet.json()).error, /Invalid household code/);
 
-  const badPost = await handler({ httpMethod: 'POST', body: JSON.stringify({ code: 'ABCDEFGH' }) });
-  assert.equal(badPost.statusCode, 400);
-  assert.match(JSON.parse(badPost.body).error, /Missing state/);
+  const badPost = await handler(new Request('https://x.test/household-sync', { method: 'POST', body: JSON.stringify({ code: 'ABCDEFGH' }) }));
+  assert.equal(badPost.status, 400);
+  assert.match((await badPost.json()).error, /Missing state/);
 
-  const badMethod = await handler({ httpMethod: 'DELETE' });
-  assert.equal(badMethod.statusCode, 405);
+  const badMethod = await handler(new Request('https://x.test/household-sync', { method: 'DELETE' }));
+  assert.equal(badMethod.status, 405);
 
   delete process.env.NETLIFY_BLOBS_SITE_ID;
   delete process.env.NETLIFY_BLOBS_TOKEN;
