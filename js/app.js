@@ -1246,24 +1246,104 @@ function pantryPhotoById(id){
   return (state.pantryPhotos||[]).find(p=>p.id===id);
 }
 
+// Deterministic, name-based icon matching - the actual fix per explicit user
+// feedback: relying on the AI to freshly guess a good icon on every scan was
+// fundamentally unreliable, since it's still just a per-request AI guess that
+// could come back wrong or missing. This is a fixed dictionary checked
+// against the item's own name text, so the result is the same every time
+// and fully testable, with no dependency on the AI getting it right.
+// Order matters: more specific patterns are checked before broader ones
+// that could otherwise false-match (e.g. "black pepper" the spice must be
+// checked before generic "pepper" which means bell pepper).
+const NAME_ICON_RULES=[
+  // Exceptions that must come before their broader category below.
+  [/\bblack pepper/i,"🧂"],
+  [/\bpeanut butter/i,"🥜"],
+  [/\bcream cheese/i,"🧀"],
+  [/\bsour cream/i,"🥛"],
+  [/\bwhipped cream\b|\bheavy cream\b|\bwhipping cream/i,"🥛"],
+  [/\bcoconut (milk|cream)/i,"🥥"],
+  [/\balmond milk|\bsoy milk|\boat milk/i,"🥛"],
+  [/\bice cream/i,"🍦"],
+  [/\bhot sauce\b|\bbuffalo (wing )?sauce/i,"🌶️"],
+
+  // Proteins.
+  [/\begg/i,"🥚"],
+  [/\b(salmon|tuna|tilapia|cod|halibut|fish|gefilte|sardine|anchov)/i,"🐟"],
+  [/\b(chicken|turkey|poultry|drumstick|pargiyot|cutlet)/i,"🍗"],
+  [/\b(beef|steak|brisket|burger|lamb|veal|schnitzel|meat)/i,"🥩"],
+  [/\b(hummus|chickpea|bean|lentil|legume)/i,"🫘"],
+  [/\btofu/i,"🧊"],
+
+  // Dairy.
+  [/\bmilk/i,"🥛"],
+  [/\byogurt|yoghurt/i,"🥣"],
+  [/\bcheese/i,"🧀"],
+  [/\bbutter\b|\bmargarine/i,"🧈"],
+
+  // Produce.
+  [/\btomato/i,"🍅"],
+  [/\bonion/i,"🧅"],
+  [/\bgarlic/i,"🧄"],
+  [/\bpotato/i,"🥔"],
+  [/\bcarrot/i,"🥕"],
+  [/\b(bell )?pepper/i,"🫑"],
+  [/\b(lettuce|spinach|kale|greens|arugula)/i,"🥬"],
+  [/\bcucumber/i,"🥒"],
+  [/\bcorn/i,"🌽"],
+  [/\bavocado|guacamole/i,"🥑"],
+  [/\blemon|lime/i,"🍋"],
+  [/\bapple/i,"🍎"],
+  [/\bbanana/i,"🍌"],
+  [/\bgrape/i,"🍇"],
+  [/\bwatermelon/i,"🍉"],
+  [/\b(berry|berries|strawberr)/i,"🍓"],
+  [/\bbroccoli/i,"🥦"],
+  [/\bmushroom/i,"🍄"],
+
+  // Grains / starches.
+  [/\b(bread|challah|bagel|bun|roll|baguette)/i,"🍞"],
+  [/\brice/i,"🍚"],
+  [/\b(pasta|noodle|spaghetti|macaroni)/i,"🍝"],
+  [/\bcereal/i,"🥣"],
+  [/\bpretzel/i,"🥨"],
+
+  // Condiments / pantry staples.
+  [/\b(ketchup|mustard|mayonnaise|mayo|soy sauce|teriyaki|salsa|bbq sauce|dressing)/i,"🧂"],
+  [/\boil/i,"🫒"],
+  [/\bhoney/i,"🍯"],
+  [/\b(jam|jelly|preserves)/i,"🍯"],
+  [/\bolive/i,"🫒"],
+  [/\bpickle/i,"🥒"],
+
+  // Snacks / other common items.
+  [/\b(chocolate|candy)/i,"🍫"],
+  [/\b(nut|almond|peanut|cashew|pecan|walnut)/i,"🥜"],
+  [/\bcoffee/i,"☕"],
+  [/\btea/i,"🍵"],
+  [/\bjuice/i,"🧃"],
+  [/\b(soda|pop)/i,"🥤"],
+  [/\bwine/i,"🍷"],
+  [/\bwatermelon/i,"🍉"]
+];
+
 function categoryEmoji(category,unit,itemName,icon){
-  // The AI now picks a specific, accurate emoji per item directly (see
-  // pantry-ai.mjs / receipt-scan.mjs) - this is the real fix for the
-  // whack-a-mole pattern of discovering one wrong icon at a time (eggs,
-  // fish, hummus...) and patching each individually. A loose sanity check:
-  // reject anything that looks like it isn't actually an emoji.
+  const name=String(itemName||"");
+  // The deterministic name-based dictionary is checked first - this is
+  // the primary mechanism per explicit user feedback, since it's fixed
+  // and testable rather than depending on the AI guessing well on any
+  // given scan.
+  for(const [pattern,emoji] of NAME_ICON_RULES){
+    if(pattern.test(name))return emoji;
+  }
+  // An AI-provided icon (if present and looks valid) is a reasonable
+  // second choice for items the dictionary above doesn't recognize.
   if(icon && icon.length<=8 && !/[a-zA-Z0-9]/.test(icon))return icon;
   // Container shape next, since it's often more visually recognizable
   // than the food category alone (a bottle of ketchup vs. a jar of jam
   // both being "condiment" looked the same before).
   const byUnit={bottle:"🧴",jar:"🫙",can:"🥫",box:"📦",bag:"🛍️",loaf:"🍞",bunch:"🌿",clove:"🧄",bulb:"🧅"};
   if(unit&&byUnit[unit])return byUnit[unit];
-  // Everything below is a safety net for pantry items saved before the AI
-  // started providing its own icon, so they still show correctly without
-  // needing a rescan.
-  if(/\begg/i.test(itemName||""))return "🥚";
-  if(/\b(salmon|tuna|tilapia|cod|halibut|fish|gefilte)\b/i.test(itemName||""))return "🐟";
-  if(/\bhummus\b/i.test(itemName||""))return "🥣";
   return ({produce:"🥬",meat:"🥩",fish:"🐟",dairy:"🥛",eggs:"🥚",frozen:"❄️","dry goods":"🥫",canned:"🥫",condiment:"🧂",other:"🍽️"})[category]||"🍽️";
 }
 

@@ -730,8 +730,8 @@ test('fish shows a fish icon, not a steak (same category-completeness gap as the
 test('hummus shows a hummus-appropriate icon, not a milk glass (hummus is chickpea-based/pareve, not dairy - same category-guessing gap as eggs and fish)', async () => {
   const {context}=await boot();
   const api=context.window.__dinnerPlannerTest;
-  assert.equal(api.categoryEmoji('dairy','container','Sabra Classic Hummus'),'🥣');
-  assert.equal(api.categoryEmoji('dairy','container','hummus container'),'🥣');
+  assert.equal(api.categoryEmoji('dairy','container','Sabra Classic Hummus'),'🫘');
+  assert.equal(api.categoryEmoji('dairy','container','hummus container'),'🫘');
 });
 
 test('"pargiyot" (the standard kosher-butcher term for boneless chicken thigh cutlets) matches "chicken thighs" in recipes - the actual bug: it fell through unmapped and never matched any recipe ingredient at all, silently excluding every chicken thigh recipe from suggestions for anyone whose pantry used this common term', async () => {
@@ -785,16 +785,60 @@ test('the update check fails silently on a network error rather than throwing (c
   await assert.doesNotReject(()=>api.checkForNewerDeployedBuild());
 });
 
-test('an AI-provided icon takes priority over the category/name-guessing fallback (the actual architecture fix: instead of patching one wrong food icon at a time - eggs, fish, hummus - the AI now picks an accurate emoji per item directly, which is a much better fit than forcing everything into 9 broad category buckets)', async () => {
+test('the deterministic name-based icon dictionary takes priority over any AI-provided icon (the actual architecture fix per explicit user feedback: relying on the AI to freshly guess a good icon on every scan was unreliable, since it is still just a per-request guess - a fixed, testable dictionary checked against the item name is now the primary mechanism, with the AI-provided icon only used as a fallback for items the dictionary does not recognize)', async () => {
   const {context}=await boot();
   const api=context.window.__dinnerPlannerTest;
-  // A food the old category system had no good bucket for and would have
-  // guessed wrong (no patch was ever written for this one) - the new
-  // AI-icon path should just work correctly without needing a specific fix.
-  assert.equal(api.categoryEmoji('dairy','container','Guacamole','🥑'),'🥑');
-  // Garbage/invalid icon values fall back to the existing safety net.
-  assert.equal(api.categoryEmoji('dairy','each','Lesher Medium Eggs 10 ct','not-an-emoji'),'🥚');
-  assert.equal(api.categoryEmoji('dairy','each','Lesher Medium Eggs 10 ct',''),'🥚');
-  // No icon field at all (item saved before this change) - safety net still works.
-  assert.equal(api.categoryEmoji('dairy','each','Lesher Medium Eggs 10 ct'),'🥚');
+  // Dictionary match wins even if the AI suggested something different/wrong.
+  assert.equal(api.categoryEmoji('dairy','each','Lesher Medium Eggs 10 ct','🥛'),'🥚');
+  assert.equal(api.categoryEmoji('dairy','container','Sabra Classic Hummus','🥛'),'🫘');
+  // A food outside the dictionary falls back to a valid AI-provided icon.
+  assert.equal(api.categoryEmoji('other','container','Some Unusual Product','🍱'),'🍱');
+  // Garbage/invalid icon values fall back further to the category/unit safety net.
+  assert.equal(api.categoryEmoji('other','container','Some Unusual Product','not-an-emoji'),'🍽️');
+  assert.equal(api.categoryEmoji('other','container','Some Unusual Product',''),'🍽️');
+});
+
+test('the name-based icon dictionary covers a broad, representative set of common grocery items correctly (this is the actual point of the rebuild: comprehensive and deterministic, not one-off patches for whichever food happened to be reported wrong)', async () => {
+  const {context}=await boot();
+  const api=context.window.__dinnerPlannerTest;
+  const cases=[
+    ['Ground Beef','🥩'],['Chicken Thighs','🍗'],['Baby Chicken Pargiyot Family','🍗'],
+    ['Premium Salmon Fillet','🐟'],['Sabra Classic Hummus','🫘'],['Large Eggs 12ct','🥚'],
+    ['Whole Milk','🥛'],['Cheddar Cheese','🧀'],['Land O Lakes Butter','🧈'],['Greek Yogurt','🥣'],
+    ['Roma Tomatoes','🍅'],['Yellow Onion','🧅'],['Fresh Garlic','🧄'],['Russet Potatoes','🥔'],
+    ['Baby Carrots','🥕'],['Red Bell Pepper','🫑'],['Black Pepper','🧂'],['Baby Spinach','🥬'],
+    ['English Cucumber','🥒'],['Sweet Corn','🌽'],['Hass Avocado','🥑'],['Fresh Lemon','🍋'],
+    ['Gala Apples','🍎'],['Bananas','🍌'],['Seedless Grapes','🍇'],['Broccoli Crowns','🥦'],
+    ['White Bread','🍞'],['Challah Loaf','🍞'],['Jasmine Rice','🍚'],['Spaghetti Pasta','🍝'],
+    ['Heinz Ketchup','🧂'],['Dijon Mustard','🧂'],['Hellmanns Mayonnaise','🧂'],
+    ['Extra Virgin Olive Oil','🫒'],['Kirkland Honey','🍯'],['Dill Pickles','🥒'],
+    ['Dark Chocolate Bar','🍫'],['Roasted Almonds','🥜'],['Orange Juice','🧃'],['Ground Coffee','☕']
+  ];
+  for(const [name,expected] of cases){
+    assert.equal(api.categoryEmoji('other','unknown',name),expected,`expected "${name}" to show ${expected}`);
+  }
+});
+
+test('the icon dictionary handles plurals correctly (the actual bug this test caught during development: "Roasted Almonds" fell through to the generic fallback because a trailing word-boundary in the pattern blocked the plural "s" from matching)', async () => {
+  const {context}=await boot();
+  const api=context.window.__dinnerPlannerTest;
+  const cases=[
+    ['Roma Tomatoes','🍅'],['Yellow Onions','🧅'],['Baby Carrots','🥕'],
+    ['Russet Potatoes','🥔'],['Bell Peppers','🫑'],['Dinner Rolls','🍞'],
+    ['Mini Bagels','🍞'],['Soft Pretzels','🥨'],['Roasted Almonds','🥜'],
+    ['Mixed Nuts','🥜'],['Large Eggs','🥚']
+  ];
+  for(const [name,expected] of cases){
+    assert.equal(api.categoryEmoji('other','unknown',name),expected,`expected "${name}" to show ${expected}`);
+  }
+});
+
+test('exception patterns correctly override their broader category (black pepper the spice vs bell pepper the vegetable; peanut butter the spread vs peanuts the nut)', async () => {
+  const {context}=await boot();
+  const api=context.window.__dinnerPlannerTest;
+  assert.equal(api.categoryEmoji('other','unknown','Black Pepper'),'🧂');
+  assert.equal(api.categoryEmoji('other','unknown','Ground Black Pepper'),'🧂');
+  assert.equal(api.categoryEmoji('other','unknown','Red Bell Pepper'),'🫑');
+  assert.equal(api.categoryEmoji('other','unknown','Peanut Butter'),'🥜');
+  assert.equal(api.categoryEmoji('other','unknown','Roasted Peanuts'),'🥜');
 });
