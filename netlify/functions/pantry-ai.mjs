@@ -394,7 +394,7 @@ Use medium confidence only when the identity is clear but some detail is uncerta
 
 Ignore dishes, appliances, cleaning products, decorations, medications, and non-food objects.
 
-icon: pick the single emoji character that most specifically and accurately represents THIS item, not just its broad category. Be precise - for example, hummus is a chickpea dip and should get a chickpea/legume-style emoji, not a dairy one; eggs should get an egg emoji, not a dairy one; fish should get a fish emoji, not a generic meat one. Getting this right matters for kosher users, since a dairy-looking icon on a pareve item is actively misleading, not just cosmetically wrong. If nothing specific enough exists, fall back to a general food emoji rather than a wrong specific one.
+icon: pick the single emoji character that most specifically and accurately represents what THIS item actually is as a finished food/product - not the raw ingredient it's made from. For example: hummus is a prepared dip, so represent it as a dip/spread, not as chickpeas; bread is bread, not wheat; cheese is cheese, not milk. Getting this right matters for kosher users specifically around dairy vs. pareve - eggs should read as eggs, not dairy; fish should read as fish, not generic meat. If no emoji matches the specific product closely, use a general prepared-food emoji rather than substituting the ingredient it was made from.
 
 bbox uses normalized 0–1000 coordinates in this order:
 
