@@ -689,3 +689,15 @@ test('pantry suggestions show real variety instead of several near-identical var
   const families=ids.map(id=>api.recipeFamily(api.getRecipe(id)));
   assert.equal(new Set(families).size,families.length,`expected every suggestion to be from a different family, got: ${families.join(', ')}`);
 });
+
+test('eggs show an egg icon, not a milk glass (the actual bug the user caught: eggs had no category of their own in the AI schema, so they were forced into "dairy" - wrong visually and inaccurate for kashrus purposes, since eggs are pareve, not dairy)', async () => {
+  const {context}=await boot();
+  const api=context.window.__dinnerPlannerTest;
+  // A pre-existing pantry item saved before the fix, still miscategorized as
+  // dairy - the name-based fallback should catch this without a rescan.
+  assert.equal(api.categoryEmoji('dairy','each','Lesher Medium Eggs 10 ct'),'🥚');
+  // A fresh item using the new real "eggs" category.
+  assert.equal(api.categoryEmoji('eggs','each','Lesher Medium Eggs 10 ct'),'🥚');
+  // Sanity check: real dairy is unaffected.
+  assert.equal(api.categoryEmoji('dairy','each','Vitamin D Milk'),'🥛');
+});

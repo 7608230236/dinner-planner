@@ -25,6 +25,7 @@ const ALLOWED_CATEGORIES = new Set([
   "produce",
   "meat",
   "dairy",
+  "eggs",
   "frozen",
   "dry goods",
   "canned",

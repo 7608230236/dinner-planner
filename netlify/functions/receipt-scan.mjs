@@ -25,6 +25,7 @@ const ALLOWED_CATEGORIES = new Set([
   "produce",
   "meat",
   "dairy",
+  "eggs",
   "frozen",
   "dry goods",
   "canned",
@@ -234,7 +235,7 @@ Receipt text is often abbreviated (e.g. "GV WHL MLK GAL"). For each item, provid
 - name: your best plain-English guess of the actual product (e.g. "Whole milk")
 - qty: the number of units purchased (use null if genuinely unclear)
 - unit: your best guess of the unit
-- category: one of produce, meat, dairy, frozen, dry goods, canned, condiment, other
+- category: one of produce, meat, dairy, eggs, frozen, dry goods, canned, condiment, other
 - estimatedShelfLifeDays: a typical, reasonable number of days from purchase until this item is no longer good, based on common food-safety knowledge for that category (for example: fresh milk about 7-10 days, fresh produce about 5-7 days, bread about 5-7 days, eggs about 21-28 days, canned or dry goods about 365 days, frozen items about 90 days). Use null only if you cannot reasonably estimate a category at all.
 - confidence: "high" if the item and quantity are clearly identifiable from the text, otherwise "medium"
 

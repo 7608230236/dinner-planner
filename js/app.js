@@ -1245,13 +1245,20 @@ function pantryPhotoById(id){
   return (state.pantryPhotos||[]).find(p=>p.id===id);
 }
 
-function categoryEmoji(category,unit){
+function categoryEmoji(category,unit,itemName){
   // Container shape first, since it's often more visually recognizable
   // than the food category alone (a bottle of ketchup vs. a jar of jam
   // both being "condiment" looked the same before).
   const byUnit={bottle:"🧴",jar:"🫙",can:"🥫",box:"📦",bag:"🛍️",loaf:"🍞",bunch:"🌿",clove:"🧄",bulb:"🧅"};
   if(unit&&byUnit[unit])return byUnit[unit];
-  return ({produce:"🥬",meat:"🥩",dairy:"🥛",frozen:"❄️","dry goods":"🥫",canned:"🥫",condiment:"🧂",other:"🍽️"})[category]||"🍽️";
+  // Eggs were previously forced into the "dairy" category (there was no
+  // "eggs" option), showing a milk-glass icon for eggs - both visually
+  // wrong and inaccurate for kashrus purposes, since eggs are pareve, not
+  // dairy. New scans now use a real "eggs" category; this name check is a
+  // fallback so pantry items saved before that fix also show correctly
+  // without requiring a rescan.
+  if(/\begg/i.test(itemName||""))return "🥚";
+  return ({produce:"🥬",meat:"🥩",dairy:"🥛",eggs:"🥚",frozen:"❄️","dry goods":"🥫",canned:"🥫",condiment:"🧂",other:"🍽️"})[category]||"🍽️";
 }
 
 function pantryItemKey(name){
@@ -1452,7 +1459,7 @@ function renderInventory(){
     const image=item.thumbnail || (source&&source.image) || "";
     const confidenceText=confidence==="user"?"Confirmed by you":confidence==="high"?"High confidence":"Needs review";
     return `<div class="inventory-card">
-      ${image?`<img src="${image}" alt="${item.thumbnail?"Detected item":"Source photo"} for ${esc(item.item)}">`:`<div class="inventory-fallback">${categoryEmoji(item.category,item.unit)}</div>`}
+      ${image?`<img src="${image}" alt="${item.thumbnail?"Detected item":"Source photo"} for ${esc(item.item)}">`:`<div class="inventory-fallback">${categoryEmoji(item.category,item.unit,item.item)}</div>`}
       <div class="inventory-body">
         <div class="inventory-name">${esc(item.item)}</div>
         <div class="inventory-qty">${esc(formatQty(item))}</div>
@@ -2633,6 +2640,7 @@ window.__dinnerPlannerTest={
   recipeFamily,
   recipeProtein,
   getRecipe,
+  categoryEmoji,
   displayedTime,
   targetKinds,
   hebrewDateParts,
