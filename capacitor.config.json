@@ -7,7 +7,9 @@
     "allowMixedContent": false
   },
   "server": {
-    "androidScheme": "https"
+    "androidScheme": "https",
+    "url": "https://cheerful-conkies-96998f.netlify.app",
+    "cleartext": false
   },
   "plugins": {
     "SocialLogin": {
