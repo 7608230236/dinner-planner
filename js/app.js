@@ -2614,6 +2614,36 @@ async function prepareCurrentAppVersion(){
   }
 }
 prepareCurrentAppVersion();
+
+// The passive "did my own build ID change since last visit" check above only
+// catches updates if this page has actually re-fetched from the network
+// recently. A long-lived native WebView session (backgrounded/foregrounded
+// repeatedly, never fully reloaded) could otherwise keep running a stale
+// build indefinitely with no way for the person to know. Actively check the
+// deployed build ID whenever the app is resumed, and offer a one-tap refresh
+// rather than silently reloading, so it never interrupts something the
+// person is in the middle of doing.
+async function checkForNewerDeployedBuild(){
+  try{
+    const response=await fetch(`/service-worker.js?check=${Date.now()}`,{cache:"no-store"});
+    if(!response.ok)return;
+    const text=await response.text();
+    const match=text.match(/BUILD_ID\s*=\s*"([^"]+)"/);
+    const deployedBuildId=match?.[1];
+    if(deployedBuildId && deployedBuildId!=="__BUILD_ID__" && deployedBuildId!==BUILD_ID){
+      const banner=$("updateBanner");
+      if(banner)banner.hidden=false;
+    }
+  }catch{}
+}
+document.addEventListener("visibilitychange",()=>{
+  if(document.visibilityState==="visible")checkForNewerDeployedBuild();
+});
+window.addEventListener("focus",checkForNewerDeployedBuild);
+setTimeout(checkForNewerDeployedBuild,4000);
+setInterval(checkForNewerDeployedBuild,10*60*1000);
+$("updateBannerBtn")?.addEventListener("click",()=>location.reload());
+
 if("serviceWorker" in navigator){
   navigator.serviceWorker.register(`/service-worker.js?v=${APP_VERSION}-${BUILD_ID}`,{updateViaCache:"none"}).catch(()=>{});
 }
@@ -2662,6 +2692,7 @@ window.__dinnerPlannerTest={
   getRecipe,
   categoryEmoji,
   mergePantryItem,
+  checkForNewerDeployedBuild,
   displayedTime,
   targetKinds,
   hebrewDateParts,

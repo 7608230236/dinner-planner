@@ -64,13 +64,15 @@ function createRuntime(){
     'mobileMenuBtn','mobileNavCloseBtn','mobileNavOverlay',
     'community','communitySignedOut','communitySignedIn','appleSignInBtn','googleSignInBtn','communityUserName','communitySignOutBtn',
     'shareRecipeBtn','communityStatus','shareRecipeForm','communityTitle','communityIngredients','addCommunityIngredientBtn',
-    'communitySteps','addCommunityStepBtn','submitCommunityRecipeBtn','cancelCommunityRecipeBtn','communityRecipeList'
+    'communitySteps','addCommunityStepBtn','submitCommunityRecipeBtn','cancelCommunityRecipeBtn','communityRecipeList',
+    'updateBanner','updateBannerBtn'
   ])];
   const elements=new Map(ids.map(id=>[id,new FakeElement(id)]));
   elements.get('photoLocation').value='Pantry';
   elements.get('includeSupportPhotos').checked=true;
   elements.get('developerPanel').classList.add('hidden');
   elements.get('versionBadge').textContent='v60';
+  elements.get('updateBanner').hidden=true;
 
   const storage=new Map();
   const document={
@@ -759,4 +761,26 @@ test('pantry suggestions prioritize dishes you can nearly complete over ones nee
   const html=elements.get('pantrySuggestions').innerHTML;
   assert.ok(html.includes('One-Pan Chicken Rice Skillet'),`expected the fully-covered recipe to be suggested, got: ${html}`);
   assert.ok(html.includes('You have 5 of 5'),`expected full 5/5 coverage to be recognized (proves the pargiyot fix feeds into suggestions correctly), got: ${html}`);
+});
+
+test('an update banner appears when a newer build is deployed than the one currently running - this matters because a long-lived native WebView session could otherwise keep running a stale build indefinitely with no way for the person to notice (this is what actually happened: a fix was live on the server but a family member had an already-open app still showing the old version)', async () => {
+  const {context,elements}=await boot();
+  const api=context.window.__dinnerPlannerTest;
+
+  // No newer build available - banner should stay hidden.
+  context.window.fetch=async()=>({ok:true,text:async()=>'const BUILD_ID = "__BUILD_ID__";'});
+  await api.checkForNewerDeployedBuild();
+  assert.equal(elements.get('updateBanner').hidden,true,'banner should stay hidden when the deployed build matches');
+
+  // A genuinely newer build is live on the server.
+  context.window.fetch=async()=>({ok:true,text:async()=>'const BUILD_ID = "abc123newbuild";'});
+  await api.checkForNewerDeployedBuild();
+  assert.equal(elements.get('updateBanner').hidden,false,'banner should appear when a newer build is detected');
+});
+
+test('the update check fails silently on a network error rather than throwing (checked periodically and on app resume - a transient failure here should never crash or interrupt the app)', async () => {
+  const {context}=await boot();
+  const api=context.window.__dinnerPlannerTest;
+  context.window.fetch=async()=>{throw new Error('offline')};
+  await assert.doesNotReject(()=>api.checkForNewerDeployedBuild());
 });
