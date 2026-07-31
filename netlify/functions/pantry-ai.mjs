@@ -54,6 +54,7 @@ const PANTRY_RESPONSE_SCHEMA = {
           "unit",
           "confidence",
           "category",
+          "icon",
           "perishable",
           "evidence",
           "quantityBasis",
@@ -84,6 +85,9 @@ const PANTRY_RESPONSE_SCHEMA = {
           category: {
             type: "string",
             enum: [...ALLOWED_CATEGORIES]
+          },
+          icon: {
+            type: "string"
           },
           perishable: {
             type: "boolean"
@@ -390,6 +394,8 @@ Use medium confidence only when the identity is clear but some detail is uncerta
 
 Ignore dishes, appliances, cleaning products, decorations, medications, and non-food objects.
 
+icon: pick the single emoji character that most specifically and accurately represents THIS item, not just its broad category. Be precise - for example, hummus is a chickpea dip and should get a chickpea/legume-style emoji, not a dairy one; eggs should get an egg emoji, not a dairy one; fish should get a fish emoji, not a generic meat one. Getting this right matters for kosher users, since a dairy-looking icon on a pareve item is actively misleading, not just cosmetically wrong. If nothing specific enough exists, fall back to a general food emoji rather than a wrong specific one.
+
 bbox uses normalized 0–1000 coordinates in this order:
 
 [left, top, right, bottom]
@@ -561,6 +567,14 @@ function sanitizeItem(raw) {
     ? raw.category
     : "other";
 
+  // Loose sanity check only - a real emoji can be several UTF-16 code units
+  // (modifiers, ZWJ sequences), so this just guards against the model
+  // returning a whole word or phrase instead of a symbol. If it looks wrong,
+  // fall back to empty string so the client's category-based fallback
+  // logic takes over rather than showing garbled text as an "icon".
+  const rawIcon = typeof raw?.icon === "string" ? raw.icon.trim() : "";
+  const icon = rawIcon && rawIcon.length <= 8 && !/[a-zA-Z0-9]/.test(rawIcon) ? rawIcon : "";
+
   let bbox = null;
 
   if (
@@ -596,6 +610,7 @@ function sanitizeItem(raw) {
       unit,
       confidence: confidence || "medium",
       category,
+      icon,
       perishable: Boolean(raw?.perishable),
       evidence,
       quantityBasis,

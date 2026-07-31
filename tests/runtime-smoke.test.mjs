@@ -784,3 +784,17 @@ test('the update check fails silently on a network error rather than throwing (c
   context.window.fetch=async()=>{throw new Error('offline')};
   await assert.doesNotReject(()=>api.checkForNewerDeployedBuild());
 });
+
+test('an AI-provided icon takes priority over the category/name-guessing fallback (the actual architecture fix: instead of patching one wrong food icon at a time - eggs, fish, hummus - the AI now picks an accurate emoji per item directly, which is a much better fit than forcing everything into 9 broad category buckets)', async () => {
+  const {context}=await boot();
+  const api=context.window.__dinnerPlannerTest;
+  // A food the old category system had no good bucket for and would have
+  // guessed wrong (no patch was ever written for this one) - the new
+  // AI-icon path should just work correctly without needing a specific fix.
+  assert.equal(api.categoryEmoji('dairy','container','Guacamole','🥑'),'🥑');
+  // Garbage/invalid icon values fall back to the existing safety net.
+  assert.equal(api.categoryEmoji('dairy','each','Lesher Medium Eggs 10 ct','not-an-emoji'),'🥚');
+  assert.equal(api.categoryEmoji('dairy','each','Lesher Medium Eggs 10 ct',''),'🥚');
+  // No icon field at all (item saved before this change) - safety net still works.
+  assert.equal(api.categoryEmoji('dairy','each','Lesher Medium Eggs 10 ct'),'🥚');
+});

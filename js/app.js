@@ -100,6 +100,7 @@ function normalizeState(raw){
           unit:h.unit||"each",
           confidence:h.confidence||"user",
           category:h.category||"other",
+          icon:h.icon||"",
           perishable:Boolean(h.perishable),
           sourcePhotoIds:Array.isArray(h.sourcePhotoIds)?h.sourcePhotoIds:[],
           sourceLocations:Array.isArray(h.sourceLocations)?h.sourceLocations:[h.location||"Typed"],
@@ -1245,18 +1246,21 @@ function pantryPhotoById(id){
   return (state.pantryPhotos||[]).find(p=>p.id===id);
 }
 
-function categoryEmoji(category,unit,itemName){
-  // Container shape first, since it's often more visually recognizable
+function categoryEmoji(category,unit,itemName,icon){
+  // The AI now picks a specific, accurate emoji per item directly (see
+  // pantry-ai.mjs / receipt-scan.mjs) - this is the real fix for the
+  // whack-a-mole pattern of discovering one wrong icon at a time (eggs,
+  // fish, hummus...) and patching each individually. A loose sanity check:
+  // reject anything that looks like it isn't actually an emoji.
+  if(icon && icon.length<=8 && !/[a-zA-Z0-9]/.test(icon))return icon;
+  // Container shape next, since it's often more visually recognizable
   // than the food category alone (a bottle of ketchup vs. a jar of jam
   // both being "condiment" looked the same before).
   const byUnit={bottle:"🧴",jar:"🫙",can:"🥫",box:"📦",bag:"🛍️",loaf:"🍞",bunch:"🌿",clove:"🧄",bulb:"🧅"};
   if(unit&&byUnit[unit])return byUnit[unit];
-  // Eggs were previously forced into the "dairy" category (there was no
-  // "eggs" option), showing a milk-glass icon for eggs - both visually
-  // wrong and inaccurate for kashrus purposes, since eggs are pareve, not
-  // dairy. New scans now use a real "eggs" category; this name check is a
-  // fallback so pantry items saved before that fix also show correctly
-  // without requiring a rescan.
+  // Everything below is a safety net for pantry items saved before the AI
+  // started providing its own icon, so they still show correctly without
+  // needing a rescan.
   if(/\begg/i.test(itemName||""))return "🥚";
   if(/\b(salmon|tuna|tilapia|cod|halibut|fish|gefilte)\b/i.test(itemName||""))return "🐟";
   if(/\bhummus\b/i.test(itemName||""))return "🥣";
@@ -1465,7 +1469,7 @@ function renderInventory(){
     const image=item.thumbnail || (source&&source.image) || "";
     const confidenceText=confidence==="user"?"Confirmed by you":confidence==="high"?"High confidence":"Needs review";
     return `<div class="inventory-card">
-      ${image?`<img src="${image}" alt="${item.thumbnail?"Detected item":"Source photo"} for ${esc(item.item)}">`:`<div class="inventory-fallback">${categoryEmoji(item.category,item.unit,item.item)}</div>`}
+      ${image?`<img src="${image}" alt="${item.thumbnail?"Detected item":"Source photo"} for ${esc(item.item)}">`:`<div class="inventory-fallback">${categoryEmoji(item.category,item.unit,item.item,item.icon)}</div>`}
       <div class="inventory-body">
         <div class="inventory-name">${esc(item.item)}</div>
         <div class="inventory-qty">${esc(formatQty(item))}</div>
@@ -1716,6 +1720,7 @@ async function analyzePictures(){
           unit:item.unit||"unknown",
           confidence:item.confidence||"medium",
           category:item.category||"other",
+          icon:item.icon||"",
           perishable:Boolean(item.perishable),
           sourcePhotoIds:[picture.id],
           sourceLocations:[picture.location],
@@ -1827,6 +1832,7 @@ $("receiptPhotoInput").addEventListener("change",async event=>{
       qty:Number.isFinite(item.qty)?item.qty:1,
       unit:item.unit||"unknown",
       category:item.category||"other",
+      icon:item.icon||"",
       confidence:item.confidence||"medium",
       expiresOn:item.expiresOn||null,
       checked:true
@@ -1896,6 +1902,7 @@ $("addReceiptItemsBtn").onclick=()=>{
       // the user hasn't looked at yet.
       confidence:"user",
       category:item.category||"other",
+      icon:item.icon||"",
       perishable:Boolean(item.expiresOn),
       expiresOn:item.expiresOn||null,
       sourcePhotoIds:[],
@@ -2256,6 +2263,7 @@ function supportInventoryFromFile(data){
     unit:x.unit||"each",
     confidence:"user",
     category:x.category||"other",
+    icon:x.icon||"",
     perishable:Boolean(x.perishable),
     sourcePhotoIds:Array.isArray(x.sourcePhotoIds)?x.sourcePhotoIds:[],
     sourceLocations:Array.isArray(x.sourceLocations)?x.sourceLocations:[x.location||"Corrected import"],

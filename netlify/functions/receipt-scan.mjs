@@ -55,6 +55,7 @@ const RECEIPT_RESPONSE_SCHEMA = {
           "qty",
           "unit",
           "category",
+          "icon",
           "estimatedShelfLifeDays",
           "confidence"
         ],
@@ -66,6 +67,7 @@ const RECEIPT_RESPONSE_SCHEMA = {
           },
           unit: { type: "string", enum: [...ALLOWED_UNITS] },
           category: { type: "string", enum: [...ALLOWED_CATEGORIES] },
+          icon: { type: "string" },
           estimatedShelfLifeDays: {
             anyOf: [{ type: "number" }, { type: "null" }]
           },
@@ -237,6 +239,7 @@ Receipt text is often abbreviated (e.g. "GV WHL MLK GAL"). For each item, provid
 - qty: the number of units purchased (use null if genuinely unclear)
 - unit: your best guess of the unit
 - category: one of produce, meat, fish, dairy, eggs, frozen, dry goods, canned, condiment, other
+- icon: pick the single emoji character that most specifically and accurately represents THIS item, not just its broad category. Be precise - for example, hummus is a chickpea dip and should get a chickpea/legume-style emoji, not a dairy one; eggs should get an egg emoji, not a dairy one; fish should get a fish emoji, not a generic meat one. Getting this right matters for kosher users, since a dairy-looking icon on a pareve item is actively misleading, not just cosmetically wrong. If nothing specific enough exists, fall back to a general food emoji rather than a wrong specific one.
 - estimatedShelfLifeDays: a typical, reasonable number of days from purchase until this item is no longer good, based on common food-safety knowledge for that category (for example: fresh milk about 7-10 days, fresh produce about 5-7 days, bread about 5-7 days, eggs about 21-28 days, canned or dry goods about 365 days, frozen items about 90 days). Use null only if you cannot reasonably estimate a category at all.
 - confidence: "high" if the item and quantity are clearly identifiable from the text, otherwise "medium"
 
@@ -301,6 +304,12 @@ function sanitizeItem(raw, purchaseDate) {
   const unit = ALLOWED_UNITS.has(rawUnit) ? rawUnit : "unknown";
   const category = ALLOWED_CATEGORIES.has(raw?.category) ? raw.category : "other";
 
+  // Loose sanity check only - a real emoji can be several UTF-16 code units
+  // (modifiers, ZWJ sequences), so this just guards against the model
+  // returning a whole word or phrase instead of a symbol.
+  const rawIcon = typeof raw?.icon === "string" ? raw.icon.trim() : "";
+  const icon = rawIcon && rawIcon.length <= 8 && !/[a-zA-Z0-9]/.test(rawIcon) ? rawIcon : "";
+
   let shelfLifeDays = raw?.estimatedShelfLifeDays;
   if (shelfLifeDays !== "" && shelfLifeDays !== null && shelfLifeDays !== undefined) {
     shelfLifeDays = Math.round(Number(shelfLifeDays));
@@ -327,6 +336,7 @@ function sanitizeItem(raw, purchaseDate) {
       qty,
       unit,
       category,
+      icon,
       confidence: confidence || "medium",
       estimatedShelfLifeDays: shelfLifeDays,
       expiresOn
