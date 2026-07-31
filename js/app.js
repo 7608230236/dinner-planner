@@ -1258,7 +1258,8 @@ function categoryEmoji(category,unit,itemName){
   // fallback so pantry items saved before that fix also show correctly
   // without requiring a rescan.
   if(/\begg/i.test(itemName||""))return "🥚";
-  return ({produce:"🥬",meat:"🥩",dairy:"🥛",eggs:"🥚",frozen:"❄️","dry goods":"🥫",canned:"🥫",condiment:"🧂",other:"🍽️"})[category]||"🍽️";
+  if(/\b(salmon|tuna|tilapia|cod|halibut|fish|gefilte)\b/i.test(itemName||""))return "🐟";
+  return ({produce:"🥬",meat:"🥩",fish:"🐟",dairy:"🥛",eggs:"🥚",frozen:"❄️","dry goods":"🥫",canned:"🥫",condiment:"🧂",other:"🍽️"})[category]||"🍽️";
 }
 
 function pantryItemKey(name){
@@ -1271,6 +1272,10 @@ function canonicalIngredient(name){
 
 function normalizeUnit(unit){
   return IngredientEngine.normalizeUnit(unit);
+}
+
+function unitMatchGroup(unit){
+  return IngredientEngine.unitMatchGroup(unit);
 }
 
 function parseQtyText(text){
@@ -1290,8 +1295,8 @@ function logEvent(type,detail={}){
 
 function mergePantryItem(incoming){
   const key=pantryItemKey(incoming.item);
-  const incomingUnit=normalizeUnit(incoming.unit)||"each";
-  const existing=(state.have||[]).find(item=>pantryItemKey(item.item)===key && (normalizeUnit(item.unit)||"each")===incomingUnit);
+  const incomingUnit=unitMatchGroup(incoming.unit)||"each";
+  const existing=(state.have||[]).find(item=>pantryItemKey(item.item)===key && (unitMatchGroup(item.unit)||"each")===incomingUnit);
   if(!existing){
     incoming.observations=Array.isArray(incoming.observations)?incoming.observations:[];
     state.have.push(incoming);
@@ -2641,6 +2646,7 @@ window.__dinnerPlannerTest={
   recipeProtein,
   getRecipe,
   categoryEmoji,
+  mergePantryItem,
   displayedTime,
   targetKinds,
   hebrewDateParts,

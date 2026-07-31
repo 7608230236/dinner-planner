@@ -109,6 +109,20 @@
     return u;
   }
 
+  // Generic packaging words (package/bag/box/container/pack) don't describe
+  // a meaningfully different container the way jar/can/bottle do - they're
+  // near-synonymous phrasings the AI reaches for depending on the photo, so
+  // requiring an EXACT match between them (e.g. "1 package" vs "1 bag" for
+  // the same physical bag of shredded cheese) was silently preventing two
+  // scans of the same item from ever merging into one pantry entry. This
+  // groups them together for matching purposes only; normalizeUnit's own
+  // output is untouched, so display and shopping-list logic don't change.
+  function unitMatchGroup(value){
+    const u=normalizeUnit(value);
+    if(/^(package|bag|box|container|pack)$/.test(u))return 'package';
+    return u;
+  }
+
   function parseNumber(raw){
     const value=String(raw||'').trim();
     if(/^\d+(?:\.\d+)?$/.test(value))return Number(value);
@@ -240,7 +254,7 @@
   }
 
   return {
-    canonicalIngredient,normalizeUnit,parseQtyText,convertQuantity,pantryAvailableFor,
+    canonicalIngredient,normalizeUnit,unitMatchGroup,parseQtyText,convertQuantity,pantryAvailableFor,
     validateDetectedItem,buildShopping,isTrusted,formatAmount,GENERIC
   };
 });

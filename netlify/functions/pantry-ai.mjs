@@ -24,6 +24,7 @@ const ALLOWED_UNITS = new Set([
 const ALLOWED_CATEGORIES = new Set([
   "produce",
   "meat",
+  "fish",
   "dairy",
   "eggs",
   "frozen",

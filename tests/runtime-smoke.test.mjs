@@ -701,3 +701,26 @@ test('eggs show an egg icon, not a milk glass (the actual bug the user caught: e
   // Sanity check: real dairy is unaffected.
   assert.equal(api.categoryEmoji('dairy','each','Vitamin D Milk'),'🥛');
 });
+
+test('pantry items with the same name but different generic packaging words merge into one entry (the actual bug behind several apparent duplicates in the user\'s screenshots: the same shredded cheese was scanned once as "1 package" and again as "1 bag" and stayed as two permanent separate cards, since merging required an exact unit match)', async () => {
+  const {context}=await boot();
+  const api=context.window.__dinnerPlannerTest;
+  const state=api.getState();
+  state.have=[];
+  api.setState(state);
+
+  context.window.__mergeTest1=api.mergePantryItem({id:'a',item:'shredded cheese',qty:1,unit:'package',confidence:'high',observations:[]});
+  context.window.__mergeTest2=api.mergePantryItem({id:'b',item:'shredded cheese',qty:1,unit:'bag',confidence:'high',observations:[]});
+
+  const after=api.getState();
+  const matches=after.have.filter(i=>i.item==='shredded cheese');
+  assert.equal(matches.length,1,`expected the two scans to merge into one pantry entry, got ${matches.length}`);
+});
+
+test('fish shows a fish icon, not a steak (same category-completeness gap as the eggs bug - fish had no category of its own, so it was forced into "meat")', async () => {
+  const {context}=await boot();
+  const api=context.window.__dinnerPlannerTest;
+  assert.equal(api.categoryEmoji('meat','package','Premium Salmon Fillet Family Pack'),'🐟');
+  assert.equal(api.categoryEmoji('fish','package','Premium Salmon Fillet Family Pack'),'🐟');
+  assert.equal(api.categoryEmoji('meat','package','Ground Beef'),'🥩');
+});
