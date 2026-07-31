@@ -727,11 +727,14 @@ test('fish shows a fish icon, not a steak (same category-completeness gap as the
   assert.equal(api.categoryEmoji('meat','package','Ground Beef'),'🥩');
 });
 
-test('hummus shows a hummus-appropriate icon, not a milk glass (hummus is chickpea-based/pareve, not dairy - same category-guessing gap as eggs and fish)', async () => {
+test('hummus shows a hummus-appropriate icon representing the prepared dip itself, not its raw chickpea ingredient (the actual bug the user caught directly: showing beans traces back to origin, which is the same wrong instinct that caused the dairy-icon bug in the first place)', async () => {
   const {context}=await boot();
   const api=context.window.__dinnerPlannerTest;
-  assert.equal(api.categoryEmoji('dairy','container','Sabra Classic Hummus'),'🫘');
-  assert.equal(api.categoryEmoji('dairy','container','hummus container'),'🫘');
+  assert.equal(api.categoryEmoji('dairy','container','Sabra Classic Hummus'),'🥙');
+  assert.equal(api.categoryEmoji('dairy','container','hummus container'),'🥙');
+  // Sanity check: actual beans/chickpeas/lentils (not hummus) still correctly show the bean icon.
+  assert.equal(api.categoryEmoji('other','bag','Dried Chickpeas'),'🫘');
+  assert.equal(api.categoryEmoji('other','bag','Green Lentils'),'🫘');
 });
 
 test('"pargiyot" (the standard kosher-butcher term for boneless chicken thigh cutlets) matches "chicken thighs" in recipes - the actual bug: it fell through unmapped and never matched any recipe ingredient at all, silently excluding every chicken thigh recipe from suggestions for anyone whose pantry used this common term', async () => {
@@ -785,17 +788,13 @@ test('the update check fails silently on a network error rather than throwing (c
   await assert.doesNotReject(()=>api.checkForNewerDeployedBuild());
 });
 
-test('the deterministic name-based icon dictionary takes priority over any AI-provided icon (the actual architecture fix per explicit user feedback: relying on the AI to freshly guess a good icon on every scan was unreliable, since it is still just a per-request guess - a fixed, testable dictionary checked against the item name is now the primary mechanism, with the AI-provided icon only used as a fallback for items the dictionary does not recognize)', async () => {
+test('a hot sauce whose name doesn\'t literally contain "hot sauce" or "buffalo" still gets the chili icon instead of falling through to the generic bell-pepper produce rule (the actual bug the user caught directly: "Frank\'s RedHot Original Cayenne Pepper Sauce" contains the word "pepper" and was matching the generic produce rule before ever reaching the hot-sauce check)', async () => {
   const {context}=await boot();
   const api=context.window.__dinnerPlannerTest;
-  // Dictionary match wins even if the AI suggested something different/wrong.
-  assert.equal(api.categoryEmoji('dairy','each','Lesher Medium Eggs 10 ct','🥛'),'🥚');
-  assert.equal(api.categoryEmoji('dairy','container','Sabra Classic Hummus','🥛'),'🫘');
-  // A food outside the dictionary falls back to a valid AI-provided icon.
-  assert.equal(api.categoryEmoji('other','container','Some Unusual Product','🍱'),'🍱');
-  // Garbage/invalid icon values fall back further to the category/unit safety net.
-  assert.equal(api.categoryEmoji('other','container','Some Unusual Product','not-an-emoji'),'🍽️');
-  assert.equal(api.categoryEmoji('other','container','Some Unusual Product',''),'🍽️');
+  assert.equal(api.categoryEmoji('condiment','bottle',"Frank's RedHot Original Cayenne Pepper Sauce"),'🌶️');
+  assert.equal(api.categoryEmoji('condiment','bottle','Habanero Pepper Sauce'),'🌶️');
+  // Sanity check: an actual bell pepper (not a sauce) still gets the produce icon.
+  assert.equal(api.categoryEmoji('produce','each','Red Bell Pepper'),'🫑');
 });
 
 test('the name-based icon dictionary covers a broad, representative set of common grocery items correctly (this is the actual point of the rebuild: comprehensive and deterministic, not one-off patches for whichever food happened to be reported wrong)', async () => {
@@ -803,7 +802,7 @@ test('the name-based icon dictionary covers a broad, representative set of commo
   const api=context.window.__dinnerPlannerTest;
   const cases=[
     ['Ground Beef','🥩'],['Chicken Thighs','🍗'],['Baby Chicken Pargiyot Family','🍗'],
-    ['Premium Salmon Fillet','🐟'],['Sabra Classic Hummus','🫘'],['Large Eggs 12ct','🥚'],
+    ['Premium Salmon Fillet','🐟'],['Sabra Classic Hummus','🥙'],['Large Eggs 12ct','🥚'],
     ['Whole Milk','🥛'],['Cheddar Cheese','🧀'],['Land O Lakes Butter','🧈'],['Greek Yogurt','🥣'],
     ['Roma Tomatoes','🍅'],['Yellow Onion','🧅'],['Fresh Garlic','🧄'],['Russet Potatoes','🥔'],
     ['Baby Carrots','🥕'],['Red Bell Pepper','🫑'],['Black Pepper','🧂'],['Baby Spinach','🥬'],

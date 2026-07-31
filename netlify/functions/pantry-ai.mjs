@@ -54,7 +54,6 @@ const PANTRY_RESPONSE_SCHEMA = {
           "unit",
           "confidence",
           "category",
-          "icon",
           "perishable",
           "evidence",
           "quantityBasis",
@@ -85,9 +84,6 @@ const PANTRY_RESPONSE_SCHEMA = {
           category: {
             type: "string",
             enum: [...ALLOWED_CATEGORIES]
-          },
-          icon: {
-            type: "string"
           },
           perishable: {
             type: "boolean"
@@ -394,8 +390,6 @@ Use medium confidence only when the identity is clear but some detail is uncerta
 
 Ignore dishes, appliances, cleaning products, decorations, medications, and non-food objects.
 
-icon: pick the single emoji character that most specifically and accurately represents what THIS item actually is as a finished food/product - not the raw ingredient it's made from. For example: hummus is a prepared dip, so represent it as a dip/spread, not as chickpeas; bread is bread, not wheat; cheese is cheese, not milk. Getting this right matters for kosher users specifically around dairy vs. pareve - eggs should read as eggs, not dairy; fish should read as fish, not generic meat. If no emoji matches the specific product closely, use a general prepared-food emoji rather than substituting the ingredient it was made from.
-
 bbox uses normalized 0–1000 coordinates in this order:
 
 [left, top, right, bottom]
@@ -567,14 +561,6 @@ function sanitizeItem(raw) {
     ? raw.category
     : "other";
 
-  // Loose sanity check only - a real emoji can be several UTF-16 code units
-  // (modifiers, ZWJ sequences), so this just guards against the model
-  // returning a whole word or phrase instead of a symbol. If it looks wrong,
-  // fall back to empty string so the client's category-based fallback
-  // logic takes over rather than showing garbled text as an "icon".
-  const rawIcon = typeof raw?.icon === "string" ? raw.icon.trim() : "";
-  const icon = rawIcon && rawIcon.length <= 8 && !/[a-zA-Z0-9]/.test(rawIcon) ? rawIcon : "";
-
   let bbox = null;
 
   if (
@@ -610,7 +596,6 @@ function sanitizeItem(raw) {
       unit,
       confidence: confidence || "medium",
       category,
-      icon,
       perishable: Boolean(raw?.perishable),
       evidence,
       quantityBasis,

@@ -100,7 +100,6 @@ function normalizeState(raw){
           unit:h.unit||"each",
           confidence:h.confidence||"user",
           category:h.category||"other",
-          icon:h.icon||"",
           perishable:Boolean(h.perishable),
           sourcePhotoIds:Array.isArray(h.sourcePhotoIds)?h.sourcePhotoIds:[],
           sourceLocations:Array.isArray(h.sourceLocations)?h.sourceLocations:[h.location||"Typed"],
@@ -1265,14 +1264,15 @@ const NAME_ICON_RULES=[
   [/\bcoconut (milk|cream)/i,"🥥"],
   [/\balmond milk|\bsoy milk|\boat milk/i,"🥛"],
   [/\bice cream/i,"🍦"],
-  [/\bhot sauce\b|\bbuffalo (wing )?sauce/i,"🌶️"],
+  [/\bhot sauce\b|\bbuffalo (wing )?sauce\b|\bred\s*hot\b|\bsriracha\b|\b(cayenne|chili|chile|jalape[nñ]o|habanero|ghost)\s*(pepper\s*)?sauce\b/i,"🌶️"],
+  [/\bhummus\b/i,"🥙"],
 
   // Proteins.
   [/\begg/i,"🥚"],
   [/\b(salmon|tuna|tilapia|cod|halibut|fish|gefilte|sardine|anchov)/i,"🐟"],
   [/\b(chicken|turkey|poultry|drumstick|pargiyot|cutlet)/i,"🍗"],
   [/\b(beef|steak|brisket|burger|lamb|veal|schnitzel|meat)/i,"🥩"],
-  [/\b(hummus|chickpea|bean|lentil|legume)/i,"🫘"],
+  [/\b(chickpea|bean|lentil|legume)/i,"🫘"],
   [/\btofu/i,"🧊"],
 
   // Dairy.
@@ -1327,18 +1327,14 @@ const NAME_ICON_RULES=[
   [/\bwatermelon/i,"🍉"]
 ];
 
-function categoryEmoji(category,unit,itemName,icon){
+function categoryEmoji(category,unit,itemName){
   const name=String(itemName||"");
-  // The deterministic name-based dictionary is checked first - this is
-  // the primary mechanism per explicit user feedback, since it's fixed
-  // and testable rather than depending on the AI guessing well on any
-  // given scan.
+  // The deterministic name-based dictionary is the primary mechanism,
+  // since it's fixed and testable rather than depending on an AI guessing
+  // freshly on every scan.
   for(const [pattern,emoji] of NAME_ICON_RULES){
     if(pattern.test(name))return emoji;
   }
-  // An AI-provided icon (if present and looks valid) is a reasonable
-  // second choice for items the dictionary above doesn't recognize.
-  if(icon && icon.length<=8 && !/[a-zA-Z0-9]/.test(icon))return icon;
   // Container shape next, since it's often more visually recognizable
   // than the food category alone (a bottle of ketchup vs. a jar of jam
   // both being "condiment" looked the same before).
@@ -1549,7 +1545,7 @@ function renderInventory(){
     const image=item.thumbnail || (source&&source.image) || "";
     const confidenceText=confidence==="user"?"Confirmed by you":confidence==="high"?"High confidence":"Needs review";
     return `<div class="inventory-card">
-      ${image?`<img src="${image}" alt="${item.thumbnail?"Detected item":"Source photo"} for ${esc(item.item)}">`:`<div class="inventory-fallback">${categoryEmoji(item.category,item.unit,item.item,item.icon)}</div>`}
+      ${image?`<img src="${image}" alt="${item.thumbnail?"Detected item":"Source photo"} for ${esc(item.item)}">`:`<div class="inventory-fallback">${categoryEmoji(item.category,item.unit,item.item)}</div>`}
       <div class="inventory-body">
         <div class="inventory-name">${esc(item.item)}</div>
         <div class="inventory-qty">${esc(formatQty(item))}</div>
@@ -1800,7 +1796,6 @@ async function analyzePictures(){
           unit:item.unit||"unknown",
           confidence:item.confidence||"medium",
           category:item.category||"other",
-          icon:item.icon||"",
           perishable:Boolean(item.perishable),
           sourcePhotoIds:[picture.id],
           sourceLocations:[picture.location],
@@ -1912,7 +1907,6 @@ $("receiptPhotoInput").addEventListener("change",async event=>{
       qty:Number.isFinite(item.qty)?item.qty:1,
       unit:item.unit||"unknown",
       category:item.category||"other",
-      icon:item.icon||"",
       confidence:item.confidence||"medium",
       expiresOn:item.expiresOn||null,
       checked:true
@@ -1982,7 +1976,6 @@ $("addReceiptItemsBtn").onclick=()=>{
       // the user hasn't looked at yet.
       confidence:"user",
       category:item.category||"other",
-      icon:item.icon||"",
       perishable:Boolean(item.expiresOn),
       expiresOn:item.expiresOn||null,
       sourcePhotoIds:[],
@@ -2343,7 +2336,6 @@ function supportInventoryFromFile(data){
     unit:x.unit||"each",
     confidence:"user",
     category:x.category||"other",
-    icon:x.icon||"",
     perishable:Boolean(x.perishable),
     sourcePhotoIds:Array.isArray(x.sourcePhotoIds)?x.sourcePhotoIds:[],
     sourceLocations:Array.isArray(x.sourceLocations)?x.sourceLocations:[x.location||"Corrected import"],
