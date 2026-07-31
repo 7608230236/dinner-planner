@@ -3,7 +3,35 @@
 Single source of truth for what works, what's broken, and what changed.
 Update this file every time a fix is made or verified — don't rely on chat history.
 
-Last updated: 2026-07-29 by Claude
+Last updated: 2026-07-31 by Claude
+
+---
+
+## READ THIS FIRST — current state as of 2026-07-31
+
+**App Store:** Full submission is in with Apple, status "Waiting for Review" as of last check, set to **Manually release** (won't go public automatically even after approval — user must tap release themselves). Screenshots, description, keywords, privacy policy, age rating (4+) all completed together with the user.
+
+**TestFlight:** External testing group "Friends and Family" exists with a **public join link** (saved to memory: `https://testflight.apple.com/join/nDKKYqfG`). Marketing flyer (PNG + PDF) already created for recruiting testers.
+
+**⚠️ Architecture changed tonight — read this before touching build/deploy anything:**
+The native app no longer bundles web assets. `capacitor.config.json` now has `server.url` pointing at the live Netlify site (`https://cheerful-conkies-96998f.netlify.app`). This means:
+- **JS/CSS/HTML/Netlify-function changes deploy via a normal `git push` to Netlify — no Xcode build, no TestFlight upload, no new App Store review needed.** Live within ~30-60 seconds.
+- **A new native (iOS) build is ONLY needed for:** new permissions, new Capacitor plugins, app icon/splash changes, `capacitor.config.json` changes, or other `ios/**` changes.
+- The iOS GitHub Actions workflow (`.github/workflows/ios-build.yml`) trigger paths were deliberately narrowed to match this — it no longer fires on `js/**`/`css/**`/`index.html` pushes. **Don't widen these paths back without good reason** — doing so was directly costing the user money in wasted macOS build minutes.
+- One real gotcha this caused: switching to `server.url` changes the app's storage origin, which **wiped the locally-remembered household code** on the user's device (their actual cloud data was never lost, just the local pointer to it). If this comes up again, the household code can be recovered by having someone with Netlify dashboard access temporarily deploy a diagnostic function that lists `households` Blobs store keys — ask before doing this, it's a real (if small) privacy consideration.
+
+**Household sync — real root cause found and fixed:** `household-sync.mjs` was written in the classic Netlify Functions v1 format (`export async function handler(event)`). For reasons not fully understood, this format was NOT reliably seeing the `NETLIFY_BLOBS_TOKEN`/`NETLIFY_BLOBS_SITE_ID` env vars, while newer v2-format functions (`export default async (request) => {}`) consistently did, even from the same deploy. Converted `household-sync.mjs` to v2 format. **If any other Netlify function starts behaving strangely with env vars, check whether it's still on the old v1 format** — that's the prime suspect now, not the credentials themselves.
+
+**Netlify usage:** The site was briefly paused tonight for hitting usage limits (very likely caused by an unusually high volume of rapid diagnostic deploys during live debugging, not normal steady-state app usage). User added billing credit and it's resolved. Worth being more disciplined about batching test/diagnostic deploys going forward rather than firing off many in quick succession.
+
+**Pantry item icons — rebuilt tonight, now stable:** Icon selection is fully deterministic (`NAME_ICON_RULES` array in `js/app.js`, ~50 keyword-to-icon rules checked against the item's raw name). **AI-guessed icons were tried and explicitly rejected by the user** — don't reintroduce that approach without discussing it again first. Most entries are plain emoji; 3 specific foods (hummus, hot sauce, yogurt) use hand-built custom SVG icons because no single emoji represented them well — see the icon rules block in `js/app.js` for the actual markup. **Process note the user cares about:** for any further icon/visual changes, render an actual preview (a real screenshot at true app card size/colors, or a chat-visualized mockup) and get explicit sign-off *before* pushing to production — this was explicitly requested twice tonight after a change went out without one.
+
+**Known real gaps, not fixed on purpose:**
+- "Natural Pasture Shabbos Meat" (a real pantry item) doesn't match any recipe ingredient — too generic a name to safely guess which cut it is without risking a wrong suggestion. Left alone deliberately.
+- Android release signing (Play Store) — not started.
+- Cook-to-pantry deduction feature — not built.
+
+**Test suite:** 77 tests passing (`npm run qa`) as of the last push. Always run this + `node scripts/check-syntax.mjs` before pushing anything, and never claim something is fixed without it actually passing.
 
 ---
 
@@ -367,6 +395,9 @@ Reviewed the actual code against the brief's trust principles and your household
 
 ## Next steps (priority order)
 
-1. User to live-test dish ratings on the deployed site
-2. Do 2–3 more real pantry scans to confirm `gpt-4.1-mini-2025-04-14` is reliably stable (not just lucky once, like `gpt-5-mini` was)
-2. Audit mobile planner UI once specifics are gathered
+1. Wait for Apple's App Store review decision, handle whatever it comes back with
+2. Recruit testers via the TestFlight public link / marketing flyer, gather real feedback
+3. Confirm with the user whether hummus/hot-sauce/yogurt icons and pantry suggestions look right after the overnight fixes
+4. Android release signing (Play Store) — not started
+5. Cook-to-pantry deduction feature — not built
+6. Mobile UI audit — pending specifics from the user
