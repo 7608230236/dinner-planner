@@ -3,7 +3,15 @@
 Single source of truth for what works, what's broken, and what changed.
 Update this file every time a fix is made or verified — don't rely on chat history.
 
-Last updated: 2026-07-31 by Claude
+Last updated: 2026-07-31 (later, after a wasted-time incident worth reading) by Claude
+
+---
+
+## ⚠️ DO NOT DO THIS — read before touching GitHub Actions or App Store status
+
+There is a `check-app-store-status.yml` workflow in this repo, meant to let Claude check Apple's review status on demand without a code push. **It does not work — the token cannot trigger on-demand workflow dispatches (only push-triggered ones), and attempts to fix this via token permissions did not resolve it either.** This is a minor, optional convenience, not a real feature. A previous session spent 20 minutes going in circles on this and it genuinely upset the user.
+
+**If App Store review status ever comes up again: tell the user to check appstoreconnect.apple.com directly. Do not attempt to debug, fix, or re-investigate the token/workflow permission issue unless the user explicitly asks for it by name.**
 
 ---
 
