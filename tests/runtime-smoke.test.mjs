@@ -727,11 +727,11 @@ test('fish shows a fish icon, not a steak (same category-completeness gap as the
   assert.equal(api.categoryEmoji('meat','package','Ground Beef'),'🥩');
 });
 
-test('hummus shows a hummus-appropriate icon representing the prepared dip itself, not its raw chickpea ingredient (the actual bug the user caught directly: showing beans traces back to origin, which is the same wrong instinct that caused the dairy-icon bug in the first place)', async () => {
+test('hummus shows a custom hummus-plate icon (olive-oil swirl and paprika dots) representing the prepared dip itself, not its raw chickpea ingredient (the actual bug the user caught directly: showing beans traces back to origin, which is the same wrong instinct that caused the dairy-icon bug in the first place - after seeing an emoji-only fix still felt approximate, a custom SVG icon was built and approved via a rendered preview before shipping)', async () => {
   const {context}=await boot();
   const api=context.window.__dinnerPlannerTest;
-  assert.equal(api.categoryEmoji('dairy','container','Sabra Classic Hummus'),'🥙');
-  assert.equal(api.categoryEmoji('dairy','container','hummus container'),'🥙');
+  assert.match(api.categoryEmoji('dairy','container','Sabra Classic Hummus'),/aria-label="Hummus plate"/);
+  assert.match(api.categoryEmoji('dairy','container','hummus container'),/aria-label="Hummus plate"/);
   // Sanity check: actual beans/chickpeas/lentils (not hummus) still correctly show the bean icon.
   assert.equal(api.categoryEmoji('other','bag','Dried Chickpeas'),'🫘');
   assert.equal(api.categoryEmoji('other','bag','Green Lentils'),'🫘');
@@ -791,10 +791,17 @@ test('the update check fails silently on a network error rather than throwing (c
 test('a hot sauce whose name doesn\'t literally contain "hot sauce" or "buffalo" still gets the chili icon instead of falling through to the generic bell-pepper produce rule (the actual bug the user caught directly: "Frank\'s RedHot Original Cayenne Pepper Sauce" contains the word "pepper" and was matching the generic produce rule before ever reaching the hot-sauce check)', async () => {
   const {context}=await boot();
   const api=context.window.__dinnerPlannerTest;
-  assert.equal(api.categoryEmoji('condiment','bottle',"Frank's RedHot Original Cayenne Pepper Sauce"),'🌶️');
-  assert.equal(api.categoryEmoji('condiment','bottle','Habanero Pepper Sauce'),'🌶️');
+  assert.match(api.categoryEmoji('condiment','bottle',"Frank's RedHot Original Cayenne Pepper Sauce"),/aria-label="Hot sauce bottle"/);
+  assert.match(api.categoryEmoji('condiment','bottle','Habanero Pepper Sauce'),/aria-label="Hot sauce bottle"/);
   // Sanity check: an actual bell pepper (not a sauce) still gets the produce icon.
   assert.equal(api.categoryEmoji('produce','each','Red Bell Pepper'),'🫑');
+});
+
+test('yogurt shows a custom container icon with the word "yogurt" on it, per the user\'s explicit request during the icon redesign discussion', async () => {
+  const {context}=await boot();
+  const api=context.window.__dinnerPlannerTest;
+  assert.match(api.categoryEmoji('dairy','container','Fage Greek Yogurt'),/aria-label="Yogurt container"/);
+  assert.match(api.categoryEmoji('dairy','container','Fage Greek Yogurt'),/>yogurt</);
 });
 
 test('the name-based icon dictionary covers a broad, representative set of common grocery items correctly (this is the actual point of the rebuild: comprehensive and deterministic, not one-off patches for whichever food happened to be reported wrong)', async () => {
@@ -802,8 +809,8 @@ test('the name-based icon dictionary covers a broad, representative set of commo
   const api=context.window.__dinnerPlannerTest;
   const cases=[
     ['Ground Beef','🥩'],['Chicken Thighs','🍗'],['Baby Chicken Pargiyot Family','🍗'],
-    ['Premium Salmon Fillet','🐟'],['Sabra Classic Hummus','🥙'],['Large Eggs 12ct','🥚'],
-    ['Whole Milk','🥛'],['Cheddar Cheese','🧀'],['Land O Lakes Butter','🧈'],['Greek Yogurt','🥣'],
+    ['Premium Salmon Fillet','🐟'],['Large Eggs 12ct','🥚'],
+    ['Whole Milk','🥛'],['Cheddar Cheese','🧀'],['Land O Lakes Butter','🧈'],
     ['Roma Tomatoes','🍅'],['Yellow Onion','🧅'],['Fresh Garlic','🧄'],['Russet Potatoes','🥔'],
     ['Baby Carrots','🥕'],['Red Bell Pepper','🫑'],['Black Pepper','🧂'],['Baby Spinach','🥬'],
     ['English Cucumber','🥒'],['Sweet Corn','🌽'],['Hass Avocado','🥑'],['Fresh Lemon','🍋'],

@@ -1264,8 +1264,8 @@ const NAME_ICON_RULES=[
   [/\bcoconut (milk|cream)/i,"🥥"],
   [/\balmond milk|\bsoy milk|\boat milk/i,"🥛"],
   [/\bice cream/i,"🍦"],
-  [/\bhot sauce\b|\bbuffalo (wing )?sauce\b|\bred\s*hot\b|\bsriracha\b|\b(cayenne|chili|chile|jalape[nñ]o|habanero|ghost)\s*(pepper\s*)?sauce\b/i,"🌶️"],
-  [/\bhummus\b/i,"🥙"],
+  [/\bhot sauce\b|\bbuffalo (wing )?sauce\b|\bred\s*hot\b|\bsriracha\b|\b(cayenne|chili|chile|jalape[nñ]o|habanero|ghost)\s*(pepper\s*)?sauce\b/i,`<svg width="46" height="46" viewBox="0 0 56 56" role="img" aria-label="Hot sauce bottle"><rect x="20" y="6" width="8" height="8" rx="2" fill="#8a9a8e"/><path d="M16 18 h16 a4 4 0 0 1 4 4 v24 a4 4 0 0 1 -4 4 h-16 a4 4 0 0 1 -4 -4 v-24 a4 4 0 0 1 4 -4 z" fill="none" stroke="#265c44" stroke-width="2.2"/><path d="M23 30 q6 -6 3 6 q6 -2 1 6" fill="none" stroke="#c0522f" stroke-width="2.6" stroke-linecap="round"/></svg>`],
+  [/\bhummus\b/i,`<svg width="46" height="46" viewBox="0 0 56 56" role="img" aria-label="Hummus plate"><ellipse cx="28" cy="34" rx="19" ry="12" fill="none" stroke="#265c44" stroke-width="2.2"/><path d="M15 32 q13 -8 26 0" fill="none" stroke="#c0522f" stroke-width="1.6" stroke-linecap="round"/><circle cx="20" cy="34" r="1.4" fill="#c0522f"/><circle cx="26" cy="36" r="1.4" fill="#c0522f"/><circle cx="33" cy="34" r="1.4" fill="#c0522f"/></svg>`],
 
   // Proteins.
   [/\begg/i,"🥚"],
@@ -1277,7 +1277,7 @@ const NAME_ICON_RULES=[
 
   // Dairy.
   [/\bmilk/i,"🥛"],
-  [/\byogurt|yoghurt/i,"🥣"],
+  [/\byogurt|yoghurt/i,`<svg width="46" height="46" viewBox="0 0 56 56" role="img" aria-label="Yogurt container"><path d="M16 16 h24 l-3 26 a4 4 0 0 1 -4 4 h-10 a4 4 0 0 1 -4 -4 z" fill="none" stroke="#265c44" stroke-width="2.2"/><text x="28" y="26" text-anchor="middle" font-size="6" fill="#265c44" font-weight="700" font-family="system-ui">yogurt</text></svg>`],
   [/\bcheese/i,"🧀"],
   [/\bbutter\b|\bmargarine/i,"🧈"],
 
