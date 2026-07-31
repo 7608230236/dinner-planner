@@ -731,3 +731,32 @@ test('hummus shows a hummus-appropriate icon, not a milk glass (hummus is chickp
   assert.equal(api.categoryEmoji('dairy','container','Sabra Classic Hummus'),'🥣');
   assert.equal(api.categoryEmoji('dairy','container','hummus container'),'🥣');
 });
+
+test('"pargiyot" (the standard kosher-butcher term for boneless chicken thigh cutlets) matches "chicken thighs" in recipes - the actual bug: it fell through unmapped and never matched any recipe ingredient at all, silently excluding every chicken thigh recipe from suggestions for anyone whose pantry used this common term', async () => {
+  const {context}=await boot();
+  const api=context.window.__dinnerPlannerTest;
+  const canonical1=api.canonicalIngredient('Baby Chicken Pargiyot Family');
+  const canonical2=api.canonicalIngredient('chicken thighs');
+  assert.equal(canonical1,canonical2,`expected pargiyot to match chicken thighs, got "${canonical1}" vs "${canonical2}"`);
+});
+
+test('pantry suggestions prioritize dishes you can nearly complete over ones needing several more ingredients (the actual bug the user reported: a recipe showing "2 of 6 ingredients" was appearing as a suggestion even though it needs 4 more items - the intent is showing what you can actually cook, not just any partial ingredient overlap)', async () => {
+  const {context,elements}=await boot();
+  const api=context.window.__dinnerPlannerTest;
+  const state=api.getState();
+  // Full coverage for "One-Pan Chicken Rice Skillet - Classic" (5/5
+  // ingredients, including via the real-world "pargiyot" pantry item name).
+  state.have=[
+    {id:'i1',item:'Baby Chicken Pargiyot Family',qty:1,unit:'package',confidence:'user',observations:[]},
+    {id:'i2',item:'rice',qty:2,unit:'cup',confidence:'user',observations:[]},
+    {id:'i3',item:'chicken broth',qty:4,unit:'cup',confidence:'user',observations:[]},
+    {id:'i4',item:'onion',qty:2,unit:'each',confidence:'user',observations:[]},
+    {id:'i5',item:'garlic',qty:1,unit:'bulb',confidence:'user',observations:[]}
+  ];
+  api.setState(state);
+  context.window.renderHave();
+
+  const html=elements.get('pantrySuggestions').innerHTML;
+  assert.ok(html.includes('One-Pan Chicken Rice Skillet'),`expected the fully-covered recipe to be suggested, got: ${html}`);
+  assert.ok(html.includes('You have 5 of 5'),`expected full 5/5 coverage to be recognized (proves the pargiyot fix feeds into suggestions correctly), got: ${html}`);
+});

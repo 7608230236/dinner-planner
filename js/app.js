@@ -2148,9 +2148,23 @@ function renderPantrySuggestions(){
   const scored=RECIPES.filter(recipeAllowed).map(r=>{
     const ingredients=r.ingredients.map(([name])=>name).filter(name=>name && !/optional|oil spray|olive oil/i.test(name));
     const matched=ingredients.filter(inventoryMatchesIngredient).length;
-    const missing=Math.max(0,ingredients.length-matched);
-    return {r,matched,missing,total:ingredients.length,score:matched*4-missing};
-  }).filter(x=>x.matched>0).sort((a,b)=>b.score-a.score||a.missing-b.missing);
+    const total=ingredients.length;
+    const missing=Math.max(0,total-matched);
+    const ratio=total>0?matched/total:0;
+    return {r,matched,missing,total,ratio};
+  }).filter(x=>x.matched>0);
+
+  // The point of this list is "what can I actually cook with what I have,"
+  // not "which recipe happens to share the most ingredients with my
+  // pantry" - a recipe needing 4 more ingredients isn't a real suggestion
+  // even if it matched more items in absolute terms than a near-complete
+  // one. Require covering at least half the recipe before it counts as a
+  // real suggestion; only fall back to weaker partial matches if nothing
+  // clears that bar, so the list is never empty just because the pantry is
+  // sparse.
+  const MIN_COVERAGE=0.5;
+  const strong=scored.filter(x=>x.ratio>=MIN_COVERAGE);
+  const pool=(strong.length?strong:scored).sort((a,b)=>b.ratio-a.ratio||b.matched-a.matched||a.missing-b.missing);
 
   // Keep only the single best-scoring recipe per family, so near-identical
   // variants of the same dish (e.g. several "Loaded Baked Potatoes" add-in
@@ -2159,7 +2173,7 @@ function renderPantrySuggestions(){
   // score almost identically and can otherwise sweep the whole top 5.
   const seenFamilies=new Set();
   const suggestions=[];
-  for(const item of scored){
+  for(const item of pool){
     const family=recipeFamily(item.r);
     if(seenFamilies.has(family))continue;
     seenFamilies.add(family);

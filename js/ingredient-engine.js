@@ -47,6 +47,12 @@
     // raw text since "red" would otherwise be stripped out as a color word.
     if(/\bbuffalo (wing )?sauce\b/.test(raw)||/\bfrank'?s?\s*red\s*hot\b/.test(raw))return 'buffalo hot sauce';
 
+    // "Pargiyot" is the standard kosher-butcher term for boneless chicken
+    // thigh cutlets - common on packaging but not a word any recipe
+    // ingredient list uses, so pantry items using this term were never
+    // matching against "chicken thighs" in any recipe.
+    if(/\bpargiyot\b/.test(raw))return 'chicken thigh';
+
     // Brand names on salsa jars are easy for AI vision to misread on a blurry
     // photo (e.g. "Chi-Chi's" read as "Chili's" on a second scan) - what
     // actually matters for pantry/recipe matching is the heat level, not the
