@@ -106,3 +106,13 @@ test('Frank\'s RedHot and Buffalo Wing Sauce merge into one pantry item (the act
   const canonical = names.map(n => engine.canonicalIngredient(n));
   assert.equal(new Set(canonical).size, 1, `expected all four names to canonicalize the same way, got: ${canonical.join(', ')}`);
 });
+
+test('salsa jars are grouped by heat level regardless of brand name misreads (the actual bug the user caught: two different jars were logged as 4 pantry entries, since the AI read the brand name (Chi-Chis vs Chilis) slightly differently on different photos)', () => {
+  const mediumNames = ["Chi-Chi's Salsa Medium", "Chili's Medium Salsa"];
+  const hotNames = ["Chi-Chi's Salsa Hot", "Chili's Hot Salsa"];
+  const mediumCanonical = mediumNames.map(n => engine.canonicalIngredient(n));
+  const hotCanonical = hotNames.map(n => engine.canonicalIngredient(n));
+  assert.equal(new Set(mediumCanonical).size, 1, `expected both medium salsa names to match, got: ${mediumCanonical.join(', ')}`);
+  assert.equal(new Set(hotCanonical).size, 1, `expected both hot salsa names to match, got: ${hotCanonical.join(', ')}`);
+  assert.notEqual(mediumCanonical[0], hotCanonical[0], 'medium and hot salsa should stay distinct from each other');
+});

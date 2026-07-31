@@ -47,6 +47,17 @@
     // raw text since "red" would otherwise be stripped out as a color word.
     if(/\bbuffalo (wing )?sauce\b/.test(raw)||/\bfrank'?s?\s*red\s*hot\b/.test(raw))return 'buffalo hot sauce';
 
+    // Brand names on salsa jars are easy for AI vision to misread on a blurry
+    // photo (e.g. "Chi-Chi's" read as "Chili's" on a second scan) - what
+    // actually matters for pantry/recipe matching is the heat level, not the
+    // exact brand spelling, so canonicalize on that instead.
+    if(/\bsalsa\b/.test(n)){
+      if(/\bhot\b/.test(raw))return 'hot salsa';
+      if(/\bmedium\b/.test(raw))return 'medium salsa';
+      if(/\bmild\b/.test(raw))return 'mild salsa';
+      return 'salsa';
+    }
+
     if(/\bchicken (breast|cutlet)s?\b/.test(n))return 'chicken breast';
     if(/\bchicken thigh(s)?\b/.test(n))return 'chicken thigh';
     if(/\bchicken drumstick(s)?\b/.test(n))return 'chicken drumstick';
