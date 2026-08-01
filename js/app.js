@@ -2526,6 +2526,15 @@ $("deviceNameInput")?.addEventListener("change",event=>{
 });
 
 function runBuild(weekKey="this",replaceUnlocked=false){
+  if(!replaceUnlocked){
+    const plan=state[planProp(weekKey)]||[];
+    const locks=state[lockedProp(weekKey)]||{};
+    const lockedCount=plan.filter(entry=>locks[entry.day]).length;
+    if(lockedCount>0){
+      const word=lockedCount===1?"dinner":"dinners";
+      if(!confirm(`You have ${lockedCount} locked ${word} this week. Building a new plan will clear the locks and replace them too. Continue?`))return;
+    }
+  }
   const status=$(weekKey==="next"?"nextBuildStatus":"buildStatus");
   const button=$(weekKey==="next"?"buildNextWeekBtn":"buildWeekBtn");
   status.textContent=replaceUnlocked ? "Replacing unlocked dinners…" : (weekKey==="next"?"Building next week…":"Building your week…");

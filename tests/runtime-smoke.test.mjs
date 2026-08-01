@@ -285,6 +285,37 @@ test('Lock in week protects every dinner from replace unlocked', async () => {
   assert.deepEqual(Array.from(after.plan,value=>value.id),Array.from(before.plan,value=>value.id));
 });
 
+test('pressing the main Build button with locked meals asks for confirmation first, and declining leaves the locked plan untouched (the actual bug the user hit: an accidental tap on Build silently wiped every locked dinner with no warning)', async () => {
+  const {context,elements}=await boot();
+  elements.get('buildWeekBtn').click();
+  const before=context.window.__dinnerPlannerTest.getState();
+  context.window.__dinnerPlannerTest.lockAllForWeek('this');
+  const locked=context.window.__dinnerPlannerTest.getState();
+  assert.ok(locked.plan.every(entry=>locked.locked[entry.day]));
+
+  // Decline the confirmation: the locked plan must survive untouched.
+  context.window.confirm=()=>false;
+  elements.get('buildWeekBtn').click();
+  const afterDecline=context.window.__dinnerPlannerTest.getState();
+  assert.deepEqual(Array.from(afterDecline.plan,value=>value.id),Array.from(before.plan,value=>value.id));
+  assert.ok(afterDecline.plan.every(entry=>afterDecline.locked[entry.day]),'locks must still be intact after declining');
+
+  // Accept the confirmation: now it's fine for the build to proceed and clear locks.
+  context.window.confirm=()=>true;
+  elements.get('buildWeekBtn').click();
+  const afterAccept=context.window.__dinnerPlannerTest.getState();
+  assert.equal(afterAccept.plan.length,5);
+  assert.deepEqual(afterAccept.locked,{},'accepting should clear the locks as before');
+});
+
+test('pressing the main Build button with no locked meals never prompts for confirmation (only relevant when there is something to lose)', async () => {
+  const {context,elements}=await boot();
+  let wasAsked=false;
+  context.window.confirm=()=>{wasAsked=true;return true;};
+  elements.get('buildWeekBtn').click();
+  assert.equal(wasAsked,false,'no locks exist yet, so Build should never interrupt with a confirmation');
+});
+
 test('shopping checklist state is persistent and keyed by store plus ingredient', async () => {
   const {context}=await boot();
   const api=context.window.__dinnerPlannerTest;
