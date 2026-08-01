@@ -3,7 +3,19 @@
 Single source of truth for what works, what's broken, and what changed.
 Update this file every time a fix is made or verified — don't rely on chat history.
 
-Last updated: 2026-07-31 (later, after a wasted-time incident worth reading) by Claude
+Last updated: 2026-08-01 by Claude
+
+---
+
+## Real bug fixed today: main Build button silently wiped locked meals
+
+User accidentally tapped "Build this week's dinners" (not "Replace unlocked") while locked meals existed. The main Build button never checked for locks at all — `buildPlanForWeek` unconditionally clears `state[lockedField]` when `replaceUnlocked` is false, and generates a fresh plan ignoring the old one entirely. No warning, no confirm, meals just gone.
+
+**Fixed:** `runBuild` now checks for locked meals before calling the main build path and shows a `confirm()` prompt ("You have X locked dinners... Continue?") if any exist. Declining leaves the plan and locks untouched. Two new regression tests cover both the decline path and the "no locks, no prompt" path.
+
+**Data was not recoverable.** `household-sync.mjs` overwrites the household's state in place with no version history — there is no backup of the plan before it was wiped. Recommended the user check other household members' phones for a stale (unsynced) copy before giving up. Real gap worth considering: **household sync currently has zero history/versioning.** If this comes up again, a lightweight "keep last N states" approach in the Blobs store would make this recoverable next time — not built, just flagging it as a real product gap.
+
+**Also moved today:** the "A new version is ready / Refresh now" banner, per user feedback it read as confusing sitting above all app chrome. Now renders just under the header inside `.wrap`, not before the sidebar/header.
 
 ---
 
