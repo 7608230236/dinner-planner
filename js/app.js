@@ -2839,6 +2839,29 @@ renderCommunitySignInState();
 loadCommunityRecipes();
 showView("home");
 if(householdCode){
+  // One-time recovery: on 2026-08-01 an accidental Build press wiped this household's
+  // locked plan, and a race in household sync then overwrote the good copy with a
+  // different, unwanted plan on a second device. This restores the dinners the user
+  // actually wanted, locked, using the app's normal save/sync path so it propagates
+  // correctly and is protected by the sync-conflict guard from now on. Runs once.
+  if(householdCode==="ANGZWU83" && !load("recoveryV1Applied",false)){
+    const recoveryDishes=[
+      {day:"Sun",id:"lemon-herb-chicken-01"},
+      {day:"Mon",id:"grilled-cheese-soup-06"},
+      {day:"Tue",id:"beef-burgers-06"},
+      {day:"Wed",id:"loaded-baked-potato-03"},
+      {day:"Thu",id:"beef-tacos-07"}
+    ];
+    const dates=plannerDatesForWeek("this");
+    const validRecovery=recoveryDishes.every(entry=>getRecipe(entry.id));
+    if(validRecovery){
+      state.plan=recoveryDishes.map((entry,i)=>({...entry,date:isoLocalDate(dates[i].date)}));
+      state.locked=Object.fromEntries(recoveryDishes.map(entry=>[entry.day,true]));
+      save("recoveryV1Applied",true);
+      save("state",state);
+      renderWeekSection("this");
+    }
+  }
   pullHouseholdState();
   startHouseholdPolling();
 }
