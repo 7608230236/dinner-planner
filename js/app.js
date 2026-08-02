@@ -261,6 +261,15 @@ async function pullHouseholdState(){
     }
     const data=await response.json();
     if(data.found&&Number(data.updatedAt)>Number(state.updatedAt||0)){
+      const conflicts=cloudConflictsWithLocalLocks(data.state);
+      if(conflicts.length){
+        pendingCloudState=data.state;
+        pendingCloudUpdatedBy=data.updatedBy||"";
+        setHouseholdStatus("error","Your household has changes that would replace locked meals. Review below before anything is applied.");
+        renderHouseholdConflict(conflicts);
+        logEvent("household_pull_conflict",{code:householdCode,updatedBy:data.updatedBy||"",conflicts:conflicts.length});
+        return;
+      }
       applyCloudState(data.state);
       setHouseholdStatus("synced",data.updatedBy?`Updated from ${data.updatedBy}.`:"Updated from your household.");
       logEvent("household_pull_applied",{code:householdCode,updatedBy:data.updatedBy||""});
@@ -340,6 +349,67 @@ function leaveHousehold(){
   clearInterval(householdPollTimer);
   setHouseholdStatus("idle","");
   renderHouseholdSection();
+}
+
+function localLockedPlanFor(weekKey,fromState){
+  const plan=fromState[planProp(weekKey)]||[];
+  const locks=fromState[lockedProp(weekKey)]||{};
+  return plan.filter(entry=>locks[entry.day]);
+}
+
+function cloudConflictsWithLocalLocks(cloudState){
+  const conflicts=[];
+  for(const weekKey of ["this","next"]){
+    const localLocked=localLockedPlanFor(weekKey,state);
+    if(!localLocked.length)continue;
+    const cloudPlan=cloudState[planProp(weekKey)]||[];
+    for(const entry of localLocked){
+      const cloudEntry=cloudPlan.find(p=>p.day===entry.day);
+      if(!cloudEntry||cloudEntry.id!==entry.id){
+        conflicts.push({weekKey,day:entry.day,mine:getRecipe(entry.id)?.name||entry.id,theirs:cloudEntry?getRecipe(cloudEntry.id)?.name||cloudEntry.id:"(no dinner)"});
+      }
+    }
+  }
+  return conflicts;
+}
+
+let pendingCloudState=null;
+let pendingCloudUpdatedBy="";
+
+function renderHouseholdConflict(conflicts){
+  const box=$("householdConflict");
+  if(!box)return;
+  if(!conflicts||!conflicts.length){
+    box.classList.add("hidden");
+    box.innerHTML="";
+    return;
+  }
+  box.classList.remove("hidden");
+  const rows=conflicts.map(c=>`<div class="tiny">${c.day}: you have <b>${c.mine}</b> locked, but ${pendingCloudUpdatedBy||"your household"} has <b>${c.theirs}</b>.</div>`).join("");
+  box.innerHTML=`
+    <div style="border:1px solid #d97706;background:#fff7ed;color:#7c2d12;border-radius:12px;padding:12px;margin-top:10px">
+      <b>Your locked dinners don't match what came in from your household.</b>
+      ${rows}
+      <div class="row" style="margin-top:10px;gap:8px">
+        <button class="btn small" id="conflictKeepMineBtn" type="button">Keep my locked meals</button>
+        <button class="btn small secondary" id="conflictUseTheirsBtn" type="button">Use their version instead</button>
+      </div>
+    </div>`;
+  $("conflictKeepMineBtn").onclick=()=>{
+    // Re-push this device's current (locked) state so it becomes the version everyone gets.
+    pendingCloudState=null;
+    renderHouseholdConflict(null);
+    setHouseholdStatus("syncing","Keeping your locked meals and syncing…");
+    save("state",state); // bumps timestamp and schedules a push
+  };
+  $("conflictUseTheirsBtn").onclick=()=>{
+    if(pendingCloudState){
+      applyCloudState(pendingCloudState);
+      setHouseholdStatus("synced",pendingCloudUpdatedBy?`Updated from ${pendingCloudUpdatedBy}.`:"Updated from your household.");
+    }
+    pendingCloudState=null;
+    renderHouseholdConflict(null);
+  };
 }
 
 function renderHouseholdStatus(){
@@ -2815,5 +2885,7 @@ window.__dinnerPlannerTest={
   getHouseholdCode:()=>householdCode,
   downloadJson,
   showView,
-  offerToDeleteScannedPhotos
-};
+  offerToDeleteScannedPhotos,
+  getPendingCloudConflict:()=>pendingCloudState?{conflicts:cloudConflictsWithLocalLocks(pendingCloudState)}:null,
+  resolveConflictKeepMine:()=>{pendingCloudState=null;renderHouseholdConflict(null);save("state",state);},
+  resolveConflictUseTheirs:()=>{if(pendingCloudState){applyCloudState(pendingCloudState);}pendingCloudState=null;renderHouseholdConflict(null);}};

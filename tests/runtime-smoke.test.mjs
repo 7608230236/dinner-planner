@@ -397,6 +397,58 @@ test('household sync: creating on one device and joining on another shares plan 
   assert.equal(stateB.have[0].thumbnail, '', 'photos must never sync between devices');
 });
 
+test('household sync: a pull that would silently overwrite locked meals with different ones is held back as a conflict, not auto-applied (the actual bug the user hit: device A locked a good plan, then device B\'s stale rebuilt plan silently overwrote it everywhere)', async () => {
+  const cloud = new Map();
+  function mockFetch(url, opts) {
+    const parsed = new URL(url, 'https://example.test');
+    if (opts && opts.method === 'POST') {
+      const body = JSON.parse(opts.body);
+      cloud.set(body.code, { state: body.state, updatedAt: Date.now() + cloud.size + 1000, updatedBy: body.deviceName || '' });
+      return Promise.resolve({ ok: true, status: 200, json: async () => ({ ok: true, updatedAt: Date.now() }) });
+    }
+    const code = parsed.searchParams.get('code');
+    const entry = cloud.get(code);
+    if (!entry) return Promise.resolve({ ok: true, status: 200, json: async () => ({ found: false }) });
+    return Promise.resolve({
+      ok: true, status: 200,
+      json: async () => ({ found: true, state: entry.state, updatedAt: entry.updatedAt, updatedBy: entry.updatedBy })
+    });
+  }
+
+  // Device A: builds a plan and locks it in - this is Jacqueline's phone with the good plan.
+  const deviceA = await boot();
+  deviceA.context.window.fetch = mockFetch;
+  const apiA = deviceA.context.window.__dinnerPlannerTest;
+  apiA.buildPlan();
+  apiA.lockAllForWeek('this');
+  await apiA.createHousehold();
+  const code = apiA.getHouseholdCode();
+  const goodPlanIds = apiA.getState().plan.map(entry => entry.id).sort();
+
+  // Device B: joins, then independently rebuilds (e.g. the accidental Build press), pushing a different plan to the cloud.
+  const deviceB = await boot();
+  deviceB.context.window.fetch = mockFetch;
+  const apiB = deviceB.context.window.__dinnerPlannerTest;
+  await apiB.joinHousehold(code);
+  apiB.buildPlan(); // different random plan, unlocked, pushed to cloud (schedule handled synchronously enough here via direct save in test env)
+  await new Promise(resolve => setTimeout(resolve, 20));
+
+  // Device A polls again and would normally silently absorb device B's differing plan, wiping its own locks.
+  await apiA.pullHouseholdState();
+  const conflict = apiA.getPendingCloudConflict();
+  assert.ok(conflict, 'a conflict must be surfaced instead of silently applying the incoming state');
+  assert.ok(conflict.conflicts.length > 0, 'the conflict must identify which locked days differ');
+
+  // Device A's locked plan must still be intact - untouched until the user chooses.
+  const stillLocal = apiA.getState();
+  assert.deepEqual(stillLocal.plan.map(entry => entry.id).sort(), goodPlanIds, 'locked plan must survive until the user resolves the conflict');
+  assert.ok(stillLocal.plan.every(entry => stillLocal.locked[entry.day]), 'locks must still be intact');
+
+  // Resolving by keeping mine should push device A's plan back out, clearing the conflict.
+  apiA.resolveConflictKeepMine();
+  assert.equal(apiA.getPendingCloudConflict(), null, 'choosing to keep mine should clear the pending conflict');
+});
+
 test('rating a recipe up increases its score, rating it down decreases it, and toggling to neutral clears it', async () => {
   const { context } = await boot();
   const api = context.window.__dinnerPlannerTest;
