@@ -15,7 +15,11 @@ User accidentally tapped "Build this week's dinners" (not "Replace unlocked") wh
 
 **Data was not recoverable.** `household-sync.mjs` overwrites the household's state in place with no version history — there is no backup of the plan before it was wiped. Recommended the user check other household members' phones for a stale (unsynced) copy before giving up. Real gap worth considering: **household sync currently has zero history/versioning.** If this comes up again, a lightweight "keep last N states" approach in the Blobs store would make this recoverable next time — not built, just flagging it as a real product gap.
 
-**Also moved today:** the "A new version is ready / Refresh now" banner, per user feedback it read as confusing sitting above all app chrome. Now renders just under the header inside `.wrap`, not before the sidebar/header.
+**Also fixed today (audit requested by user, "search any eventualities"):**
+- Replace button now refuses to touch a locked day (same bug class as Build).
+- Joining a household now checks for conflicts with local locked meals instead of silently overwriting.
+- New "Restore previous plan" button: every Build/Replace/sync-apply/household-join snapshots the week beforehand; the button appears whenever there's something to undo. This is the direct safety net requested after today's incident.
+- Note on the v1/v2 recovery attempts for household ANGZWU83 earlier today: the v1 guess (Lemon Herb Chicken / Grilled Cheese and Tomato Soup / Beef Burger Night / Loaded Baked Potatoes / Mild Beef Tacos) was WRONG - the user said their actual week had a Korean rice dish and a chicken dish, details unconfirmed. v2 removed the incorrect locks. Do not re-guess this again; if it comes up, ask the user directly rather than inferring from old screenshots in the conversation.
 
 ---
 
