@@ -857,6 +857,27 @@ test('offering to delete just-scanned photos removes only those photos (keeping 
   assert.equal(after.have[0].thumbnail,'data:already-saved-crop','the item keeps its own standalone thumbnail after the source photo is gone');
 });
 
+test('pantry inventory cards always show a clean icon, never a raw bounding-box photo crop (the actual bug the user hit: a blurry, unrecognizable close-up crop of a countertop was shown next to a confident "Ginger Paste" label, which read as broken)', async () => {
+  const {context,elements}=await boot();
+  const api=context.window.__dinnerPlannerTest;
+  const state=api.getState();
+  state.have=[{
+    id:'i1',item:'Ginger Paste',label:'Ginger Paste',location:'Pantry',qty:1,unit:'container',
+    confidence:'high',category:'condiment',reviewed:false,sourcePhotoIds:['p1'],
+    thumbnail:'data:image/png;base64,rawuglycrop',evidence:'Label visible',observations:[]
+  }];
+  api.setState(state);
+  context.window.renderHave();
+  const html=elements.get('inventoryList').innerHTML;
+  assert.ok(!html.includes('<img'),'no raw photo crop should ever be rendered in the inventory grid, even when a thumbnail exists');
+  assert.ok(html.includes('inventory-fallback'),'a clean icon should be shown instead');
+});
+
+test('the Confirm/Remove button row does not overflow the card (the actual bug: flex items default to refusing to shrink below their content width, so "Remove" got clipped by the card\'s overflow:hidden on narrow cards)', async () => {
+  const css=await (await import('node:fs/promises')).readFile(resolve(root,'css/styles.css'),'utf8');
+  assert.match(css,/\.inventory-edit-row \.btn\{[^}]*min-width:0/,'the Confirm/Remove buttons must have min-width:0 so they can actually shrink to fit side by side');
+});
+
 test('pantry suggestions show real variety instead of several near-identical variants of the same dish (the actual bug: a scan showing 5 slightly different "Loaded Baked Potatoes" versions crowded out every other suggestion, since near-identical variants naturally score almost the same)', async () => {
   const {context,elements}=await boot();
   const api=context.window.__dinnerPlannerTest;

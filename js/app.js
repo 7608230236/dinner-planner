@@ -1448,7 +1448,8 @@ const NAME_ICON_RULES=[
   [/\bpretzel/i,"🥨"],
 
   // Condiments / pantry staples.
-  [/\b(ketchup|mustard|mayonnaise|mayo|soy sauce|teriyaki|salsa|bbq sauce|dressing)/i,"🧂"],
+  [/\bginger/i,"🫚"],
+  [/\b(ketchup|mustard|mayonnaise|mayo|soy sauce|teriyaki|salsa|bbq sauce|dressing|worcestershire|wasabi|hoisin|fish sauce|oyster sauce|coconut aminos|tamari|sweet\s*(and|&)\s*sour(\s*sauce)?)/i,"🧂"],
   [/\boil/i,"🫒"],
   [/\bhoney/i,"🍯"],
   [/\b(jam|jelly|preserves)/i,"🍯"],
@@ -1679,12 +1680,10 @@ function renderInventory(){
   const shown=state.pantryExpanded?items:items.slice(0,8);
   $("inventoryList").innerHTML=shown.map((item,i)=>{
     const actualIndex=state.have.indexOf(item);
-    const source=pantryPhotoById((item.sourcePhotoIds||[])[0]);
     const confidence=item.confidence||"medium";
-    const image=item.thumbnail || (source&&source.image) || "";
     const confidenceText=confidence==="user"?"Confirmed by you":confidence==="high"?"High confidence":"Needs review";
     return `<div class="inventory-card">
-      ${image?`<img src="${image}" alt="${item.thumbnail?"Detected item":"Source photo"} for ${esc(item.item)}">`:`<div class="inventory-fallback">${categoryEmoji(item.category,item.unit,item.item)}</div>`}
+      <div class="inventory-fallback">${categoryEmoji(item.category,item.unit,item.item)}</div>
       <div class="inventory-body">
         <div class="inventory-name">${esc(item.item)}</div>
         <div class="inventory-qty">${esc(formatQty(item))}</div>
