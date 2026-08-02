@@ -2862,6 +2862,21 @@ if(householdCode){
       renderWeekSection("this");
     }
   }
+  // Correction: the v1 guess above was wrong (per the user, 2026-08-01). There is no
+  // reliable source to recover the real plan from, so this only removes the incorrect
+  // locks - and only if they still match exactly what v1 set, so we never clobber
+  // anything the user has since done manually.
+  if(load("recoveryV1Applied",false) && !load("recoveryV2Applied",false)){
+    const wrongDishes={Sun:"lemon-herb-chicken-01",Mon:"grilled-cheese-soup-06",Tue:"beef-burgers-06",Wed:"loaded-baked-potato-03",Thu:"beef-tacos-07"};
+    const stillMatches=(state.plan||[]).length===5 && (state.plan||[]).every(entry=>wrongDishes[entry.day]===entry.id) &&
+      Object.keys(wrongDishes).every(day=>state.locked?.[day]);
+    if(stillMatches){
+      state.locked={};
+      save("state",state);
+      renderWeekSection("this");
+    }
+    save("recoveryV2Applied",true);
+  }
   pullHouseholdState();
   startHouseholdPolling();
 }
