@@ -65,14 +65,13 @@ function createRuntime(){
     'community','communitySignedOut','communitySignedIn','appleSignInBtn','googleSignInBtn','communityUserName','communitySignOutBtn',
     'shareRecipeBtn','communityStatus','shareRecipeForm','communityTitle','communityIngredients','addCommunityIngredientBtn',
     'communitySteps','addCommunityStepBtn','submitCommunityRecipeBtn','cancelCommunityRecipeBtn','communityRecipeList',
-    'updateBanner','updateBannerBtn','restoreWeekBtn','restoreNextWeekBtn','householdConflict','closeDeveloperBtnBottom'
+    'restoreWeekBtn','restoreNextWeekBtn','householdConflict','closeDeveloperBtnBottom'
   ])];
   const elements=new Map(ids.map(id=>[id,new FakeElement(id)]));
   elements.get('photoLocation').value='Pantry';
   elements.get('includeSupportPhotos').checked=true;
   elements.get('developerPanel').classList.add('hidden');
   elements.get('versionBadge').textContent='v60';
-  elements.get('updateBanner').hidden=true;
 
   const storage=new Map();
   const document={
@@ -951,19 +950,20 @@ test('pantry suggestions prioritize dishes you can nearly complete over ones nee
   assert.ok(html.includes('You have 5 of 5'),`expected full 5/5 coverage to be recognized (proves the pargiyot fix feeds into suggestions correctly), got: ${html}`);
 });
 
-test('an update banner appears when a newer build is deployed than the one currently running - this matters because a long-lived native WebView session could otherwise keep running a stale build indefinitely with no way for the person to notice (this is what actually happened: a fix was live on the server but a family member had an already-open app still showing the old version)', async () => {
+test('a newer deployed build makes the version badge tappable to refresh, instead of an intrusive banner - this matters because a long-lived native WebView session could otherwise keep running a stale build indefinitely with no way for the person to notice (this is what actually happened: a fix was live on the server but a family member had an already-open app still showing the old version)', async () => {
   const {context,elements}=await boot();
   const api=context.window.__dinnerPlannerTest;
 
-  // No newer build available - banner should stay hidden.
+  // No newer build available - badge should stay plain.
   context.window.fetch=async()=>({ok:true,text:async()=>'const BUILD_ID = "__BUILD_ID__";'});
   await api.checkForNewerDeployedBuild();
-  assert.equal(elements.get('updateBanner').hidden,true,'banner should stay hidden when the deployed build matches');
+  assert.equal(elements.get('versionBadge').classList.contains('update-available'),false,'badge should not be marked when the deployed build matches');
 
   // A genuinely newer build is live on the server.
   context.window.fetch=async()=>({ok:true,text:async()=>'const BUILD_ID = "abc123newbuild";'});
   await api.checkForNewerDeployedBuild();
-  assert.equal(elements.get('updateBanner').hidden,false,'banner should appear when a newer build is detected');
+  assert.equal(elements.get('versionBadge').classList.contains('update-available'),true,'badge should be marked when a newer build is detected');
+  assert.equal(typeof elements.get('versionBadge').onclick,'function','the badge itself should become the tap-to-refresh control');
 });
 
 test('the update check fails silently on a network error rather than throwing (checked periodically and on app resume - a transient failure here should never crash or interrupt the app)', async () => {

@@ -1085,11 +1085,7 @@ function showRecipe(id,weekKey="this"){
   const haveMatches=matchHave(r);
 
   $("recipeModal").innerHTML=`
-    <div class="row modal-close-row" style="justify-content:space-between">
-      <button class="btn small secondary" type="button" onclick="$('recipeDialog').close()">← Close</button>
-      <button class="btn small" type="button" onclick="addMissing('${r.id}','${weekKey}')">View shopping items</button>
-    </div>
-    <div class="recipe-head">
+    <div class="recipe-head" style="margin-top:16px">
       <h2 style="margin:0">${esc(r.title)}</h2>
       <p class="muted">${esc(r.desc)}</p>
       <div class="chips">
@@ -1117,6 +1113,10 @@ function showRecipe(id,weekKey="this"){
         <h3>Instructions</h3>
         ${r.steps.map((s,i)=>`<div style="margin-bottom:8px"><b>${i+1}.</b> ${esc(s)}</div>`).join("")}
       </div>
+    </div>
+    <div class="row modal-close-row-bottom" style="justify-content:space-between">
+      <button class="btn small secondary" type="button" onclick="$('recipeDialog').close()">← Close</button>
+      <button class="btn small" type="button" onclick="addMissing('${r.id}','${weekKey}')">View shopping items</button>
     </div>`;
 
   $("recipeModal").querySelectorAll("[data-rating]").forEach(btn=>{
@@ -2859,8 +2859,12 @@ async function checkForNewerDeployedBuild(){
     const match=text.match(/BUILD_ID\s*=\s*"([^"]+)"/);
     const deployedBuildId=match?.[1];
     if(deployedBuildId && deployedBuildId!=="__BUILD_ID__" && deployedBuildId!==BUILD_ID){
-      const banner=$("updateBanner");
-      if(banner)banner.hidden=false;
+      const badge=$("versionBadge");
+      if(badge){
+        badge.classList.add("update-available");
+        badge.title="A new version is ready - tap to refresh";
+        badge.onclick=()=>location.reload();
+      }
     }
   }catch{}
 }
@@ -2870,7 +2874,6 @@ document.addEventListener("visibilitychange",()=>{
 window.addEventListener("focus",checkForNewerDeployedBuild);
 setTimeout(checkForNewerDeployedBuild,4000);
 setInterval(checkForNewerDeployedBuild,10*60*1000);
-$("updateBannerBtn")?.addEventListener("click",()=>location.reload());
 
 if("serviceWorker" in navigator){
   navigator.serviceWorker.register(`/service-worker.js?v=${APP_VERSION}-${BUILD_ID}`,{updateViaCache:"none"}).catch(()=>{});
