@@ -1614,7 +1614,7 @@ function renderHave(){
         <select class="select" data-photolocation="${i}" aria-label="Location for photo ${i+1}">
           ${["Fridge","Freezer","Pantry","Fruit bowl","Spice cabinet","Other"].map(loc=>`<option ${loc===(p.location||"Other")?"selected":""}>${loc}</option>`).join("")}
         </select>
-        <div class="scan-photo-status">${p.status==="scanning"?"Analyzing…":p.status==="scanned"?`${p.detectedCount||0} clear items`:p.status==="error"?"Could not be read":"Ready to scan"}</div>
+        <div class="scan-photo-status">${p.status==="scanning"?"Analyzing…":p.status==="scanned"?`${p.detectedCount||0} clear item${p.detectedCount===1?"":"s"}`:p.status==="error"?"Could not be read":"Ready to scan"}</div>
       ${p.status==="error"?`<button type="button" class="btn small secondary retry-photo" data-retryphoto="${i}">Retry this photo</button><div class="scan-detail"><code>${esc(p.error||"Unknown scan error")}</code></div>`:""}
       </div>
     </div>`).join("") || '<div class="notice" style="grid-column:1/-1">No photos added yet.</div>';
@@ -1804,11 +1804,20 @@ async function shrinkStoredPhoto(dataUrl,maxDimension=360,quality=.62){
   return canvas.toDataURL("image/jpeg",quality);
 }
 
-async function cropItemThumbnail(dataUrl,bbox,maxDimension=320,quality=.72){
+async function loadImageElement(dataUrl){
+  return new Promise((resolve,reject)=>{const image=new Image();image.onload=()=>resolve(image);image.onerror=reject;image.src=dataUrl});
+}
+
+async function cropItemThumbnail(source,bbox,maxDimension=320,quality=.72){
   if(!Array.isArray(bbox)||bbox.length!==4)return "";
   const values=bbox.map(Number);
   if(values.some(v=>!Number.isFinite(v)))return "";
-  const img=await new Promise((resolve,reject)=>{const image=new Image();image.onload=()=>resolve(image);image.onerror=reject;image.src=dataUrl});
+  // `source` may be a data URL (decodes it) or an already-loaded Image element
+  // (reused across every item detected in the same photo). Re-decoding the
+  // full-resolution original photo separately for each item - sometimes 10-15+
+  // times per photo - is expensive enough on a phone to exhaust memory and get
+  // the app killed by the OS. This is the actual crash the user hit.
+  const img=typeof source==="string"?await loadImageElement(source):source;
   const normalized=Math.max(...values)>1;
   let [left,top,right,bottom]=values;
   if(normalized){left/=1000;top/=1000;right/=1000;bottom/=1000}
@@ -1919,12 +1928,16 @@ async function analyzePictures(){
       picture.requestId=data.requestId||"";
       picture.model=data.model||"";
       if(!items.length)empty++;
+      let decodedImage=null;
+      if(items.length){
+        try{decodedImage=await loadImageElement(picture.image)}catch{decodedImage=null}
+      }
       for(const item of items){
         const name=String(item.name||item.item||"").trim();
         if(!name)continue;
         rawRecognized++;
         let thumbnail="";
-        try{thumbnail=await cropItemThumbnail(picture.image,item.bbox)}catch{}
+        try{thumbnail=await cropItemThumbnail(decodedImage||picture.image,item.bbox)}catch{}
         const result=mergePantryItem({
           id:`item-${Date.now()}-${Math.random().toString(36).slice(2,8)}`,
           location:picture.location,

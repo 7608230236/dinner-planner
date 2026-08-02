@@ -857,6 +857,15 @@ test('offering to delete just-scanned photos removes only those photos (keeping 
   assert.equal(after.have[0].thumbnail,'data:already-saved-crop','the item keeps its own standalone thumbnail after the source photo is gone');
 });
 
+test('a scanned photo is decoded once, not once per detected item (the actual crash: cropItemThumbnail was re-decoding the full source photo from scratch for every single item, so a 15-item photo did 15x the necessary decode work - a very plausible cause of the app getting killed by the OS on a real phone)', async () => {
+  const app=await (await import('node:fs/promises')).readFile(resolve(root,'js/app.js'),'utf8');
+  const analyzeBody=app.slice(app.indexOf('async function analyzePictures()'),app.indexOf('\nfunction offerToDeleteScannedPhotos'));
+  assert.match(analyzeBody,/decodedImage\s*=\s*await\s*loadImageElement\(picture\.image\)/,'the photo should be decoded once, before the per-item loop');
+  const forItemLoop=analyzeBody.slice(analyzeBody.indexOf('for(const item of items)'));
+  assert.doesNotMatch(forItemLoop,/loadImageElement\(picture\.image\)/,'decoding must not happen again inside the per-item loop');
+  assert.match(forItemLoop,/cropItemThumbnail\(decodedImage\|\|picture\.image/,'each item should reuse the already-decoded image instead of the raw photo string');
+});
+
 test('pantry inventory cards always show a clean icon, never a raw bounding-box photo crop (the actual bug the user hit: a blurry, unrecognizable close-up crop of a countertop was shown next to a confident "Ginger Paste" label, which read as broken)', async () => {
   const {context,elements}=await boot();
   const api=context.window.__dinnerPlannerTest;
