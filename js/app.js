@@ -159,7 +159,13 @@ function normalizeState(raw){
     receiptReview: Array.isArray(clean.receiptReview) ? clean.receiptReview : [],
     recipeRatings: (clean.recipeRatings && typeof clean.recipeRatings === "object" && !Array.isArray(clean.recipeRatings)) ? clean.recipeRatings : {},
     planNonce: Number.isFinite(Number(clean.planNonce)) ? Number(clean.planNonce) : 0,
-    updatedAt: Number.isFinite(Number(clean.updatedAt)) ? Number(clean.updatedAt) : 0
+    updatedAt: Number.isFinite(Number(clean.updatedAt)) ? Number(clean.updatedAt) : 0,
+    // Device-local "undo" snapshot, taken right before anything that could replace
+    // the current week's plan (Build, Replace, or an incoming/joined sync). Never
+    // included in buildSyncPayload and never read from incoming cloud data - this
+    // stays local to this device on purpose, so restoring it can't itself become
+    // another silent overwrite risk shared across devices.
+    planSnapshot: (clean.planSnapshot && typeof clean.planSnapshot === "object") ? clean.planSnapshot : {}
   };
 }
 state = normalizeState(state);
@@ -270,6 +276,8 @@ async function pullHouseholdState(){
         logEvent("household_pull_conflict",{code:householdCode,updatedBy:data.updatedBy||"",conflicts:conflicts.length});
         return;
       }
+      snapshotWeek("this","before household sync applied");
+      snapshotWeek("next","before household sync applied");
       applyCloudState(data.state);
       setHouseholdStatus("synced",data.updatedBy?`Updated from ${data.updatedBy}.`:"Updated from your household.");
       logEvent("household_pull_applied",{code:householdCode,updatedBy:data.updatedBy||""});
@@ -326,6 +334,19 @@ async function joinHousehold(rawCode){
     const data=await response.json().catch(()=>({}));
     if(!response.ok)throw new Error(data.error||`Join failed (${response.status})`);
     if(data.found){
+      const conflicts=cloudConflictsWithLocalLocks(data.state);
+      snapshotWeek("this","before joining household");
+      snapshotWeek("next","before joining household");
+      if(conflicts.length){
+        pendingCloudState=data.state;
+        pendingCloudUpdatedBy=data.updatedBy||"";
+        setHouseholdStatus("error","This household's plan would replace locked meals already on this device. Review below before anything is applied.");
+        renderHouseholdConflict(conflicts);
+        logEvent("household_join_conflict",{code,conflicts:conflicts.length});
+        startHouseholdPolling();
+        renderHouseholdSection();
+        return;
+      }
       applyCloudState(data.state);
       setHouseholdStatus("synced","Joined! You're now seeing your household's shared plan.");
       logEvent("household_join_success",{code});
@@ -349,6 +370,34 @@ function leaveHousehold(){
   clearInterval(householdPollTimer);
   setHouseholdStatus("idle","");
   renderHouseholdSection();
+}
+
+function snapshotWeek(weekKey,label){
+  state.planSnapshot=state.planSnapshot||{};
+  state.planSnapshot[weekKey]={
+    plan:JSON.parse(JSON.stringify(state[planProp(weekKey)]||[])),
+    locked:JSON.parse(JSON.stringify(state[lockedProp(weekKey)]||{})),
+    shopping:JSON.parse(JSON.stringify(state[shoppingProp(weekKey)]||[])),
+    label:label||"",
+    at:Date.now()
+  };
+}
+
+function hasRestorableSnapshot(weekKey){
+  return Boolean(state.planSnapshot?.[weekKey]?.plan?.length);
+}
+
+function restoreWeekSnapshot(weekKey){
+  const snap=state.planSnapshot?.[weekKey];
+  if(!snap||!snap.plan?.length)return false;
+  state[planProp(weekKey)]=JSON.parse(JSON.stringify(snap.plan));
+  state[lockedProp(weekKey)]=JSON.parse(JSON.stringify(snap.locked||{}));
+  state[shoppingProp(weekKey)]=JSON.parse(JSON.stringify(snap.shopping||[]));
+  delete state.planSnapshot[weekKey];
+  save("state",state);
+  renderWeekSection(weekKey);
+  renderShopping();
+  return true;
 }
 
 function localLockedPlanFor(weekKey,fromState){
@@ -404,6 +453,8 @@ function renderHouseholdConflict(conflicts){
   };
   $("conflictUseTheirsBtn").onclick=()=>{
     if(pendingCloudState){
+      snapshotWeek("this","before resolving sync conflict (used theirs)");
+      snapshotWeek("next","before resolving sync conflict (used theirs)");
       applyCloudState(pendingCloudState);
       setHouseholdStatus("synced",pendingCloudUpdatedBy?`Updated from ${pendingCloudUpdatedBy}.`:"Updated from your household.");
     }
@@ -747,6 +798,7 @@ function chooseUniqueRecipe({usedIds,usedFamilies,usedProteins=new Set(),targetK
 }
 
 function buildPlanForWeek(weekKey="this",{replaceUnlocked=false}={}){
+  snapshotWeek(weekKey,replaceUnlocked?"before replace unlocked":"before build");
   state.planNonce=(state.planNonce||0)+1;
   const allowed=RECIPES.filter(recipeAllowed);
   const planField=planProp(weekKey);
@@ -819,6 +871,14 @@ function replaceDay(weekKey,day){
   const plan=state[planField]||[];
   const index=plan.findIndex(p=>p.day===day);
   if(index<0)return;
+
+  // A locked day is a promise to the user that this dish won't change out from
+  // under them. Replace must refuse to touch it - this is the actual bug the
+  // user hit: the button used to ignore lock status entirely.
+  const locks=state[lockedProp(weekKey)]||{};
+  if(locks[day])return;
+
+  snapshotWeek(weekKey,`before replacing ${day}`);
 
   // Without reshuffling here, every Replace click re-scores with the exact
   // same jitter and just ping-pongs between the same 2-3 top-scoring dishes
@@ -927,6 +987,15 @@ function renderWeekSection(weekKey="this",{alreadyRebuilt=false}={}){
   }
   renderWeekDateRange(weekKey);
 
+  const restoreButton=$(weekKey==="next"?"restoreNextWeekBtn":"restoreWeekBtn");
+  if(restoreButton){
+    restoreButton.hidden=!hasRestorableSnapshot(weekKey);
+    restoreButton.onclick=()=>{
+      if(!confirm("Restore the previous version of this week's plan? This replaces what's currently shown."))return;
+      restoreWeekSnapshot(weekKey);
+    };
+  }
+
   if(!plan.length){
     $(target).innerHTML=weekKey==="next"
       ? '<div class="notice">Build next week when you want to shop ahead.</div>'
@@ -956,7 +1025,7 @@ function renderWeekSection(weekKey="this",{alreadyRebuilt=false}={}){
       </div>
       <div class="meal-actions">
         <button type="button" class="btn small ${locked?'soft':'secondary'} lock ${locked?'on':''}" data-lock="${weekKey}:${p.day}">${locked?'Locked':'Lock'}</button>
-        <button type="button" class="btn small secondary" data-replace="${weekKey}:${p.day}">Replace</button>
+        <button type="button" class="btn small secondary" data-replace="${weekKey}:${p.day}" ${locked?'disabled title="Unlock this day to replace it"':''}>Replace</button>
         <button type="button" class="btn small ghost" data-recipe="${weekKey}:${r.id}">Show recipe</button>
       </div>
       ${ratingButtons(r.id,weekKey)}
@@ -2926,4 +2995,7 @@ window.__dinnerPlannerTest={
   offerToDeleteScannedPhotos,
   getPendingCloudConflict:()=>pendingCloudState?{conflicts:cloudConflictsWithLocalLocks(pendingCloudState)}:null,
   resolveConflictKeepMine:()=>{pendingCloudState=null;renderHouseholdConflict(null);save("state",state);},
-  resolveConflictUseTheirs:()=>{if(pendingCloudState){applyCloudState(pendingCloudState);}pendingCloudState=null;renderHouseholdConflict(null);}};
+  resolveConflictUseTheirs:()=>{if(pendingCloudState){snapshotWeek("this");snapshotWeek("next");applyCloudState(pendingCloudState);}pendingCloudState=null;renderHouseholdConflict(null);},
+  hasRestorableSnapshot,
+  restoreWeekSnapshot,
+  snapshotWeek};

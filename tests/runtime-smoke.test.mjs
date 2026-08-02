@@ -65,7 +65,7 @@ function createRuntime(){
     'community','communitySignedOut','communitySignedIn','appleSignInBtn','googleSignInBtn','communityUserName','communitySignOutBtn',
     'shareRecipeBtn','communityStatus','shareRecipeForm','communityTitle','communityIngredients','addCommunityIngredientBtn',
     'communitySteps','addCommunityStepBtn','submitCommunityRecipeBtn','cancelCommunityRecipeBtn','communityRecipeList',
-    'updateBanner','updateBannerBtn'
+    'updateBanner','updateBannerBtn','restoreWeekBtn','restoreNextWeekBtn','householdConflict'
   ])];
   const elements=new Map(ids.map(id=>[id,new FakeElement(id)]));
   elements.get('photoLocation').value='Pantry';
@@ -447,6 +447,108 @@ test('household sync: a pull that would silently overwrite locked meals with dif
   // Resolving by keeping mine should push device A's plan back out, clearing the conflict.
   apiA.resolveConflictKeepMine();
   assert.equal(apiA.getPendingCloudConflict(), null, 'choosing to keep mine should clear the pending conflict');
+});
+
+test('the Replace button refuses to touch a locked day (the actual bug: it used to ignore lock status entirely and silently swap the dish while still showing "Locked")', async () => {
+  const {context}=await boot();
+  const api=context.window.__dinnerPlannerTest;
+  api.buildPlan();
+  const day=api.getState().plan[0].day;
+  const lockedField='locked';
+  const state=api.getState();
+  state[lockedField][day]=true;
+  api.setState(state);
+  const before=api.getState().plan.find(p=>p.day===day).id;
+
+  api.replaceDay('this',day);
+
+  const after=api.getState().plan.find(p=>p.day===day).id;
+  assert.equal(after,before,'a locked day must not change when Replace is called on it');
+});
+
+test('Restore previous plan: Build can be undone back to the plan that existed right before it ran', async () => {
+  const {context}=await boot();
+  const api=context.window.__dinnerPlannerTest;
+  assert.equal(api.hasRestorableSnapshot('this'),false,'no snapshot should exist before anything has changed');
+
+  api.buildPlan();
+  const firstPlanIds=api.getState().plan.map(p=>p.id).sort();
+
+  api.buildPlan(); // a second build overwrites the first
+  const secondPlanIds=api.getState().plan.map(p=>p.id).sort();
+
+  assert.ok(api.hasRestorableSnapshot('this'),'a snapshot should exist after a Build overwrote a previous plan');
+
+  const restored=api.restoreWeekSnapshot('this');
+  assert.equal(restored,true);
+  const afterRestoreIds=api.getState().plan.map(p=>p.id).sort();
+  assert.deepEqual(afterRestoreIds,firstPlanIds,'restoring should bring back the plan from right before the second Build');
+  assert.notDeepEqual(afterRestoreIds,secondPlanIds,'restoring should not just leave the second build in place');
+});
+
+test('Restore previous plan: Replace on a single day can be undone', async () => {
+  const {context}=await boot();
+  const api=context.window.__dinnerPlannerTest;
+  api.buildPlan();
+  const day=api.getState().plan[0].day;
+  const before=api.getState().plan.find(p=>p.day===day).id;
+
+  api.replaceDay('this',day);
+  const afterReplace=api.getState().plan.find(p=>p.day===day).id;
+  assert.notEqual(afterReplace,before,'sanity check: replace should have actually changed the day');
+
+  api.restoreWeekSnapshot('this');
+  const restored=api.getState().plan.find(p=>p.day===day).id;
+  assert.equal(restored,before,'restoring should bring back the pre-Replace dish for that day');
+});
+
+test('joinHousehold refuses to silently overwrite locked meals already on this device (the same class of bug as the sync-pull conflict, just triggered by an explicit Join instead)', async () => {
+  const cloud = new Map();
+  function mockFetch(url, opts) {
+    const parsed = new URL(url, 'https://example.test');
+    if (opts && opts.method === 'POST') {
+      const body = JSON.parse(opts.body);
+      cloud.set(body.code, { state: body.state, updatedAt: Date.now() + cloud.size + 1000, updatedBy: body.deviceName || '' });
+      return Promise.resolve({ ok: true, status: 200, json: async () => ({ ok: true, updatedAt: Date.now() }) });
+    }
+    const code = parsed.searchParams.get('code');
+    const entry = cloud.get(code);
+    if (!entry) return Promise.resolve({ ok: true, status: 200, json: async () => ({ found: false }) });
+    return Promise.resolve({
+      ok: true, status: 200,
+      json: async () => ({ found: true, state: entry.state, updatedAt: entry.updatedAt, updatedBy: entry.updatedBy })
+    });
+  }
+
+  const deviceA = await boot();
+  deviceA.context.window.fetch = mockFetch;
+  const apiA = deviceA.context.window.__dinnerPlannerTest;
+  apiA.buildPlan();
+  await apiA.createHousehold();
+  const code = apiA.getHouseholdCode();
+
+  // Device B already has its own locked plan before joining - force day one to
+  // something guaranteed different from device A's, so this isn't relying on
+  // both random builds coincidentally diverging.
+  const deviceB = await boot();
+  deviceB.context.window.fetch = mockFetch;
+  const apiB = deviceB.context.window.__dinnerPlannerTest;
+  apiB.buildPlan();
+  const bState = apiB.getState();
+  const firstDay = bState.plan[0].day;
+  const aFirstDayId = apiA.getState().plan.find(p => p.day === firstDay)?.id;
+  bState.plan[0].id = bState.plan[0].id === aFirstDayId ? 'beef-tacos-01' : bState.plan[0].id;
+  if (bState.plan[0].id === aFirstDayId) bState.plan[0].id = 'lemon-herb-chicken-01';
+  apiB.setState(bState);
+  apiB.lockAllForWeek('this');
+  const bLockedIds = apiB.getState().plan.map(p => p.id).sort();
+
+  await apiB.joinHousehold(code);
+
+  const conflict = apiB.getPendingCloudConflict();
+  assert.ok(conflict, 'joining must not silently apply a household plan that would replace locked meals');
+  const stillLocal = apiB.getState().plan.map(p => p.id).sort();
+  assert.deepEqual(stillLocal, bLockedIds, 'device B\'s locked plan must survive until the conflict is resolved');
 });
 
 test('rating a recipe up increases its score, rating it down decreases it, and toggling to neutral clears it', async () => {
