@@ -216,6 +216,7 @@
   });
 
   byId('closeDeveloperBtn')?.addEventListener('click',closeDeveloper);
+  byId('closeDeveloperBtnBottom')?.addEventListener('click',closeDeveloper);
   byId('runValidationBtn')?.addEventListener('click',()=>{
     bridge.runValidationSuite();
     render();

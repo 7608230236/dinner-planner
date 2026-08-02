@@ -1085,7 +1085,7 @@ function showRecipe(id,weekKey="this"){
   const haveMatches=matchHave(r);
 
   $("recipeModal").innerHTML=`
-    <div class="row" style="justify-content:space-between">
+    <div class="row modal-close-row" style="justify-content:space-between">
       <button class="btn small secondary" type="button" onclick="$('recipeDialog').close()">← Close</button>
       <button class="btn small" type="button" onclick="addMissing('${r.id}','${weekKey}')">View shopping items</button>
     </div>
