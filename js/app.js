@@ -1846,6 +1846,81 @@ function displayedTime(r){
   return `${base+extraBatches*minutesPerExtraBatch} min`;
 }
 
+async function renderRecipePhotoGallery(recipeId){
+  const container=$("recipePhotoGallery");
+  if(!container)return;
+  let photos=[];
+  try{
+    const response=await fetch(`${API_ORIGIN}/.netlify/functions/recipe-photos?recipeId=${encodeURIComponent(recipeId)}`);
+    const data=await response.json().catch(()=>({}));
+    if(response.ok&&Array.isArray(data.photos))photos=data.photos;
+  }catch(error){
+    console.error(error);
+  }
+  renderRecipePhotoGalleryHtml(recipeId,photos);
+}
+
+function renderRecipePhotoGalleryHtml(recipeId,photos){
+  const container=$("recipePhotoGallery");
+  if(!container)return;
+  const favorite=photos.find(p=>p.isFavorite)||photos[0]||null;
+  container.innerHTML=`
+    ${favorite?`<img class="recipe-photo-hero" src="${esc(favorite.image)}" alt="Photo of this dish">`:""}
+    <div class="recipe-photo-strip">
+      ${photos.map(p=>`
+        <div>
+          <div class="recipe-photo-thumb${p.isFavorite?" is-favorite":""}" data-recipe-photo-favorite="${p.id}">
+            <img src="${esc(p.image)}" alt="Photo by ${esc(p.uploadedBy||"a family member")}">
+            ${p.isFavorite?`<span class="fav-badge">★</span>`:""}
+          </div>
+          ${p.uploadedBy?`<div class="recipe-photo-by">${esc(p.uploadedBy)}</div>`:""}
+        </div>
+      `).join("")}
+      <button type="button" class="btn tiny secondary" data-recipe-photo-add="1" style="align-self:center;white-space:nowrap">📷 Add a photo</button>
+    </div>
+  `;
+  container.querySelectorAll("[data-recipe-photo-favorite]").forEach(el=>{
+    el.onclick=async()=>{
+      const photoId=el.dataset.recipePhotoFavorite;
+      try{
+        await fetch(`${API_ORIGIN}/.netlify/functions/recipe-photos`,{
+          method:"POST",
+          headers:{"Content-Type":"application/json"},
+          body:JSON.stringify({recipeId,action:"favorite",photoId})
+        });
+      }catch(error){console.error(error);}
+      renderRecipePhotoGallery(recipeId);
+    };
+  });
+  const addBtn=container.querySelector("[data-recipe-photo-add]");
+  if(addBtn)addBtn.onclick=()=>{
+    const input=$("recipePhotoInput");
+    input.value="";
+    input.onchange=async()=>{
+      const file=input.files?.[0];
+      if(!file)return;
+      try{
+        const image=await compressKitchenPhoto(file,1200,.75);
+        const response=await fetch(`${API_ORIGIN}/.netlify/functions/recipe-photos`,{
+          method:"POST",
+          headers:{"Content-Type":"application/json"},
+          body:JSON.stringify({recipeId,image,uploadedBy:deviceName||""})
+        });
+        const data=await response.json().catch(()=>({}));
+        if(!response.ok){
+          alert(data.error||"Could not save that photo. Try again.");
+          return;
+        }
+        renderRecipePhotoGallery(recipeId);
+      }catch(error){
+        console.error(error);
+        alert("Something went wrong saving that photo. Try again.");
+      }
+    };
+    input.click();
+  };
+}
+
 function showRecipe(id,weekKey="this"){
   const r=getRecipe(id);
   if(!r)return;
@@ -1864,6 +1939,7 @@ function showRecipe(id,weekKey="this"){
       ${r.tags.includes("batch-limited") && state.portions>5?`<p class="muted">This is cooked in stovetop batches, so the total time above is longer than the base recipe to account for frying/searing multiple rounds at ${state.portions} portions.</p>`:""}
       ${ratingButtons(r.id,"modal")}
     </div>
+    <div id="recipePhotoGallery"><div class="tiny muted">Loading photos…</div></div>
     <details class="have-summary">
       <summary>From what you have</summary>
       <div class="have-body">
@@ -1895,6 +1971,7 @@ function showRecipe(id,weekKey="this"){
   });
 
   $("recipeDialog").showModal();
+  renderRecipePhotoGallery(r.id);
 }
 
 function matchHave(r){
@@ -3790,6 +3867,8 @@ window.__dinnerPlannerTest={
   refreshPantryDependencies,
   importRecipeAndOpenEditor,
   offerCommunityShare,
+  renderRecipePhotoGallery,
+  renderRecipePhotoGalleryHtml,
   setCommunitySessionForTest:s=>{communitySession=s;},
   hasDurableLocks,
   restoreDurableLocks,

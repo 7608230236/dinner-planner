@@ -65,7 +65,7 @@ function createRuntime(){
     'community','communitySignedOut','communitySignedIn','appleSignInBtn','googleSignInBtn','communityUserName','communitySignOutBtn',
     'shareRecipeBtn','communityStatus','shareRecipeForm','communityTitle','communityIngredients','addCommunityIngredientBtn',
     'communitySteps','addCommunityStepBtn','submitCommunityRecipeBtn','cancelCommunityRecipeBtn','communityRecipeList',
-    'restoreWeekBtn','restoreNextWeekBtn','householdConflict','closeDeveloperBtnBottom','shabbosSlots','recipeUploadInput','shabbosMenu','dishEditorDialog','dishEditorModal','dishEditorTitle','dishEditorAddRow','dishEditorSave','dishEditorCancel','restoreLockedWeekBtn','restoreLockedNextWeekBtn','restoreShabbosBtn','recipeScanInput','dishEditorSteps'
+    'restoreWeekBtn','restoreNextWeekBtn','householdConflict','closeDeveloperBtnBottom','shabbosSlots','recipeUploadInput','shabbosMenu','dishEditorDialog','dishEditorModal','dishEditorTitle','dishEditorAddRow','dishEditorSave','dishEditorCancel','restoreLockedWeekBtn','restoreLockedNextWeekBtn','restoreShabbosBtn','recipeScanInput','dishEditorSteps','recipePhotoGallery','recipePhotoInput'
   ])];
   const elements=new Map(ids.map(id=>[id,new FakeElement(id)]));
   elements.get('photoLocation').value='Pantry';
@@ -1594,6 +1594,58 @@ test('offerCommunityShare does not call the API at all if the user declines the 
   await api.offerCommunityShare({ title: 'Test Dish', ingredients: [['flour', '1 cup']], steps: ['Mix and bake.'] });
   assert.equal(fetchCalled, false, 'declining the share prompt should never call the API');
 });
+
+test('the recipe photo gallery shows a hero image for the favorite photo, a thumbnail strip for all photos, and always offers an Add a photo button - even with zero photos', async () => {
+  const {context, elements} = await boot();
+  const api = context.window.__dinnerPlannerTest;
+
+  api.renderRecipePhotoGalleryHtml('beef-tacos-01', []);
+  let html = elements.get('recipePhotoGallery').innerHTML;
+  assert.ok(!html.includes('recipe-photo-hero'), 'no hero image should show with zero photos');
+  assert.ok(html.includes('📷 Add a photo'), 'the add-photo button should always be present');
+
+  const photos = [
+    {id: 'p1', uploadedBy: 'Mats', uploadedAt: 1, isFavorite: false, image: 'data:image/jpeg;base64,AAA'},
+    {id: 'p2', uploadedBy: 'Jacqueline', uploadedAt: 2, isFavorite: true, image: 'data:image/jpeg;base64,BBB'}
+  ];
+  api.renderRecipePhotoGalleryHtml('beef-tacos-01', photos);
+  html = elements.get('recipePhotoGallery').innerHTML;
+  assert.ok(html.includes('recipe-photo-hero'), 'the favorite photo should show as the hero image');
+  assert.ok(html.includes('base64,BBB'), 'the hero image should be the favorite photo specifically, not just the first one');
+  assert.ok(html.includes('Mats') && html.includes('Jacqueline'), 'both contributors should be credited');
+  assert.ok(html.includes('is-favorite'), 'the favorite thumbnail should be visually marked');
+});
+
+test('the recipe photo gallery falls back to the first photo as the hero image if nobody has marked a favorite yet', async () => {
+  const {context, elements} = await boot();
+  const api = context.window.__dinnerPlannerTest;
+  const photos = [
+    {id: 'p1', uploadedBy: 'Mats', uploadedAt: 1, isFavorite: false, image: 'data:image/jpeg;base64,FIRST'},
+    {id: 'p2', uploadedBy: 'Jacqueline', uploadedAt: 2, isFavorite: false, image: 'data:image/jpeg;base64,SECOND'}
+  ];
+  api.renderRecipePhotoGalleryHtml('beef-tacos-01', photos);
+  const html = elements.get('recipePhotoGallery').innerHTML;
+  assert.ok(html.includes('base64,FIRST'), 'should fall back to the first photo when no favorite is set');
+});
+
+test('renderRecipePhotoGallery fetches from the right endpoint and renders whatever photos come back, failing gracefully to an empty gallery on a network error', async () => {
+  const {context, elements} = await boot();
+  const api = context.window.__dinnerPlannerTest;
+
+  let requestedUrl = '';
+  context.window.fetch = async (url) => {
+    requestedUrl = url;
+    return {ok: true, json: async () => ({photos: [{id: 'p1', uploadedBy: 'Mats', isFavorite: true, image: 'data:image/jpeg;base64,XYZ'}]})};
+  };
+  await api.renderRecipePhotoGallery('beef-tacos-01');
+  assert.match(requestedUrl, /recipe-photos\?recipeId=beef-tacos-01/);
+  assert.ok(elements.get('recipePhotoGallery').innerHTML.includes('base64,XYZ'));
+
+  context.window.fetch = async () => { throw new Error('offline'); };
+  await api.renderRecipePhotoGallery('beef-tacos-01');
+  assert.ok(elements.get('recipePhotoGallery').innerHTML.includes('📷 Add a photo'), 'a network failure should still render a usable (empty) gallery, not crash or leave a stuck loading state');
+});
+
 
 
 
