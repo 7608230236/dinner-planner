@@ -15,33 +15,35 @@ async function loadRecipes(){
 
 test('recipe library contains 750 weekday dinners plus a curated set of Shabbos specials',async()=>{
   const recipes=await loadRecipes();
-  assert.equal(recipes.length,759);
-  assert.equal(new Set(Array.from(recipes,r=>r.id)).size,759);
-  assert.equal(new Set(Array.from(recipes,r=>r.title)).size,759);
+  assert.equal(recipes.length,785);
+  assert.equal(new Set(Array.from(recipes,r=>r.id)).size,785);
+  assert.equal(new Set(Array.from(recipes,r=>r.title)).size,785);
   assert.ok(recipes.every(r=>r.family&&r.kind&&r.tags.length&&r.ingredients.length>=4&&r.steps.length===4));
-  assert.equal(new Set(Array.from(recipes,r=>r.family)).size,106);
-  assert.equal(recipes.filter(r=>r.tags.includes('shabbos')).length,9,'the curated Shabbos specials should be tagged shabbos');
+  assert.equal(new Set(Array.from(recipes,r=>r.family)).size,117);
+  assert.equal(recipes.filter(r=>r.tags.includes('shabbos')).length,14,'the curated Shabbos specials should be tagged shabbos');
 });
 
 test('recipe mix has enough meat, dairy, pareve, and break-fast choices',async()=>{
   const recipes=await loadRecipes();
   const counts=Object.fromEntries(['meat','dairy','pareve'].map(kind=>[kind,recipes.filter(r=>r.kind===kind).length]));
-  assert.deepEqual(counts,{meat:379,dairy:225,pareve:155});
+  assert.deepEqual(counts,{meat:400,dairy:227,pareve:158});
   assert.ok(recipes.filter(r=>r.tags.includes('break-fast')).length>=6);
 });
 
-test('library enforces household kosher and ingredient rules',async()=>{
+test('library enforces household kosher and ingredient rules (fish is a weekday-only ban - the user explicitly allows it for Shabbos - so Shabbos-tagged recipes are exempt from that one check only; every other ban, including tofu/turkey/banned vegetables/spicy, stays universal with no Shabbos exception)',async()=>{
   const recipes=await loadRecipes();
-  const banned=/fish|salmon|tuna|tofu|turkey|broccoli|cauliflower|cilantro|jalape|habanero|serrano|cayenne/i;
+  const fishBanned=/fish|salmon|tuna/i;
+  const alwaysBanned=/tofu|turkey|broccoli|cauliflower|cilantro|jalape|habanero|serrano|cayenne/i;
   const dairy=/milk|cream|cheese|butter|ricotta|mozzarella|cheddar|parmesan/i;
   for(const recipe of recipes){
     const text=JSON.stringify(recipe);
-    assert.doesNotMatch(text,banned,recipe.id);
+    if(!recipe.tags.includes('shabbos'))assert.doesNotMatch(text,fishBanned,recipe.id);
+    assert.doesNotMatch(text,alwaysBanned,recipe.id);
     if(recipe.kind==='meat')assert.doesNotMatch(text,dairy,recipe.id);
     if(recipe.kind==='dairy')assert.match(text,/Cholov Yisroel/,recipe.id);
     assert.ok(Number.parseInt(recipe.hands,10)<=20,recipe.id);
     const total=Number.parseInt(recipe.time,10);
-    assert.ok(total<=35||recipe.tags.includes('oven')||recipe.tags.includes('bbq')||recipe.tags.includes('shabbos'),`${recipe.id} exceeds the non-oven time limit`);
+    assert.ok(total<=35||recipe.tags.includes('oven')||recipe.tags.includes('bbq')||recipe.tags.includes('shabbos')||recipe.tags.includes('slow-cooker'),`${recipe.id} exceeds the non-oven time limit`);
   }
 });
 

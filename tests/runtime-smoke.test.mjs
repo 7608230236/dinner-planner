@@ -916,6 +916,30 @@ test('the Confirm/Remove button row does not overflow the card (the actual bug: 
   assert.match(css,/\.inventory-edit-row \.btn\{[^}]*min-width:0/,'the Confirm/Remove buttons must have min-width:0 so they can actually shrink to fit side by side');
 });
 
+test('newly added salmon recipes are blocked from weekday auto-suggestion (fish is a weekday-only ban) but ARE available in the Shabbos Fish & Salads course (fish is allowed for Shabbos, per the user)', async () => {
+  const {context} = await boot();
+  const api = context.window.__dinnerPlannerTest;
+  const salmonIds = ['shabbos-salmon-01','shabbos-salmon-02','shabbos-salmon-03','shabbos-salmon-04','shabbos-salmon-05'];
+  for (const id of salmonIds) {
+    const recipe = api.getRecipe(id);
+    assert.ok(recipe, `${id} should exist in the library`);
+    assert.equal(api.recipeAllowed(recipe), false, `${id} must never be weekday-eligible - fish is a weekday-only ban`);
+  }
+  const fishCourseOptions = Array.from(api.shabbosSpecialsForCourse('Fish & Salads'));
+  assert.deepEqual(fishCourseOptions.sort(), salmonIds.sort(), 'all 5 salmon recipes should be offered in the Fish & Salads course');
+});
+
+test('the newly added London broil and chicken recipes are genuinely weekday-eligible (not accidentally excluded)', async () => {
+  const {context} = await boot();
+  const api = context.window.__dinnerPlannerTest;
+  const sampleIds = ['london-broil-01','chimichurri-chicken-01','airfryer-drumsticks-01','rotisserie-chicken-01','bbq-pargiyot-01'];
+  for (const id of sampleIds) {
+    const recipe = api.getRecipe(id);
+    assert.ok(recipe, `${id} should exist in the library`);
+    assert.equal(api.recipeAllowed(recipe), true, `${id} should be weekday-eligible like any other meat dinner`);
+  }
+});
+
 test('Shabbos menu seeds the household\'s normal course structure by default, with the fish course on (Shabbos is exempt from the weekday no-fish rule) and Seuda Shlishit/Motzei off by default', async () => {
   const {context}=await boot();
   const api=context.window.__dinnerPlannerTest;
