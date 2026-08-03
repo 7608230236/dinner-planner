@@ -83,3 +83,34 @@ test('no Shabbos-tagged recipe is ever dairy (the actual bug: two salmon recipes
   const shabbosDairy=recipes.filter(r=>r.tags.includes('shabbos')&&r.kind==='dairy');
   assert.deepEqual(Array.from(shabbosDairy).map(r=>r.id),[],'no Shabbos recipe should be dairy, since Friday night/Shabbos day are meat meals');
 });
+
+test('specific recipes that used to instruct adding an ingredient (garlic, onion, flour) never listed in the ingredients array - meaning it was never on the shopping list - now include it (the actual bug the user hit: they shopped from the app\'s list and came up short on ingredients the steps actually needed)',async()=>{
+  const recipes=await loadRecipes();
+  const byId=Object.fromEntries(Array.from(recipes,r=>[r.id,r]));
+
+  const garlicIds=['sloppy-joes-02','sloppy-joes-03','sloppy-joes-04','sloppy-joes-05','sloppy-joes-06','sloppy-joes-07','sloppy-joes-09','sloppy-joes-10','beef-tacos-01','beef-tacos-03','beef-tacos-04','beef-tacos-05','beef-tacos-06','beef-tacos-07','beef-tacos-08','beef-tacos-09','beef-tacos-10','dairy-risotto-02','dairy-risotto-03','dairy-risotto-04','dairy-risotto-05','dairy-risotto-06','dairy-risotto-07','dairy-risotto-09','dairy-risotto-10'];
+  for(const id of garlicIds){
+    const r=byId[id];
+    assert.ok(r,`${id} should exist`);
+    assert.ok(r.ingredients.some(([name])=>/garlic/i.test(name)),`${id}'s steps call for garlic but it's missing from the ingredients list`);
+  }
+
+  const flourIds=['chicken-piccata-style-01','chicken-piccata-style-02','chicken-piccata-style-03','chicken-piccata-style-04','chicken-piccata-style-05'];
+  for(const id of flourIds){
+    const r=byId[id];
+    assert.ok(r,`${id} should exist`);
+    assert.ok(r.ingredients.some(([name])=>/^flour$/i.test(name)),`${id}'s steps call for flouring the chicken but flour is missing from the ingredients list`);
+  }
+
+  const onionIds=['pareve-tomato-pasta-02','pareve-tomato-pasta-03','pareve-tomato-pasta-04','pareve-tomato-pasta-05','pareve-tomato-pasta-06','pareve-tomato-pasta-07','pareve-tomato-pasta-08','pareve-tomato-pasta-09','pareve-tomato-pasta-10','rice-beans-02','rice-beans-03','rice-beans-04','rice-beans-05','rice-beans-06','rice-beans-07','rice-beans-08','rice-beans-09','rice-beans-10'];
+  for(const id of onionIds){
+    const r=byId[id];
+    assert.ok(r,`${id} should exist`);
+    assert.ok(r.ingredients.some(([name])=>/onion/i.test(name)),`${id}'s steps call for onion but it's missing from the ingredients list`);
+    // The onion must also have a real cooking instruction, not just be listed with nothing to do with it.
+    const stepsText=r.steps.join(' ').toLowerCase();
+    assert.match(stepsText,/onion/,`${id} lists onion but never actually instructs cooking it anywhere in the steps`);
+    assert.doesNotMatch(stepsText,/sautéed onion/i,`${id} should no longer reference a pre-cooked onion with no prep step of its own`);
+  }
+});
+
