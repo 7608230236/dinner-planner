@@ -124,3 +124,14 @@ test('no recipe ends with a vague "Serve with/over X" step that never explains h
   assert.deepEqual(Array.from(stillVague).map(r=>r.id),[],'these recipes still end with a vague, uninstructed "Serve with X" step');
 });
 
+test('no recipe\'s only "seasoning" is salted pasta/starch boiling water while the actual sauce or dish itself has none (the actual bug the user caught: Creamy Tomato Pasta boiled its pasta in salted water but the cream-tomato sauce itself - the actual dish - had zero salt, pepper, or herbs anywhere; this was missed by an earlier seasoning pass because "well-salted water" contains the substring "salt" and was wrongly counted as the dish being seasoned)',async()=>{
+  const recipes=await loadRecipes();
+  const suspect=Array.from(recipes).filter(r=>{
+    const stepsText=r.steps.join(' ');
+    const hasRealSeasoning=/\b(season|seasoning|black pepper|paprika|cumin|oregano|basil|thyme|garam masala|saffron|turmeric|cinnamon|sesame|ginger|shawarma|soy sauce)\b/i.test(stepsText);
+    const onlySaltMention=/salted (water|boiling)/i.test(stepsText) && !/\bsalt\b(?!ed (water|boiling))/i.test(stepsText.replace(/salted (water|boiling)/gi,''));
+    return onlySaltMention && !hasRealSeasoning;
+  });
+  assert.deepEqual(suspect.map(r=>r.id),[],'these recipes only mention salt in the context of boiling water for pasta/starch - the actual dish itself is still unseasoned');
+});
+
