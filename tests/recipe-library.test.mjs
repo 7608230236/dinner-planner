@@ -114,3 +114,13 @@ test('specific recipes that used to instruct adding an ingredient (garlic, onion
   }
 });
 
+test('no recipe ends with a vague "Serve with/over X" step that never explains how to make X (the actual bug the user hit: a recipe listed 3 lb of potatoes as an ingredient and titled itself "with Oven Wedges", but the only instruction was "Serve with oven potato wedges" - no temperature, no time, no technique)',async()=>{
+  const recipes=await loadRecipes();
+  const stillVague=recipes.filter(r=>{
+    const last=r.steps[r.steps.length-1];
+    if(/broth for dipping/i.test(last))return false; // birria/gefilte fish - the broth is the dish's own cooking liquid, not a separate side
+    return /^Serve (with|over)\s/i.test(last) && last.split(' ').length<=8;
+  });
+  assert.deepEqual(Array.from(stillVague).map(r=>r.id),[],'these recipes still end with a vague, uninstructed "Serve with X" step');
+});
+
