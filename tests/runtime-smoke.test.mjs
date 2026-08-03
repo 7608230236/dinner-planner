@@ -65,7 +65,7 @@ function createRuntime(){
     'community','communitySignedOut','communitySignedIn','appleSignInBtn','googleSignInBtn','communityUserName','communitySignOutBtn',
     'shareRecipeBtn','communityStatus','shareRecipeForm','communityTitle','communityIngredients','addCommunityIngredientBtn',
     'communitySteps','addCommunityStepBtn','submitCommunityRecipeBtn','cancelCommunityRecipeBtn','communityRecipeList',
-    'restoreWeekBtn','restoreNextWeekBtn','householdConflict','closeDeveloperBtnBottom','shabbosSlots','recipeUploadInput','shabbosMenu','dishEditorDialog','dishEditorModal','dishEditorTitle','dishEditorAddRow','dishEditorSave','dishEditorCancel','restoreLockedWeekBtn','restoreLockedNextWeekBtn'
+    'restoreWeekBtn','restoreNextWeekBtn','householdConflict','closeDeveloperBtnBottom','shabbosSlots','recipeUploadInput','shabbosMenu','dishEditorDialog','dishEditorModal','dishEditorTitle','dishEditorAddRow','dishEditorSave','dishEditorCancel','restoreLockedWeekBtn','restoreLockedNextWeekBtn','restoreShabbosBtn'
   ])];
   const elements=new Map(ids.map(id=>[id,new FakeElement(id)]));
   elements.get('photoLocation').value='Pantry';
@@ -530,6 +530,39 @@ test('a sync that would silently overwrite a durably-locked meal is caught as a 
   const differentPlan=Array.from(api.getState().plan).map(p=>p.day===day?{...p,id:'beef-brisket-01'}:p);
   const conflicts=Array.from(api.cloudConflictsWithLocalLocks({plan:differentPlan,nextPlan:[]}));
   assert.ok(conflicts.some(c=>c.weekKey==='this'&&c.day===day),'a conflict must be detected even though the live lock flag was cleared, because the durable record still protects it');
+});
+
+test('the Shabbos menu durable backup protects against a sync-style overwrite: adding a dish updates the backup, and restoring brings it back even after the live menu was overwritten by something other than an explicit remove', async () => {
+  const {context}=await boot();
+  const api=context.window.__dinnerPlannerTest;
+  const state=api.getState();
+  const course=state.shabbosMenu.friday.courses.find(c=>c.name==='Main Course');
+  api.addShabbosDish('friday',course.id,{mode:'library',recipeId:'shabbos-cholent-01'});
+  api.recordShabbosDurableBackup();
+  assert.equal(api.hasShabbosDurableBackup(),true);
+
+  // Simulate a sync-style overwrite that silently drops the dish (not an explicit user removal).
+  const corrupted=api.getState();
+  corrupted.shabbosMenu.friday.courses.find(c=>c.name==='Main Course').dishes=[];
+  api.setState(corrupted);
+  assert.equal(api.shabbosSelectedRecipes().some(r=>r.id==='shabbos-cholent-01'),false,'sanity check: the dish should be gone after the simulated overwrite');
+
+  api.restoreShabbosDurableBackup();
+  assert.equal(api.shabbosSelectedRecipes().some(r=>r.id==='shabbos-cholent-01'),true,'the durably-backed-up dish should be restored');
+});
+
+test('a sync that would silently drop a durably-backed-up Shabbos dish is caught as a conflict', async () => {
+  const {context}=await boot();
+  const api=context.window.__dinnerPlannerTest;
+  const state=api.getState();
+  const course=state.shabbosMenu.friday.courses.find(c=>c.name==='Fish');
+  api.addShabbosDish('friday',course.id,{mode:'library',recipeId:'shabbos-salmon-01'});
+  api.recordShabbosDurableBackup();
+
+  const cloudMenuMissingFish=JSON.parse(JSON.stringify(api.getState().shabbosMenu));
+  cloudMenuMissingFish.friday.courses.find(c=>c.name==='Fish').dishes=[];
+  const conflicts=Array.from(api.cloudConflictsWithLocalLocks({plan:[],nextPlan:[],shabbosMenu:cloudMenuMissingFish}));
+  assert.ok(conflicts.some(c=>c.weekKey==='shabbos-friday'&&c.day==='Fish'),'a conflict should be detected for the missing Shabbos dish');
 });
 
 test('Restore previous plan: Build can be undone back to the plan that existed right before it ran', async () => {

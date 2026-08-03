@@ -172,7 +172,13 @@ function normalizeState(raw){
     // locked meal can be restored no matter how many other things happened
     // since it was locked, not just the single most recent one.
     durableLocks: normalizeDurableLocks(clean.durableLocks),
-    shabbosMenu: normalizeShabbosMenu(clean.shabbosMenu)
+    shabbosMenu: normalizeShabbosMenu(clean.shabbosMenu),
+    // A durable snapshot of the Shabbos menu, updated after every explicit
+    // add/remove action. Protects against a sync overwrite or a bug silently
+    // dropping something the user actually chose - not against the user's
+    // own explicit removal, which is intentional. Same protection model as
+    // durableLocks above, applied to the Shabbos menu's dishes.
+    shabbosDurableBackup: (clean.shabbosDurableBackup && typeof clean.shabbosDurableBackup === "object") ? clean.shabbosDurableBackup : null
   };
 }
 
@@ -288,6 +294,7 @@ function buildSyncPayload(){
     recipeRatings:state.recipeRatings,
     shabbosMenu:state.shabbosMenu,
     durableLocks:state.durableLocks,
+    shabbosDurableBackup:state.shabbosDurableBackup,
     updatedAt:state.updatedAt
   };
 }
@@ -495,6 +502,14 @@ function localLockedPlanFor(weekKey,fromState){
   return plan.filter(entry=>locks[entry.day]);
 }
 
+function shabbosDishSignature(dish){
+  if(!dish)return null;
+  if(dish.mode==="library"&&dish.recipeId)return `library:${dish.recipeId}`;
+  if(dish.mode==="custom"&&dish.custom?.title)return `custom:${dish.custom.title.toLowerCase().trim()}`;
+  if(dish.mode==="store")return `store:${dish.storeLink}`;
+  return null;
+}
+
 function cloudConflictsWithLocalLocks(cloudState){
   const conflicts=[];
   for(const weekKey of ["this","next"]){
@@ -513,6 +528,27 @@ function cloudConflictsWithLocalLocks(cloudState){
       }
     }
   }
+
+  const backup=state.shabbosDurableBackup;
+  if(backup){
+    const cloudMenu=cloudState.shabbosMenu||{};
+    for(const mealKey of Object.keys(SHABBOS_MEAL_LABELS)){
+      const localMeal=backup[mealKey];
+      if(!localMeal?.enabled)continue;
+      const cloudMeal=cloudMenu[mealKey];
+      for(const course of localMeal.courses||[]){
+        const cloudCourse=(cloudMeal?.courses||[]).find(c=>c.name===course.name);
+        const cloudSignatures=new Set((cloudCourse?.dishes||[]).map(shabbosDishSignature).filter(Boolean));
+        for(const dish of course.dishes||[]){
+          const signature=shabbosDishSignature(dish);
+          if(signature&&!cloudSignatures.has(signature)){
+            conflicts.push({weekKey:`shabbos-${mealKey}`,day:course.name,mine:shabbosDishSummary(dish),theirs:cloudCourse?`(${cloudCourse.dishes.length} dish${cloudCourse.dishes.length===1?"":"es"} instead)`:"(course missing)"});
+          }
+        }
+      }
+    }
+  }
+
   return conflicts;
 }
 
@@ -1284,6 +1320,22 @@ async function extractRecipeDocumentText(file){
   throw new Error("Please upload a .docx or .txt file.");
 }
 
+function recordShabbosDurableBackup(){
+  state.shabbosDurableBackup=JSON.parse(JSON.stringify(state.shabbosMenu));
+}
+
+function hasShabbosDurableBackup(){
+  return Boolean(state.shabbosDurableBackup);
+}
+
+function restoreShabbosDurableBackup(){
+  if(!state.shabbosDurableBackup)return false;
+  state.shabbosMenu=normalizeShabbosMenu(state.shabbosDurableBackup);
+  refreshPantryDependencies({renderInventoryToo:false});
+  renderShabbosSlots();
+  return true;
+}
+
 function renderShabbosChallahStatus(mealKey,basics){
   const challah=basics.challah;
   const pantryHasIt=inventoryMatchesIngredient("challah");
@@ -1367,6 +1419,15 @@ function renderShabbosSlots(){
   const container=$("shabbosSlots");
   if(!container)return;
 
+  const restoreShabbosButton=$("restoreShabbosBtn");
+  if(restoreShabbosButton){
+    restoreShabbosButton.hidden=!hasShabbosDurableBackup();
+    restoreShabbosButton.onclick=()=>{
+      if(!confirm("Bring back everything you've added to your Shabbos menu, exactly as it was? This works no matter what else has changed since."))return;
+      restoreShabbosDurableBackup();
+    };
+  }
+
   container.innerHTML=Object.entries(SHABBOS_MEAL_LABELS).map(([mealKey,label])=>{
     const meal=menu[mealKey];
     return `<div class="shabbos-slot-card">
@@ -1406,7 +1467,7 @@ function renderShabbosSlots(){
     </div>`;
   }).join("");
 
-  const rerender=()=>{refreshPantryDependencies({renderInventoryToo:false});renderShabbosSlots();};
+  const rerender=()=>{recordShabbosDurableBackup();refreshPantryDependencies({renderInventoryToo:false});renderShabbosSlots();};
 
   container.querySelectorAll("[data-shabbos-meal-enable]").forEach(box=>{
     box.onchange=()=>{state.shabbosMenu[box.dataset.shabbosMealEnable].enabled=box.checked;rerender();};
@@ -3628,6 +3689,9 @@ window.__dinnerPlannerTest={
   resolveConflictUseTheirs:()=>{if(pendingCloudState){snapshotWeek("this");snapshotWeek("next");applyCloudState(pendingCloudState);}pendingCloudState=null;renderHouseholdConflict(null);},
   hasRestorableSnapshot,
   cloudConflictsWithLocalLocks,
+  recordShabbosDurableBackup,
+  hasShabbosDurableBackup,
+  restoreShabbosDurableBackup,
   hasDurableLocks,
   restoreDurableLocks,
   recordDurableLock,
