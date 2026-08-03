@@ -2268,6 +2268,7 @@ function refreshPantryDependencies({renderInventoryToo=false}={}){
   save("state",state);
   if(renderInventoryToo)renderInventory();
   renderShopping();
+  renderShabbosSlots();
 }
 
 function formatQty(item){
@@ -3692,6 +3693,7 @@ window.__dinnerPlannerTest={
   recordShabbosDurableBackup,
   hasShabbosDurableBackup,
   restoreShabbosDurableBackup,
+  refreshPantryDependencies,
   hasDurableLocks,
   restoreDurableLocks,
   recordDurableLock,

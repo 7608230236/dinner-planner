@@ -565,6 +565,21 @@ test('a sync that would silently drop a durably-backed-up Shabbos dish is caught
   assert.ok(conflicts.some(c=>c.weekKey==='shabbos-friday'&&c.day==='Fish'),'a conflict should be detected for the missing Shabbos dish');
 });
 
+test('Challah\'s "found in your pantry" status refreshes automatically whenever pantry data changes, not just the next time something else re-renders the Shabbos menu (the actual gap: adding a challah to the pantry via receipt scan should update this live, without requiring a manual Shabbos menu interaction)', async () => {
+  const {context,elements}=await boot();
+  const api=context.window.__dinnerPlannerTest;
+  let html=elements.get('shabbosSlots').innerHTML;
+  assert.ok(!html.includes('Found in your pantry'),'no challah in the pantry yet, so it should not claim to have found one');
+
+  const state=api.getState();
+  state.have=[{id:'h1',item:'Challah',label:'Challah',qty:1,unit:'each',confidence:'high',category:'other',reviewed:true,sourcePhotoIds:[],observations:[]}];
+  api.setState(state);
+  api.refreshPantryDependencies();
+
+  html=elements.get('shabbosSlots').innerHTML;
+  assert.ok(html.includes('Found in your pantry'),'the Challah status should update automatically once refreshPantryDependencies runs, which fires from every real pantry-changing action (receipt scan, manual confirm, etc.)');
+});
+
 test('Restore previous plan: Build can be undone back to the plan that existed right before it ran', async () => {
   const {context}=await boot();
   const api=context.window.__dinnerPlannerTest;
