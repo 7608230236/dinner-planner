@@ -389,4 +389,66 @@ test('recipe-photos validates recipe ids, image data, and actions before ever to
   delete process.env.NETLIFY_BLOBS_TOKEN;
 });
 
+test('recipe-photos rejects an upload the AI check flags as unsafe or unrelated to the dish, instead of storing anything unchecked (the actual guardrail: this is a household app with children, and a photo gallery with zero content checking is a real risk)', async () => {
+  process.env.NETLIFY_BLOBS_SITE_ID = 'test-site-id';
+  process.env.NETLIFY_BLOBS_TOKEN = 'test-token';
+  process.env.OPENAI_API_KEY = 'test-key';
+  const { default: handler } = await import('../netlify/functions/recipe-photos.mjs?fresh=' + Date.now());
+
+  global.fetch = async () => new Response(JSON.stringify({
+    id: 'resp_test',
+    output_text: JSON.stringify({ approved: false, reason: "That doesn't look like a photo of this dish." })
+  }), { status: 200, headers: { 'Content-Type': 'application/json' } });
+
+  const response = await handler(new Request('https://x.test/recipe-photos', {
+    method: 'POST',
+    body: JSON.stringify({ recipeId: 'beef-tacos-01', image: 'data:image/jpeg;base64,abc', recipeTitle: 'Mild Beef Tacos' })
+  }));
+  assert.equal(response.status, 422);
+  const body = await response.json();
+  assert.match(body.error, /doesn't look like/);
+
+  delete process.env.NETLIFY_BLOBS_SITE_ID;
+  delete process.env.NETLIFY_BLOBS_TOKEN;
+  delete process.env.OPENAI_API_KEY;
+});
+
+test('recipe-photos fails closed, not open, when the safety check itself cannot run (network error, API down) - rejects the upload rather than silently letting an unchecked photo through', async () => {
+  process.env.NETLIFY_BLOBS_SITE_ID = 'test-site-id';
+  process.env.NETLIFY_BLOBS_TOKEN = 'test-token';
+  process.env.OPENAI_API_KEY = 'test-key';
+  const { default: handler } = await import('../netlify/functions/recipe-photos.mjs?fresh=' + Date.now());
+
+  global.fetch = async () => { throw new Error('network down'); };
+
+  const response = await handler(new Request('https://x.test/recipe-photos', {
+    method: 'POST',
+    body: JSON.stringify({ recipeId: 'beef-tacos-01', image: 'data:image/jpeg;base64,abc', recipeTitle: 'Mild Beef Tacos' })
+  }));
+  assert.equal(response.status, 503);
+  assert.match((await response.json()).error, /verify/i);
+
+  delete process.env.NETLIFY_BLOBS_SITE_ID;
+  delete process.env.NETLIFY_BLOBS_TOKEN;
+  delete process.env.OPENAI_API_KEY;
+});
+
+test('recipe-photos requires OPENAI_API_KEY to be configured before accepting any upload, rather than silently skipping the safety check', async () => {
+  process.env.NETLIFY_BLOBS_SITE_ID = 'test-site-id';
+  process.env.NETLIFY_BLOBS_TOKEN = 'test-token';
+  delete process.env.OPENAI_API_KEY;
+  const { default: handler } = await import('../netlify/functions/recipe-photos.mjs?fresh=' + Date.now());
+
+  const response = await handler(new Request('https://x.test/recipe-photos', {
+    method: 'POST',
+    body: JSON.stringify({ recipeId: 'beef-tacos-01', image: 'data:image/jpeg;base64,abc', recipeTitle: 'Mild Beef Tacos' })
+  }));
+  assert.equal(response.status, 500);
+  assert.match((await response.json()).error, /not configured/i);
+
+  delete process.env.NETLIFY_BLOBS_SITE_ID;
+  delete process.env.NETLIFY_BLOBS_TOKEN;
+});
+
+
 

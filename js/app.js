@@ -1904,7 +1904,7 @@ function renderRecipePhotoGalleryHtml(recipeId,photos){
         const response=await fetch(`${API_ORIGIN}/.netlify/functions/recipe-photos`,{
           method:"POST",
           headers:{"Content-Type":"application/json"},
-          body:JSON.stringify({recipeId,image,uploadedBy:deviceName||""})
+          body:JSON.stringify({recipeId,image,uploadedBy:deviceName||"",recipeTitle:getRecipe(recipeId)?.title||""})
         });
         const data=await response.json().catch(()=>({}));
         if(!response.ok){
