@@ -1087,6 +1087,22 @@ function shabbosDishSummary(dish){
   return "";
 }
 
+async function extractRecipeDocumentText(file){
+  const name=(file.name||"").toLowerCase();
+  if(name.endsWith(".txt")){
+    return await file.text();
+  }
+  if(name.endsWith(".docx")){
+    if(typeof window.mammoth==="undefined"){
+      throw new Error("The document reader hasn't finished loading yet - wait a moment and try again.");
+    }
+    const arrayBuffer=await file.arrayBuffer();
+    const result=await window.mammoth.extractRawText({arrayBuffer});
+    return result.value;
+  }
+  throw new Error("Please upload a .docx or .txt file.");
+}
+
 function renderShabbosSlots(){
   const menu=state.shabbosMenu||normalizeShabbosMenu(null);
   const container=$("shabbosSlots");
@@ -1122,6 +1138,7 @@ function renderShabbosSlots(){
               <div class="row" style="gap:6px;flex-wrap:wrap;margin-top:4px">
                 <button type="button" class="btn tiny secondary" data-shabbos-add-library="${mealKey}:${course.id}">+ Choose a DmE special</button>
                 <button type="button" class="btn tiny secondary" data-shabbos-add-custom="${mealKey}:${course.id}">+ Write your own</button>
+                <button type="button" class="btn tiny secondary" data-shabbos-add-upload="${mealKey}:${course.id}">+ Upload a document</button>
                 ${showTakeout?`<button type="button" class="btn tiny secondary" data-shabbos-add-store="${mealKey}:${course.id}">+ Add takeout link</button>`:""}
               </div>
               ${state.shabbosPickerFor===`${mealKey}:${course.id}`?`<div class="shabbos-special-picker">${relevantSpecials.length?relevantSpecials.map(id=>{const r=getRecipe(id);return r?`<button type="button" class="btn tiny secondary" data-shabbos-choose="${mealKey}:${course.id}:${id}">${esc(r.title)}</button>`:"";}).join(""):`<div class="tiny muted">No DmE specials for this course yet - try "Write your own" for now.</div>`}</div>`:""}
@@ -1196,6 +1213,54 @@ function renderShabbosSlots(){
       rerender();
     };
   });
+  container.querySelectorAll("[data-shabbos-add-upload]").forEach(btn=>{
+    btn.onclick=()=>{
+      const [mealKey,courseId]=btn.dataset.shabbosAddUpload.split(":");
+      const input=$("recipeUploadInput");
+      input.value="";
+      input.onchange=async()=>{
+        const file=input.files?.[0];
+        if(!file)return;
+        try{
+          const text=await extractRecipeDocumentText(file);
+          if(!text||!text.trim()){
+            alert("Couldn't read any text from that file. Try a .docx or .txt file with the recipe in it.");
+            return;
+          }
+          const status=`Reading "${file.name}"…`;
+          console.info(status);
+          const response=await fetch(`${API_ORIGIN}/.netlify/functions/recipe-import`,{
+            method:"POST",
+            headers:{"Content-Type":"application/json"},
+            body:JSON.stringify({text:text.slice(0,60000)})
+          });
+          const data=await response.json().catch(()=>({}));
+          if(!response.ok||!data.recipe){
+            alert(data.error||"Could not read a recipe from that document. Try a file with just one recipe, or write it in by hand.");
+            return;
+          }
+          const title=prompt("Here's what we found - edit if needed:",data.recipe.title||"");
+          if(title===null||!title.trim())return;
+          const existingText=(data.recipe.ingredients||[]).map(([n,q])=>q?`${n}:${q}`:n).join(", ");
+          const ingredientsRaw=prompt("Ingredients - edit if needed:",existingText);
+          if(ingredientsRaw===null)return;
+          const ingredients=ingredientsRaw.split(",").map(part=>part.trim()).filter(Boolean).map(part=>{
+            const [name,qty]=part.split(":").map(s=>s.trim());
+            return [name,qty||""];
+          });
+          if(!ingredients.length){alert("Please enter at least one ingredient.");return;}
+          const course=state.shabbosMenu[mealKey].courses.find(c=>c.id===courseId);
+          if(course)course.dishes.push({id:shabbosUid(),mode:"custom",recipeId:null,custom:{title:title.trim(),ingredients},storeLink:""});
+          rerender();
+        }catch(error){
+          console.error(error);
+          alert("Something went wrong reading that document. Try a .docx or .txt file, or write the recipe in by hand.");
+        }
+      };
+      input.click();
+    };
+  });
+
   container.querySelectorAll("[data-shabbos-add-store]").forEach(btn=>{
     btn.onclick=()=>{
       const [mealKey,courseId]=btn.dataset.shabbosAddStore.split(":");
@@ -3275,4 +3340,5 @@ window.__dinnerPlannerTest={
   setShabbosMealEnabled:(key,enabled)=>{state.shabbosMenu[key].enabled=enabled;refreshPantryDependencies({renderInventoryToo:false});renderShabbosSlots();},
   shabbosSpecialsForCourse,
   SHABBOS_TAKEOUT_MEALS,
+  extractRecipeDocumentText,
   SHABBOS_SPECIALS};

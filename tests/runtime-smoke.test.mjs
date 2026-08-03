@@ -65,7 +65,7 @@ function createRuntime(){
     'community','communitySignedOut','communitySignedIn','appleSignInBtn','googleSignInBtn','communityUserName','communitySignOutBtn',
     'shareRecipeBtn','communityStatus','shareRecipeForm','communityTitle','communityIngredients','addCommunityIngredientBtn',
     'communitySteps','addCommunityStepBtn','submitCommunityRecipeBtn','cancelCommunityRecipeBtn','communityRecipeList',
-    'restoreWeekBtn','restoreNextWeekBtn','householdConflict','closeDeveloperBtnBottom','shabbosSlots'
+    'restoreWeekBtn','restoreNextWeekBtn','householdConflict','closeDeveloperBtnBottom','shabbosSlots','recipeUploadInput'
   ])];
   const elements=new Map(ids.map(id=>[id,new FakeElement(id)]));
   elements.get('photoLocation').value='Pantry';
@@ -1175,3 +1175,26 @@ test('exception patterns correctly override their broader category (black pepper
   assert.equal(api.categoryEmoji('other','unknown','Peanut Butter'),'🥜');
   assert.equal(api.categoryEmoji('other','unknown','Roasted Peanuts'),'🥜');
 });
+
+test('extractRecipeDocumentText reads a .txt file directly', async () => {
+  const {context} = await boot();
+  const api = context.window.__dinnerPlannerTest;
+  const fakeFile = { name: 'recipe.txt', text: async () => 'Chicken Soup\n2 lb chicken, 1 onion...' };
+  const text = await api.extractRecipeDocumentText(fakeFile);
+  assert.equal(text, 'Chicken Soup\n2 lb chicken, 1 onion...');
+});
+
+test('extractRecipeDocumentText rejects unsupported file types with a clear message instead of a cryptic failure', async () => {
+  const {context} = await boot();
+  const api = context.window.__dinnerPlannerTest;
+  const fakeFile = { name: 'recipe.pdf', text: async () => 'irrelevant' };
+  await assert.rejects(() => api.extractRecipeDocumentText(fakeFile), /\.docx or \.txt/);
+});
+
+test('extractRecipeDocumentText gives a clear message for a .docx file when the document reader library has not finished loading yet, instead of a cryptic "mammoth is not defined" error', async () => {
+  const {context} = await boot();
+  const api = context.window.__dinnerPlannerTest;
+  const fakeFile = { name: 'recipe.docx', arrayBuffer: async () => new ArrayBuffer(0) };
+  await assert.rejects(() => api.extractRecipeDocumentText(fakeFile), /document reader/i);
+});
+

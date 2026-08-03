@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import { handler as pantryHandler } from '../netlify/functions/pantry-ai.mjs';
 import { handler as storeHandler } from '../netlify/functions/store-locator.mjs';
 import { handler as receiptHandler } from '../netlify/functions/receipt-scan.mjs';
+import { handler as recipeImportHandler } from '../netlify/functions/recipe-import.mjs';
 
 const originalFetch = global.fetch;
 const originalOpenAIKey = process.env.OPENAI_API_KEY;
@@ -119,6 +120,8 @@ test('every function includes CORS headers on every response (the actual bug: th
     ['receipt-scan', receiptHandler, 'POST'],
     ['store-locator', storeHandler, 'OPTIONS'],
     ['store-locator', storeHandler, 'POST'],
+    ['recipe-import', recipeImportHandler, 'OPTIONS'],
+    ['recipe-import', recipeImportHandler, 'POST'],
   ]) {
     const event = method === 'OPTIONS'
       ? { httpMethod: 'OPTIONS' }
@@ -203,7 +206,7 @@ test('receipt scan extracts grocery items, computes an expiration date from the 
   assert.equal(beans.expiresOn, '2027-01-01', 'purchase date + 365 day shelf life');
 });
 
-test('receipt scan requires a real image and handles OpenAI errors gracefully', async () => {
+test('recipe scan requires a real image and handles OpenAI errors gracefully', async () => {
   process.env.OPENAI_API_KEY = 'test-key';
 
   const noImage = await receiptHandler({ httpMethod: 'POST', body: JSON.stringify({}) });
@@ -216,4 +219,69 @@ test('receipt scan requires a real image and handles OpenAI errors gracefully', 
   });
   assert.equal(apiError.statusCode, 500);
   assert.match(JSON.parse(apiError.body).error, /bad request/);
+});
+
+test('recipe-import extracts a structured recipe (title, ingredients, steps) from uploaded document text, so someone can upload a document instead of retyping it by hand into the app', async () => {
+  process.env.OPENAI_API_KEY = 'test-key';
+  global.fetch = async () => new Response(JSON.stringify({
+    id: 'resp_test',
+    output_text: JSON.stringify({
+      title: "Grandma's Cholent",
+      ingredients: [
+        { name: 'beef stew meat', amount: '2 lb' },
+        { name: 'potatoes', amount: '3 lb' },
+        { name: 'barley', amount: '1 cup' }
+      ],
+      steps: [
+        'Layer the potatoes, beef, and barley in a slow cooker.',
+        'Add water to cover and season with paprika and salt.',
+        'Cook on low overnight before Shabbos begins.'
+      ]
+    })
+  }), { status: 200, headers: { 'Content-Type': 'application/json' } });
+
+  const response = await recipeImportHandler({
+    httpMethod: 'POST',
+    body: JSON.stringify({ text: 'Grandma\'s Cholent recipe... 2 lb beef, 3 lb potatoes, 1 cup barley...' })
+  });
+  const body = JSON.parse(response.body);
+
+  assert.equal(response.statusCode, 200);
+  assert.equal(body.recipe.title, "Grandma's Cholent");
+  assert.equal(body.recipe.ingredients.length, 3);
+  assert.deepEqual(body.recipe.ingredients[0], ['beef stew meat', '2 lb']);
+  assert.equal(body.recipe.steps.length, 3);
+});
+
+test('recipe-import requires real document text and handles OpenAI errors gracefully, same as the other AI-backed functions', async () => {
+  process.env.OPENAI_API_KEY = 'test-key';
+
+  const noText = await recipeImportHandler({ httpMethod: 'POST', body: JSON.stringify({}) });
+  assert.equal(noText.statusCode, 400);
+
+  const blankText = await recipeImportHandler({ httpMethod: 'POST', body: JSON.stringify({ text: '   ' }) });
+  assert.equal(blankText.statusCode, 400);
+
+  global.fetch = async () => new Response(JSON.stringify({ error: { message: 'bad request' } }), { status: 400 });
+  const apiError = await recipeImportHandler({
+    httpMethod: 'POST',
+    body: JSON.stringify({ text: 'Some recipe text here' })
+  });
+  assert.equal(apiError.statusCode, 500);
+  assert.match(JSON.parse(apiError.body).error, /bad request/);
+});
+
+test('recipe-import rejects a document with no findable recipe instead of returning a broken/empty result', async () => {
+  process.env.OPENAI_API_KEY = 'test-key';
+  global.fetch = async () => new Response(JSON.stringify({
+    id: 'resp_test',
+    output_text: JSON.stringify({ title: '', ingredients: [], steps: [] })
+  }), { status: 200, headers: { 'Content-Type': 'application/json' } });
+
+  const response = await recipeImportHandler({
+    httpMethod: 'POST',
+    body: JSON.stringify({ text: 'This document does not actually contain a recipe.' })
+  });
+  assert.equal(response.statusCode, 502);
+  assert.match(JSON.parse(response.body).error, /didn't include a clear recipe title|title/i);
 });
