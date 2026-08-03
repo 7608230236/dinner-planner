@@ -3,9 +3,39 @@
 Single source of truth for what works, what's broken, and what changed.
 Update this file every time a fix is made or verified — don't rely on chat history.
 
-Last updated: 2026-08-01 by Claude
+Last updated: 2026-08-03 by Claude (overnight session, user asleep - see summary below)
 
 ---
+
+## Overnight session summary (2026-08-03): Shabbos Menu built out, recipes added, one real kashrus gap found and fixed
+
+User gave a 5-hour unsupervised window to (1) build out real variety in the Shabbos Menu categories and (2) design a document-upload feature for "Write your own" recipes. Progress on each:
+
+### Done: Shabbos Menu structural fixes + variety
+- Split the combined "Fish & Salads" course into two separate courses (Fish, Salads), per explicit user request.
+- Fixed a dead-reference bug: `noodle-kugel-01` was listed in the Main Course specials mapping but didn't exist in the recipe library at all - clicking it showed "Recipe not found." Replaced with real kugel recipes.
+- Added real category depth: Cholent now has 4 styles (classic, with kishke, Hungarian, sweet-with-prunes). Kugel has 2 (savory potato, pareve sweet noodle). Fish has 7 (5 salmon + gefilte fish + herring). Salads (previously empty) has 6 (Israeli salad, pomegranate/greens, roasted vegetable, hummus, matbucha, potato salad). Dessert (previously empty) has 4, all pareve (chocolate cake, fruit compote, apple crumble, sorbet).
+- Added 26 recipes transcribed from two docx files the user uploaded (salmon recipes, London Broil marinades, chimichurri, chicken recipes) - salmon went to Shabbos-only (fish is a weekday-only ban per the user), the rest went into the regular weekday meat library.
+
+### Real bug found and fixed: dairy recipes in a meat-meal course pool
+Two salmon recipes used real Cholov Yisroel butter and were marked `kind:"dairy"`, but were being offered in the Fish course - the same course pool as meat mains - at Friday night/Shabbos day, which are meat meals in Chabad practice. This is a real "mixing meat and dairy at the same meal" risk, not just a data nitpick. **I flagged this to myself mid-session but didn't actually fix it until later in the same session - worth noting since it shows the risk of flagging-without-fixing during a long autonomous run.** Fixed: both recipes converted to pareve (margarine instead of butter). Added a permanent automated test (`no Shabbos-tagged recipe is ever dairy`) so this class of bug cannot silently regress again, regardless of who adds future Shabbos recipes.
+
+### Not done yet (ran out of session time)
+- **Document upload feature** for "Write your own" (Shabbos custom dishes + Community recipe submission) - not started. This needs a new AI-backed Netlify function (same pattern as pantry photo scanning / receipt scanning) to parse an uploaded docx/PDF/text file into structured recipe data. Should reuse whatever AI provider config the existing `pantry-ai.mjs` / `receipt-scan.mjs` functions already use.
+- Kishke was built as a simplified modern stovetop/oven matzah-meal log (no animal casing) per an assumption stated to the user, not yet confirmed correct.
+- Community "add recipe to database" bridge (offer to share a custom Shabbos write-in to the Community list with one tap) - discussed, not built.
+
+### Total recipe library: 802 recipes (up from 750 at start of this project)
+Meat: 403, Dairy: 225, Pareve: 174. 31 recipes tagged `shabbos`.
+
+**Testing discipline maintained throughout**, including the 4-hour unsupervised stretch: every batch was checked against the recipe-library test suite (kashrus/banned-ingredient rules, hands-on time caps, honest time-vs-steps, no vague instructions) before being committed, and the full `npm run qa` suite was run before every push. No untested code was pushed.
+
+**A recurring str_replace bug** (a tool-level pattern-matching quirk, not a code bug) dropped the `test(...)` declaration line several times when inserting new tests adjacent to existing ones in `runtime-smoke.test.mjs` - each instance was caught by the immediate syntax check and fixed before proceeding. If tests start failing with "Unexpected token '}'" after an edit, check for a dropped `test('...', async () => {` line right above the error.
+
+**A separate tool-level gotcha hit repeatedly:** the test harness runs `js/app.js` and `js/recipes.js` inside a Node `vm` context, so any array returned from `__dinnerPlannerTest` functions is a different-realm array. `assert.deepEqual`/`deepStrictEqual` from `node:assert/strict` fails on cross-realm arrays even when contents are identical - wrap with `Array.from(...)` before comparing. Hit this three times this session before it became reflexive.
+
+---
+
 
 ## Real bug fixed today: main Build button silently wiped locked meals
 
