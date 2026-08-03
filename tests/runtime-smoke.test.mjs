@@ -65,7 +65,7 @@ function createRuntime(){
     'community','communitySignedOut','communitySignedIn','appleSignInBtn','googleSignInBtn','communityUserName','communitySignOutBtn',
     'shareRecipeBtn','communityStatus','shareRecipeForm','communityTitle','communityIngredients','addCommunityIngredientBtn',
     'communitySteps','addCommunityStepBtn','submitCommunityRecipeBtn','cancelCommunityRecipeBtn','communityRecipeList',
-    'restoreWeekBtn','restoreNextWeekBtn','householdConflict','closeDeveloperBtnBottom'
+    'restoreWeekBtn','restoreNextWeekBtn','householdConflict','closeDeveloperBtnBottom','shabbosSlots'
   ])];
   const elements=new Map(ids.map(id=>[id,new FakeElement(id)]));
   elements.get('photoLocation').value='Pantry';
@@ -885,6 +885,63 @@ test('pantry inventory cards always show a clean icon, never a raw bounding-box 
 test('the Confirm/Remove button row does not overflow the card (the actual bug: flex items default to refusing to shrink below their content width, so "Remove" got clipped by the card\'s overflow:hidden on narrow cards)', async () => {
   const css=await (await import('node:fs/promises')).readFile(resolve(root,'css/styles.css'),'utf8');
   assert.match(css,/\.inventory-edit-row \.btn\{[^}]*min-width:0/,'the Confirm/Remove buttons must have min-width:0 so they can actually shrink to fit side by side');
+});
+
+test('Shabbos menu seeds the household\'s normal course structure by default, with the fish course on (Shabbos is exempt from the weekday no-fish rule) and Seuda Shlishit/Motzei off by default', async () => {
+  const {context}=await boot();
+  const api=context.window.__dinnerPlannerTest;
+  const state=api.getState();
+  assert.equal(state.shabbosMenu.friday.enabled,true);
+  assert.equal(state.shabbosMenu.day.enabled,true);
+  assert.equal(state.shabbosMenu.seuda.enabled,false);
+  assert.equal(state.shabbosMenu.motzei.enabled,false);
+  const fridayCourseNames=state.shabbosMenu.friday.courses.map(c=>c.name);
+  assert.deepEqual(fridayCourseNames,['Kiddush','Challah','Fish & Salads','Soup','Main Course','Dessert']);
+  const dayCourseNames=state.shabbosMenu.day.courses.map(c=>c.name);
+  assert.deepEqual(dayCourseNames,['Kiddush','Challah','Fish & Salads','Main Course','Dessert']);
+});
+
+test('Shabbos menu: courses and dishes can be freely added and removed, and everything chosen (library or custom) flows into the shopping list', async () => {
+  const {context}=await boot();
+  const api=context.window.__dinnerPlannerTest;
+  let state=api.getState();
+  const fridayMainCourse=state.shabbosMenu.friday.courses.find(c=>c.name==='Main Course');
+
+  // Add a library dish to Main Course.
+  api.addShabbosDish('friday',fridayMainCourse.id,{mode:'library',recipeId:'shabbos-roast-chicken-01'});
+  state=api.getState();
+  let recipes=api.shabbosSelectedRecipes();
+  assert.ok(recipes.some(r=>r.id==='shabbos-roast-chicken-01'),'the library dish should be selected');
+
+  // Add a custom write-in dish to the same course.
+  api.addShabbosDish('friday',fridayMainCourse.id,{mode:'custom',custom:{title:"Grandma's Kugel",ingredients:[['noodles','1 lb'],['sugar','0.5 cup']]}});
+  recipes=api.shabbosSelectedRecipes();
+  assert.ok(recipes.some(r=>r.title==="Grandma's Kugel"),'the custom write-in dish should also be selected');
+
+  // It should actually reach the shopping list, which is the whole point.
+  api.buildPlanForWeek('this',{});
+  state=api.getState();
+  const shoppingNames=state.shopping.map(item=>item.name.toLowerCase());
+  assert.ok(shoppingNames.some(n=>n.includes('noodles')),"the custom dish's ingredients should be in the shopping list");
+
+  // Now remove a course entirely - a disabled/removed course must not contribute to shopping.
+  const courseId=fridayMainCourse.id;
+  state=api.getState();
+  state.shabbosMenu.friday.courses=state.shabbosMenu.friday.courses.filter(c=>c.id!==courseId);
+  api.setState(state);
+  recipes=api.shabbosSelectedRecipes();
+  assert.ok(!recipes.some(r=>r.id==='shabbos-roast-chicken-01'),'removing the course should remove its dishes from selection');
+});
+
+test('Shabbos menu: a disabled meal (e.g. Seuda Shlishit, off by default) contributes nothing to the shopping list even if it has courses/dishes defined', async () => {
+  const {context}=await boot();
+  const api=context.window.__dinnerPlannerTest;
+  const state=api.getState();
+  assert.equal(state.shabbosMenu.seuda.enabled,false);
+  const seudaCourse=state.shabbosMenu.seuda.courses[0];
+  api.addShabbosDish('seuda',seudaCourse.id,{mode:'library',recipeId:'shabbos-tzimmes-01'});
+  const recipes=api.shabbosSelectedRecipes();
+  assert.ok(!recipes.some(r=>r.id==='shabbos-tzimmes-01'),'a disabled meal must not contribute to shopping even with dishes chosen');
 });
 
 test('pantry suggestions show real variety instead of several near-identical variants of the same dish (the actual bug: a scan showing 5 slightly different "Loaded Baked Potatoes" versions crowded out every other suggestion, since near-identical variants naturally score almost the same)', async () => {

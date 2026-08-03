@@ -165,7 +165,59 @@ function normalizeState(raw){
     // included in buildSyncPayload and never read from incoming cloud data - this
     // stays local to this device on purpose, so restoring it can't itself become
     // another silent overwrite risk shared across devices.
-    planSnapshot: (clean.planSnapshot && typeof clean.planSnapshot === "object") ? clean.planSnapshot : {}
+    planSnapshot: (clean.planSnapshot && typeof clean.planSnapshot === "object") ? clean.planSnapshot : {},
+    shabbosMenu: normalizeShabbosMenu(clean.shabbosMenu)
+  };
+}
+
+const SHABBOS_DEFAULT_COURSES={
+  friday:["Kiddush","Challah","Fish & Salads","Soup","Main Course","Dessert"],
+  day:["Kiddush","Challah","Fish & Salads","Main Course","Dessert"],
+  seuda:["Light Bites"],
+  motzei:["Light Meal"]
+};
+
+function shabbosUid(){return `sc-${Date.now()}-${Math.random().toString(36).slice(2,8)}`}
+
+function normalizeShabbosDish(raw){
+  if(!raw||typeof raw!=="object")return null;
+  const mode=["library","custom","store"].includes(raw.mode)?raw.mode:null;
+  if(!mode)return null;
+  if(mode==="library"&&typeof raw.recipeId!=="string")return null;
+  if(mode==="custom"&&!(raw.custom&&typeof raw.custom.title==="string"&&Array.isArray(raw.custom.ingredients)))return null;
+  return {
+    id: typeof raw.id==="string"?raw.id:shabbosUid(),
+    mode,
+    recipeId: mode==="library"?raw.recipeId:null,
+    custom: mode==="custom"?{title:raw.custom.title,ingredients:raw.custom.ingredients.filter(pair=>Array.isArray(pair)&&pair[0]).map(pair=>[String(pair[0]),String(pair[1]||"")])}:null,
+    storeLink: mode==="store"?String(raw.storeLink||""):""
+  };
+}
+
+function normalizeShabbosCourse(raw){
+  const name=(raw&&typeof raw.name==="string"&&raw.name.trim())?raw.name.trim():"Course";
+  const dishes=Array.isArray(raw?.dishes)?raw.dishes.map(normalizeShabbosDish).filter(Boolean):[];
+  return {id:(raw&&typeof raw.id==="string")?raw.id:shabbosUid(),name,dishes};
+}
+
+function normalizeShabbosMeal(raw,mealKey,defaultEnabled){
+  const src=(raw&&typeof raw==="object")?raw:{};
+  const courses=Array.isArray(src.courses)&&src.courses.length
+    ? src.courses.map(normalizeShabbosCourse)
+    : (SHABBOS_DEFAULT_COURSES[mealKey]||[]).map(name=>({id:shabbosUid(),name,dishes:[]}));
+  return {
+    enabled: typeof src.enabled==="boolean" ? src.enabled : defaultEnabled,
+    courses
+  };
+}
+
+function normalizeShabbosMenu(raw){
+  const src=(raw && typeof raw==="object") ? raw : {};
+  return {
+    friday: normalizeShabbosMeal(src.friday,"friday",true),
+    day: normalizeShabbosMeal(src.day,"day",true),
+    seuda: normalizeShabbosMeal(src.seuda,"seuda",false),
+    motzei: normalizeShabbosMeal(src.motzei,"motzei",false)
   };
 }
 state = normalizeState(state);
@@ -199,6 +251,7 @@ function buildSyncPayload(){
     recentPlans:state.recentPlans,
     planNonce:state.planNonce,
     recipeRatings:state.recipeRatings,
+    shabbosMenu:state.shabbosMenu,
     updatedAt:state.updatedAt
   };
 }
@@ -695,6 +748,45 @@ function recipeAllowed(r){
 
 function getRecipe(id){return RECIPES.find(r=>r.id===id)}
 
+// A small curated list of Shabbos-appropriate dishes - kept separate from the
+// weekday library since Shabbos dishes are made ahead and aren't bound by the
+// weekday quick-prep rules. Grows over time.
+const SHABBOS_SPECIALS=["shabbos-roast-chicken-01","shabbos-chicken-soup-01","shabbos-cholent-01","shabbos-challah-01","shabbos-tzimmes-01","shabbos-roast-beef-01","bbq-beef-brisket-01","noodle-kugel-01"].filter(id=>RECIPES.some(r=>r.id===id));
+
+const SHABBOS_MEAL_LABELS={friday:"Friday night",day:"Shabbos day",seuda:"Seuda Shlishit",motzei:"Motzei Shabbos"};
+
+function shabbosMeal(key){
+  state.shabbosMenu=state.shabbosMenu||normalizeShabbosMenu(null);
+  return state.shabbosMenu[key];
+}
+
+// Returns a real recipe (library pick) or a lightweight recipe-shaped object
+// (custom write-in) for a single dish, or null for an empty/takeout dish
+// (nothing to shop or cook for).
+function shabbosRecipeForDish(dish,courseName){
+  if(!dish)return null;
+  if(dish.mode==="library"&&dish.recipeId)return getRecipe(dish.recipeId)||null;
+  if(dish.mode==="custom"&&dish.custom)return {id:`shabbos-custom-${dish.id}`,title:dish.custom.title,ingredients:dish.custom.ingredients,steps:[],tags:["shabbos","custom"],kind:"other",courseName};
+  return null;
+}
+
+function shabbosSelectedRecipes(){
+  const menu=state.shabbosMenu||normalizeShabbosMenu(null);
+  const out=[];
+  for(const key of Object.keys(SHABBOS_MEAL_LABELS)){
+    const meal=menu[key];
+    if(!meal?.enabled)continue;
+    for(const course of meal.courses||[]){
+      for(const dish of course.dishes||[]){
+        const recipe=shabbosRecipeForDish(dish,course.name);
+        if(recipe)out.push(recipe);
+      }
+    }
+  }
+  return out;
+}
+
+
 function stableJitter(text){
   let h = 2166136261;
   for(let i=0;i<text.length;i++){
@@ -963,6 +1055,136 @@ function isPlanStale(weekKey){
   return plan.some((entry,i)=>entry.date && currentDates[i] && entry.date!==isoLocalDate(currentDates[i].date));
 }
 
+function shabbosDishSummary(dish){
+  if(dish.mode==="library"&&dish.recipeId){
+    const r=getRecipe(dish.recipeId);
+    return r?r.title:"Recipe not found";
+  }
+  if(dish.mode==="custom"&&dish.custom)return `${dish.custom.title} (your own recipe)`;
+  if(dish.mode==="store")return dish.storeLink?`Takeout: ${dish.storeLink}`:"Takeout - no link saved yet";
+  return "";
+}
+
+function renderShabbosSlots(){
+  const menu=state.shabbosMenu||normalizeShabbosMenu(null);
+  const container=$("shabbosSlots");
+  if(!container)return;
+
+  container.innerHTML=Object.entries(SHABBOS_MEAL_LABELS).map(([mealKey,label])=>{
+    const meal=menu[mealKey];
+    return `<div class="shabbos-slot-card">
+      <label class="row" style="align-items:center;gap:8px;cursor:pointer">
+        <input type="checkbox" data-shabbos-meal-enable="${mealKey}" ${meal.enabled?"checked":""}>
+        <b>${esc(label)}</b>
+      </label>
+      ${meal.enabled?`
+        <div class="shabbos-course-list">
+          ${meal.courses.map(course=>`
+            <div class="shabbos-course">
+              <div class="row" style="justify-content:space-between;align-items:center">
+                <b class="tiny">${esc(course.name)}</b>
+                <button type="button" class="btn tiny ghost" data-shabbos-remove-course="${mealKey}:${course.id}">✕ Remove course</button>
+              </div>
+              ${course.dishes.length?course.dishes.map(dish=>`
+                <div class="shabbos-dish-row row" style="justify-content:space-between;align-items:center">
+                  <span class="tiny">${esc(shabbosDishSummary(dish))}</span>
+                  <span class="row" style="gap:4px">
+                    ${dish.mode==="library"&&dish.recipeId?`<button type="button" class="btn tiny ghost" data-shabbos-show-dish="${dish.recipeId}">Show</button>`:""}
+                    <button type="button" class="btn tiny ghost" data-shabbos-remove-dish="${mealKey}:${course.id}:${dish.id}">✕</button>
+                  </span>
+                </div>
+              `).join(""):`<div class="tiny muted">No dish added yet</div>`}
+              <div class="row" style="gap:6px;flex-wrap:wrap;margin-top:4px">
+                <button type="button" class="btn tiny secondary" data-shabbos-add-library="${mealKey}:${course.id}">+ Choose a DmE special</button>
+                <button type="button" class="btn tiny secondary" data-shabbos-add-custom="${mealKey}:${course.id}">+ Write your own</button>
+                <button type="button" class="btn tiny secondary" data-shabbos-add-store="${mealKey}:${course.id}">+ Add takeout link</button>
+              </div>
+              ${state.shabbosPickerFor===`${mealKey}:${course.id}`?`<div class="shabbos-special-picker">${SHABBOS_SPECIALS.map(id=>{const r=getRecipe(id);return r?`<button type="button" class="btn tiny secondary" data-shabbos-choose="${mealKey}:${course.id}:${id}">${esc(r.title)}</button>`:"";}).join("")}</div>`:""}
+            </div>
+          `).join("")}
+        </div>
+        <button type="button" class="btn small secondary" data-shabbos-add-course="${mealKey}" style="margin-top:6px">+ Add course</button>
+      `:""}
+    </div>`;
+  }).join("");
+
+  const rerender=()=>{refreshPantryDependencies({renderInventoryToo:false});renderShabbosSlots();};
+
+  container.querySelectorAll("[data-shabbos-meal-enable]").forEach(box=>{
+    box.onchange=()=>{state.shabbosMenu[box.dataset.shabbosMealEnable].enabled=box.checked;rerender();};
+  });
+  container.querySelectorAll("[data-shabbos-add-course]").forEach(btn=>{
+    btn.onclick=()=>{
+      const name=prompt("What's this course called? (e.g. \"Salads\", \"Second Main\")");
+      if(!name||!name.trim())return;
+      state.shabbosMenu[btn.dataset.shabbosAddCourse].courses.push({id:shabbosUid(),name:name.trim(),dishes:[]});
+      rerender();
+    };
+  });
+  container.querySelectorAll("[data-shabbos-remove-course]").forEach(btn=>{
+    btn.onclick=()=>{
+      const [mealKey,courseId]=btn.dataset.shabbosRemoveCourse.split(":");
+      if(!confirm("Remove this course and everything in it?"))return;
+      const meal=state.shabbosMenu[mealKey];
+      meal.courses=meal.courses.filter(c=>c.id!==courseId);
+      rerender();
+    };
+  });
+  container.querySelectorAll("[data-shabbos-remove-dish]").forEach(btn=>{
+    btn.onclick=()=>{
+      const [mealKey,courseId,dishId]=btn.dataset.shabbosRemoveDish.split(":");
+      const course=state.shabbosMenu[mealKey].courses.find(c=>c.id===courseId);
+      if(course)course.dishes=course.dishes.filter(d=>d.id!==dishId);
+      rerender();
+    };
+  });
+  container.querySelectorAll("[data-shabbos-add-library]").forEach(btn=>{
+    btn.onclick=()=>{
+      state.shabbosPickerFor=state.shabbosPickerFor===btn.dataset.shabbosAddLibrary?null:btn.dataset.shabbosAddLibrary;
+      renderShabbosSlots();
+    };
+  });
+  container.querySelectorAll("[data-shabbos-choose]").forEach(btn=>{
+    btn.onclick=()=>{
+      const [mealKey,courseId,recipeId]=btn.dataset.shabbosChoose.split(":");
+      const course=state.shabbosMenu[mealKey].courses.find(c=>c.id===courseId);
+      if(course)course.dishes.push({id:shabbosUid(),mode:"library",recipeId,custom:null,storeLink:""});
+      state.shabbosPickerFor=null;
+      rerender();
+    };
+  });
+  container.querySelectorAll("[data-shabbos-add-custom]").forEach(btn=>{
+    btn.onclick=()=>{
+      const [mealKey,courseId]=btn.dataset.shabbosAddCustom.split(":");
+      const title=prompt("What's the dish called?");
+      if(title===null||!title.trim())return;
+      const ingredientsRaw=prompt("List the ingredients, separated by commas. Add a quantity after a colon if you like, e.g. \"chicken:4 lb, potatoes:2 lb, onion\"");
+      if(ingredientsRaw===null)return;
+      const ingredients=ingredientsRaw.split(",").map(part=>part.trim()).filter(Boolean).map(part=>{
+        const [name,qty]=part.split(":").map(s=>s.trim());
+        return [name,qty||""];
+      });
+      if(!ingredients.length){alert("Please enter at least one ingredient.");return;}
+      const course=state.shabbosMenu[mealKey].courses.find(c=>c.id===courseId);
+      if(course)course.dishes.push({id:shabbosUid(),mode:"custom",recipeId:null,custom:{title:title.trim(),ingredients},storeLink:""});
+      rerender();
+    };
+  });
+  container.querySelectorAll("[data-shabbos-add-store]").forEach(btn=>{
+    btn.onclick=()=>{
+      const [mealKey,courseId]=btn.dataset.shabbosAddStore.split(":");
+      const link=prompt("Link or name of where you're getting this (e.g. a pizza shop's phone number or website):");
+      if(link===null||!link.trim())return;
+      const course=state.shabbosMenu[mealKey].courses.find(c=>c.id===courseId);
+      if(course)course.dishes.push({id:shabbosUid(),mode:"store",recipeId:null,custom:null,storeLink:link.trim()});
+      rerender();
+    };
+  });
+  container.querySelectorAll("[data-shabbos-show-dish]").forEach(btn=>{
+    btn.onclick=()=>showRecipe(btn.dataset.shabbosShowDish,"this");
+  });
+}
+
 function renderWeekSection(weekKey="this",{alreadyRebuilt=false}={}){
   const plan=state[planProp(weekKey)]||[];
   const locks=state[lockedProp(weekKey)]||{};
@@ -1146,6 +1368,7 @@ function addMissing(id,weekKey="this"){
 
 function buildShoppingForWeek(weekKey){
   const recipes=(state[planProp(weekKey)]||[]).map(p=>getRecipe(p.id)).filter(Boolean);
+  if(weekKey==="this")recipes.push(...shabbosSelectedRecipes());
   const result=IngredientEngine.buildShopping(recipes,state.have||[],state.portions);
   state[shoppingProp(weekKey)]=result.shopping;
   state.shoppingDiagnostics[weekKey]=result.diagnostics;
@@ -2912,6 +3135,7 @@ renderStoreSelection("meat");
 renderStoreSelection("supermarket");
 renderWeekSection("this");
 renderWeekSection("next");
+renderShabbosSlots();
 renderHave();
 buildShoppingForWeek("this");
 buildShoppingForWeek("next");
@@ -3013,4 +3237,14 @@ window.__dinnerPlannerTest={
   resolveConflictUseTheirs:()=>{if(pendingCloudState){snapshotWeek("this");snapshotWeek("next");applyCloudState(pendingCloudState);}pendingCloudState=null;renderHouseholdConflict(null);},
   hasRestorableSnapshot,
   restoreWeekSnapshot,
-  snapshotWeek};
+  snapshotWeek,
+  renderShabbosSlots,
+  shabbosSelectedRecipes,
+  addShabbosDish:(mealKey,courseId,dish)=>{
+    const course=state.shabbosMenu[mealKey].courses.find(c=>c.id===courseId);
+    if(course)course.dishes.push({id:shabbosUid(),recipeId:null,custom:null,storeLink:"",...dish});
+    refreshPantryDependencies({renderInventoryToo:false});
+    renderShabbosSlots();
+  },
+  setShabbosMealEnabled:(key,enabled)=>{state.shabbosMenu[key].enabled=enabled;refreshPantryDependencies({renderInventoryToo:false});renderShabbosSlots();},
+  SHABBOS_SPECIALS};

@@ -13,19 +13,20 @@ async function loadRecipes(){
   return context.window.DinnerRecipes;
 }
 
-test('recipe library contains 750 unique complete dinners',async()=>{
+test('recipe library contains 750 weekday dinners plus a curated set of Shabbos specials',async()=>{
   const recipes=await loadRecipes();
-  assert.equal(recipes.length,750);
-  assert.equal(new Set(Array.from(recipes,r=>r.id)).size,750);
-  assert.equal(new Set(Array.from(recipes,r=>r.title)).size,750);
+  assert.equal(recipes.length,756);
+  assert.equal(new Set(Array.from(recipes,r=>r.id)).size,756);
+  assert.equal(new Set(Array.from(recipes,r=>r.title)).size,756);
   assert.ok(recipes.every(r=>r.family&&r.kind&&r.tags.length&&r.ingredients.length>=4&&r.steps.length===4));
-  assert.equal(new Set(Array.from(recipes,r=>r.family)).size,100);
+  assert.equal(new Set(Array.from(recipes,r=>r.family)).size,106);
+  assert.equal(recipes.filter(r=>r.tags.includes('shabbos')).length,6,'the 6 curated Shabbos specials should be tagged shabbos');
 });
 
 test('recipe mix has enough meat, dairy, pareve, and break-fast choices',async()=>{
   const recipes=await loadRecipes();
   const counts=Object.fromEntries(['meat','dairy','pareve'].map(kind=>[kind,recipes.filter(r=>r.kind===kind).length]));
-  assert.deepEqual(counts,{meat:375,dairy:225,pareve:150});
+  assert.deepEqual(counts,{meat:379,dairy:225,pareve:152});
   assert.ok(recipes.filter(r=>r.tags.includes('break-fast')).length>=6);
 });
 
@@ -40,7 +41,7 @@ test('library enforces household kosher and ingredient rules',async()=>{
     if(recipe.kind==='dairy')assert.match(text,/Cholov Yisroel/,recipe.id);
     assert.ok(Number.parseInt(recipe.hands,10)<=20,recipe.id);
     const total=Number.parseInt(recipe.time,10);
-    assert.ok(total<=35||recipe.tags.includes('oven')||recipe.tags.includes('bbq'),`${recipe.id} exceeds the non-oven time limit`);
+    assert.ok(total<=35||recipe.tags.includes('oven')||recipe.tags.includes('bbq')||recipe.tags.includes('shabbos'),`${recipe.id} exceeds the non-oven time limit`);
   }
 });
 
