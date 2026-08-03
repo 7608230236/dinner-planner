@@ -1317,7 +1317,22 @@ async function extractRecipeDocumentText(file){
     const result=await window.mammoth.extractRawText({arrayBuffer});
     return result.value;
   }
-  throw new Error("Please upload a .docx or .txt file.");
+  if(name.endsWith(".pdf")){
+    if(typeof window.pdfjsLib==="undefined"){
+      throw new Error("The document reader hasn't finished loading yet - wait a moment and try again.");
+    }
+    window.pdfjsLib.GlobalWorkerOptions.workerSrc="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js";
+    const arrayBuffer=await file.arrayBuffer();
+    const pdf=await window.pdfjsLib.getDocument({data:arrayBuffer}).promise;
+    const pageTexts=[];
+    for(let pageNum=1;pageNum<=pdf.numPages;pageNum++){
+      const page=await pdf.getPage(pageNum);
+      const content=await page.getTextContent();
+      pageTexts.push(content.items.map(item=>item.str).join(" "));
+    }
+    return pageTexts.join("\n\n");
+  }
+  throw new Error("Please upload a .docx, .pdf, or .txt file.");
 }
 
 function recordShabbosDurableBackup(){
@@ -1574,7 +1589,7 @@ function renderShabbosSlots(){
         try{
           const text=await extractRecipeDocumentText(file);
           if(!text||!text.trim()){
-            alert("Couldn't read any text from that file. Try a .docx or .txt file with the recipe in it.");
+            alert("Couldn't read any text from that file. Try a .docx, .pdf, or .txt file with the recipe in it.");
             return;
           }
           const response=await fetch(`${API_ORIGIN}/.netlify/functions/recipe-import`,{
@@ -1600,7 +1615,7 @@ function renderShabbosSlots(){
           });
         }catch(error){
           console.error(error);
-          alert("Something went wrong reading that document. Try a .docx or .txt file, or write the recipe in by hand.");
+          alert("Something went wrong reading that document. Try a .docx, .pdf, or .txt file, or write the recipe in by hand.");
         }
       };
       input.click();

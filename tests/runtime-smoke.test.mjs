@@ -1449,8 +1449,8 @@ test('extractRecipeDocumentText reads a .txt file directly', async () => {
 test('extractRecipeDocumentText rejects unsupported file types with a clear message instead of a cryptic failure', async () => {
   const {context} = await boot();
   const api = context.window.__dinnerPlannerTest;
-  const fakeFile = { name: 'recipe.pdf', text: async () => 'irrelevant' };
-  await assert.rejects(() => api.extractRecipeDocumentText(fakeFile), /\.docx or \.txt/);
+  const fakeFile = { name: 'recipe.rtf', text: async () => 'irrelevant' };
+  await assert.rejects(() => api.extractRecipeDocumentText(fakeFile), /\.docx.*\.pdf.*\.txt/);
 });
 
 test('extractRecipeDocumentText gives a clear message for a .docx file when the document reader library has not finished loading yet, instead of a cryptic "mammoth is not defined" error', async () => {
@@ -1458,5 +1458,33 @@ test('extractRecipeDocumentText gives a clear message for a .docx file when the 
   const api = context.window.__dinnerPlannerTest;
   const fakeFile = { name: 'recipe.docx', arrayBuffer: async () => new ArrayBuffer(0) };
   await assert.rejects(() => api.extractRecipeDocumentText(fakeFile), /document reader/i);
+});
+
+test('extractRecipeDocumentText gives a clear message for a .pdf file when the document reader library has not finished loading yet, same as the .docx case', async () => {
+  const {context} = await boot();
+  const api = context.window.__dinnerPlannerTest;
+  const fakeFile = { name: 'recipe.pdf', arrayBuffer: async () => new ArrayBuffer(0) };
+  await assert.rejects(() => api.extractRecipeDocumentText(fakeFile), /document reader/i);
+});
+
+test('extractRecipeDocumentText reads a .pdf file by extracting text from every page, in order', async () => {
+  const {context} = await boot();
+  const api = context.window.__dinnerPlannerTest;
+
+  const fakePage1 = { getTextContent: async () => ({ items: [{ str: 'Chicken Soup' }, { str: '2 lb chicken' }] }) };
+  const fakePage2 = { getTextContent: async () => ({ items: [{ str: '1 onion' }, { str: 'Simmer 60 minutes.' }] }) };
+  const fakePdf = { numPages: 2, getPage: async (n) => (n === 1 ? fakePage1 : fakePage2) };
+
+  context.window.pdfjsLib = {
+    GlobalWorkerOptions: {},
+    getDocument: () => ({ promise: Promise.resolve(fakePdf) })
+  };
+
+  const fakeFile = { name: 'recipe.pdf', arrayBuffer: async () => new ArrayBuffer(0) };
+  const text = await api.extractRecipeDocumentText(fakeFile);
+  assert.match(text, /Chicken Soup/);
+  assert.match(text, /2 lb chicken/);
+  assert.match(text, /Simmer 60 minutes/);
+  assert.ok(text.indexOf('Chicken Soup') < text.indexOf('Simmer 60 minutes'), 'pages should be extracted in order');
 });
 
