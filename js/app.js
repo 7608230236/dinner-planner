@@ -1384,11 +1384,11 @@ function renderShabbosBasics(mealKey,basics){
     <div class="shabbos-basics-row">
       <div class="shabbos-basics-icon">🍷</div>
       <div class="shabbos-basics-body">
-        <div class="shabbos-basics-name">Wine or Grape Juice</div>
+        <div class="shabbos-basics-name">Wine / Grape Juice</div>
         <div class="shabbos-basics-status${wine.haveIt?"":" need"}">${wine.haveIt?"✓ Have it":"Need to buy"}</div>
       </div>
-      <button type="button" class="btn tiny secondary" data-shabbos-wine-toggle="${mealKey}">${wine.haveIt?"Mark as needed":"Mark as have it"}</button>
     </div>
+    <button type="button" class="btn small secondary" data-shabbos-wine-toggle="${mealKey}" style="margin-bottom:12px">${wine.haveIt?"Mark as needed":"Mark as have it"}</button>
     <div class="shabbos-basics-row">
       <div class="shabbos-basics-icon">🍞</div>
       <div class="shabbos-basics-body">
