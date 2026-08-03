@@ -3,9 +3,44 @@
 Single source of truth for what works, what's broken, and what changed.
 Update this file every time a fix is made or verified — don't rely on chat history.
 
-Last updated: 2026-08-03 by Claude (overnight session, user asleep - see summary below)
+Last updated: 2026-08-03 by Claude (Shabbos Menu red-team fix list - fully complete)
 
 ---
+
+## Shabbos Menu build list - complete (2026-08-03, same day as the overnight session above)
+
+User did a red-team review of the Shabbos Menu feature with Claude, went through every finding one by one, then had Claude build the entire fix list. All items below are done, tested, and pushed:
+
+**Visual redesign** (previously only existed as mockup screenshots, never actually built - caught by the user):
+- Kiddush and Challah pulled out of the course model entirely into a "Table Basics" section (wine/grape juice tracking + Challah with bake-first ordering, since baking is a mitzvah - buying is the secondary option)
+- Real dish editor modal (`dishEditorDialog`) replacing every `prompt()` popup that used to exist in the Shabbos flow
+- Two-button pattern ("+ DmE special" / "+ Add your own") replacing the old three-button row; Add your own opens a Write/Scan/Upload sub-panel that correctly replaces (not just supplements) the two top-level buttons while open
+- Course cards redesigned with icons and chip-style dishes, matching the app's existing visual language
+- Short intro copy, aria-labels on icon-only buttons
+
+**Durable lock/restore**, per the user's exact requirement: "once it is locked it is locked and needs to be able to be restored irrespective of what you are working on":
+- New `durableLocks` for the weekly plan and `shabbosDurableBackup` for the Shabbos menu - both separate from the existing single-step "Restore previous plan" undo, and survive any number of subsequent actions
+- New "🔒 Restore locked items" buttons (weekly plan x2, Shabbos menu x1)
+- `cloudConflictsWithLocalLocks` extended to check both durable stores, not just live lock flags - closes the exact class of bug (silent sync overwrite) that this whole Shabbos feature grew out of
+
+**Challah ↔ pantry tie-in**: `inventoryMatchesIngredient("challah")` check refreshes live via `refreshPantryDependencies`, so scanning a receipt with challah on it updates the Table Basics status immediately, not just on the next unrelated re-render.
+
+**Document upload**: PDF support added (pdf.js) alongside the existing docx/txt (mammoth.js).
+
+**Scan**: `recipe-import.mjs` now accepts either document text or a photo (OpenAI vision input), with source-aware error messages throughout. Client captures via a dedicated camera input, compressed at 1600px/.82 quality (higher than pantry photos, since recipe text needs to stay legible).
+
+**Loading state**: the Add-your-own sub-panel shows "Reading your file…" / "Reading your photo…" while Upload/Scan is in flight, replacing the buttons rather than leaving them clickable with no feedback.
+
+**Community share bridge**: after saving a custom dish via Write/Scan/Upload, if it has real cooking steps, offers to share it to Community with one confirm. Found and fixed a real gap while building this - custom Shabbos dishes never captured steps at all (only title+ingredients) until now; the dish editor has a new optional Instructions textarea, and Scan/Upload pass through whatever steps the AI found.
+
+**Two real mistakes made and caught during this session, worth remembering:**
+1. Misdiagnosed a "duplicate setState key" as dead code and deleted the wrong one - actually two different objects (`__dinnerPlannerBridge` vs `__dinnerPlannerTest`) each legitimately have their own `setState`. Broke 18 unrelated tests, caught immediately by running the full suite, reverted both to original.
+2. A test asserted `dishEditorDialog.open === false`, but this test harness's FakeElement defaults `.open` to `undefined`, not `false`, until `showModal()` is ever called. Minor, but the pattern (assuming a specific falsy value instead of just checking falsy-ness) is worth watching for in future tests.
+
+**Recurring tool-level gotcha, not a code bug**: `str_replace` has repeatedly dropped the `test(...)` declaration line when inserting a new test immediately before an existing one in `runtime-smoke.test.mjs`. Always run `node --check` immediately after inserting a test near existing ones, and look for "Unexpected token '}'" a few lines below the insertion point.
+
+---
+
 
 ## Overnight session summary (2026-08-03): Shabbos Menu built out, recipes added, one real kashrus gap found and fixed
 
