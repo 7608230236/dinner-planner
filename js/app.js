@@ -753,6 +753,27 @@ function getRecipe(id){return RECIPES.find(r=>r.id===id)}
 // weekday quick-prep rules. Grows over time.
 const SHABBOS_SPECIALS=["shabbos-roast-chicken-01","shabbos-chicken-soup-01","shabbos-cholent-01","shabbos-challah-01","shabbos-tzimmes-01","shabbos-roast-beef-01","bbq-beef-brisket-01","noodle-kugel-01"].filter(id=>RECIPES.some(r=>r.id===id));
 
+// Which specials make sense for which course. Courses not listed here (custom
+// courses the user names themselves) fall back to showing everything, since
+// there's no way to know intent for a course we don't recognize.
+const SHABBOS_COURSE_SPECIALS={
+  "Challah":["shabbos-challah-01"],
+  "Soup":["shabbos-chicken-soup-01"],
+  "Main Course":["shabbos-roast-chicken-01","shabbos-cholent-01","shabbos-roast-beef-01","bbq-beef-brisket-01","shabbos-tzimmes-01","noodle-kugel-01"],
+  "Kiddush":[],
+  "Fish & Salads":[],
+  "Dessert":[]
+};
+
+function shabbosSpecialsForCourse(courseName){
+  if(Object.prototype.hasOwnProperty.call(SHABBOS_COURSE_SPECIALS,courseName))return SHABBOS_COURSE_SPECIALS[courseName];
+  return SHABBOS_SPECIALS;
+}
+
+// Takeout only makes sense for an informal, unstructured meal - not a course
+// inside a formal Friday night/Shabbos day table like Kiddush or Soup.
+const SHABBOS_TAKEOUT_MEALS=["seuda","motzei"];
+
 const SHABBOS_MEAL_LABELS={friday:"Friday night",day:"Shabbos day",seuda:"Seuda Shlishit",motzei:"Motzei Shabbos"};
 
 function shabbosMeal(key){
@@ -1079,11 +1100,14 @@ function renderShabbosSlots(){
       </label>
       ${meal.enabled?`
         <div class="shabbos-course-list">
-          ${meal.courses.map(course=>`
+          ${meal.courses.map(course=>{
+            const relevantSpecials=shabbosSpecialsForCourse(course.name);
+            const showTakeout=SHABBOS_TAKEOUT_MEALS.includes(mealKey);
+            return `
             <div class="shabbos-course">
               <div class="row" style="justify-content:space-between;align-items:center">
                 <b class="tiny">${esc(course.name)}</b>
-                <button type="button" class="btn tiny ghost" data-shabbos-remove-course="${mealKey}:${course.id}">✕ Remove course</button>
+                <button type="button" class="shabbos-remove-course" data-shabbos-remove-course="${mealKey}:${course.id}">Remove course</button>
               </div>
               ${course.dishes.length?course.dishes.map(dish=>`
                 <div class="shabbos-dish-row row" style="justify-content:space-between;align-items:center">
@@ -1097,11 +1121,12 @@ function renderShabbosSlots(){
               <div class="row" style="gap:6px;flex-wrap:wrap;margin-top:4px">
                 <button type="button" class="btn tiny secondary" data-shabbos-add-library="${mealKey}:${course.id}">+ Choose a DmE special</button>
                 <button type="button" class="btn tiny secondary" data-shabbos-add-custom="${mealKey}:${course.id}">+ Write your own</button>
-                <button type="button" class="btn tiny secondary" data-shabbos-add-store="${mealKey}:${course.id}">+ Add takeout link</button>
+                ${showTakeout?`<button type="button" class="btn tiny secondary" data-shabbos-add-store="${mealKey}:${course.id}">+ Add takeout link</button>`:""}
               </div>
-              ${state.shabbosPickerFor===`${mealKey}:${course.id}`?`<div class="shabbos-special-picker">${SHABBOS_SPECIALS.map(id=>{const r=getRecipe(id);return r?`<button type="button" class="btn tiny secondary" data-shabbos-choose="${mealKey}:${course.id}:${id}">${esc(r.title)}</button>`:"";}).join("")}</div>`:""}
+              ${state.shabbosPickerFor===`${mealKey}:${course.id}`?`<div class="shabbos-special-picker">${relevantSpecials.length?relevantSpecials.map(id=>{const r=getRecipe(id);return r?`<button type="button" class="btn tiny secondary" data-shabbos-choose="${mealKey}:${course.id}:${id}">${esc(r.title)}</button>`:"";}).join(""):`<div class="tiny muted">No DmE specials for this course yet - try "Write your own" for now.</div>`}</div>`:""}
             </div>
-          `).join("")}
+          `;
+          }).join("")}
         </div>
         <button type="button" class="btn small secondary" data-shabbos-add-course="${mealKey}" style="margin-top:6px">+ Add course</button>
       `:""}
@@ -3247,4 +3272,6 @@ window.__dinnerPlannerTest={
     renderShabbosSlots();
   },
   setShabbosMealEnabled:(key,enabled)=>{state.shabbosMenu[key].enabled=enabled;refreshPantryDependencies({renderInventoryToo:false});renderShabbosSlots();},
+  shabbosSpecialsForCourse,
+  SHABBOS_TAKEOUT_MEALS,
   SHABBOS_SPECIALS};

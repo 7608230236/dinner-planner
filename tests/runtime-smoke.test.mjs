@@ -882,6 +882,35 @@ test('pantry inventory cards always show a clean icon, never a raw bounding-box 
   assert.ok(html.includes('inventory-fallback'),'a clean icon should be shown instead');
 });
 
+test('.btn.tiny actually renders small (the actual bug: it set tiny padding and font-size but never overrode the base button\'s 52px min-height, so every "tiny" button - including Remove Course - still rendered at full button size)', async () => {
+  const css=await (await import('node:fs/promises')).readFile(resolve(root,'css/styles.css'),'utf8');
+  assert.match(css,/\.btn\.tiny\{[^}]*min-height:/,'.btn.tiny must override min-height, not just padding and font-size');
+});
+
+test('the Shabbos specials picker only shows dishes relevant to that course, not the same full list everywhere (the actual bug: "Choose a DmE special" under Kiddush showed roast chicken and cholent)', async () => {
+  const {context}=await boot();
+  const api=context.window.__dinnerPlannerTest;
+  const challahOptions=api.shabbosSpecialsForCourse('Challah');
+  assert.deepEqual(Array.from(challahOptions),['shabbos-challah-01'],'Challah course should only offer the challah special');
+  const kiddushOptions=api.shabbosSpecialsForCourse('Kiddush');
+  assert.deepEqual(Array.from(kiddushOptions),[],'Kiddush has no matching specials yet, so it should show none rather than an irrelevant full list');
+  const mainOptions=Array.from(api.shabbosSpecialsForCourse('Main Course'));
+  assert.ok(mainOptions.includes('shabbos-cholent-01')&&mainOptions.includes('shabbos-roast-chicken-01'),'Main Course should offer the actual mains');
+  assert.ok(!mainOptions.includes('shabbos-challah-01'),'Main Course should not offer challah');
+});
+
+test('takeout is only offered for informal meals (Seuda Shlishit, Motzei Shabbos), not for formal courses like Kiddush or Soup (the actual bug: every single course had an "Add takeout link" button, including Kiddush)', async () => {
+  const {context,elements}=await boot();
+  const api=context.window.__dinnerPlannerTest;
+  assert.deepEqual(Array.from(api.SHABBOS_TAKEOUT_MEALS).sort(),['motzei','seuda'].sort());
+  api.setShabbosMealEnabled('motzei',true);
+  const html=elements.get('shabbosSlots').innerHTML;
+  const fridaySection=html.slice(html.indexOf('Friday night'),html.indexOf('Shabbos day'));
+  const motzeiSection=html.slice(html.indexOf('Motzei Shabbos'));
+  assert.ok(!fridaySection.includes('Add takeout link'),'Friday night courses (Kiddush, Soup, etc.) must not offer takeout');
+  assert.ok(motzeiSection.includes('Add takeout link'),'Motzei Shabbos should offer takeout');
+});
+
 test('the Confirm/Remove button row does not overflow the card (the actual bug: flex items default to refusing to shrink below their content width, so "Remove" got clipped by the card\'s overflow:hidden on narrow cards)', async () => {
   const css=await (await import('node:fs/promises')).readFile(resolve(root,'css/styles.css'),'utf8');
   assert.match(css,/\.inventory-edit-row \.btn\{[^}]*min-width:0/,'the Confirm/Remove buttons must have min-width:0 so they can actually shrink to fit side by side');
