@@ -1337,21 +1337,24 @@ test('pantry suggestions prioritize dishes you can nearly complete over ones nee
   const {context,elements}=await boot();
   const api=context.window.__dinnerPlannerTest;
   const state=api.getState();
-  // Full coverage for "One-Pan Chicken Rice Skillet - Classic" (5/5
-  // ingredients, including via the real-world "pargiyot" pantry item name).
+  // Full coverage for "One-Pan Chicken Rice Skillet - Classic" (7/7
+  // ingredients now that seasoning was added, including via the real-world
+  // "pargiyot" pantry item name).
   state.have=[
     {id:'i1',item:'Baby Chicken Pargiyot Family',qty:1,unit:'package',confidence:'user',observations:[]},
     {id:'i2',item:'rice',qty:2,unit:'cup',confidence:'user',observations:[]},
     {id:'i3',item:'chicken broth',qty:4,unit:'cup',confidence:'user',observations:[]},
     {id:'i4',item:'onion',qty:2,unit:'each',confidence:'user',observations:[]},
-    {id:'i5',item:'garlic',qty:1,unit:'bulb',confidence:'user',observations:[]}
+    {id:'i5',item:'garlic',qty:1,unit:'bulb',confidence:'user',observations:[]},
+    {id:'i6',item:'kosher salt',qty:1,unit:'container',confidence:'user',observations:[]},
+    {id:'i7',item:'black pepper',qty:1,unit:'container',confidence:'user',observations:[]}
   ];
   api.setState(state);
   context.window.renderHave();
 
   const html=elements.get('pantrySuggestions').innerHTML;
   assert.ok(html.includes('One-Pan Chicken Rice Skillet'),`expected the fully-covered recipe to be suggested, got: ${html}`);
-  assert.ok(html.includes('You have 5 of 5'),`expected full 5/5 coverage to be recognized (proves the pargiyot fix feeds into suggestions correctly), got: ${html}`);
+  assert.ok(html.includes('You have 7 of 7'),`expected full 7/7 coverage to be recognized now that the recipe correctly lists salt and pepper (proves the pargiyot fix still feeds into suggestions correctly), got: ${html}`);
 });
 
 test('a newer deployed build makes the version badge tappable to refresh, instead of an intrusive banner - this matters because a long-lived native WebView session could otherwise keep running a stale build indefinitely with no way for the person to notice (this is what actually happened: a fix was live on the server but a family member had an already-open app still showing the old version)', async () => {
