@@ -65,7 +65,7 @@ function createRuntime(){
     'community','communitySignedOut','communitySignedIn','appleSignInBtn','googleSignInBtn','communityUserName','communitySignOutBtn',
     'shareRecipeBtn','communityStatus','shareRecipeForm','communityTitle','communityIngredients','addCommunityIngredientBtn',
     'communitySteps','addCommunityStepBtn','submitCommunityRecipeBtn','cancelCommunityRecipeBtn','communityRecipeList',
-    'restoreWeekBtn','restoreNextWeekBtn','householdConflict','closeDeveloperBtnBottom','shabbosSlots','recipeUploadInput','shabbosMenu','dishEditorDialog','dishEditorModal','dishEditorTitle','dishEditorAddRow','dishEditorSave','dishEditorCancel'
+    'restoreWeekBtn','restoreNextWeekBtn','householdConflict','closeDeveloperBtnBottom','shabbosSlots','recipeUploadInput','shabbosMenu','dishEditorDialog','dishEditorModal','dishEditorTitle','dishEditorAddRow','dishEditorSave','dishEditorCancel','restoreLockedWeekBtn','restoreLockedNextWeekBtn'
   ])];
   const elements=new Map(ids.map(id=>[id,new FakeElement(id)]));
   elements.get('photoLocation').value='Pantry';
@@ -463,6 +463,73 @@ test('the Replace button refuses to touch a locked day (the actual bug: it used 
 
   const after=api.getState().plan.find(p=>p.day===day).id;
   assert.equal(after,before,'a locked day must not change when Replace is called on it');
+});
+
+test('durable locks survive multiple unrelated actions, unlike the single-step Restore previous plan (the actual requirement: "once it is locked it is locked and needs to be able to be restored irrespective of what you are working on")', async () => {
+  const {context}=await boot();
+  const api=context.window.__dinnerPlannerTest;
+  api.buildPlan();
+  const lockedDay=api.getState().plan[0].day;
+  const lockedRecipeId=api.getState().plan[0].id;
+
+  // Lock just one day via the individual toggle path (not lockAllForWeek).
+  const state1=api.getState();
+  state1.locked[lockedDay]=true;
+  api.setState(state1);
+  api.recordDurableLock('this',lockedDay,lockedRecipeId);
+  assert.equal(api.hasDurableLocks('this'),true);
+
+  // Now do several unrelated things that would normally consume/overwrite a single-step snapshot.
+  api.replaceDay('this',api.getState().plan.find(p=>p.day!==lockedDay).day);
+  api.buildPlan();
+  api.buildPlan();
+  api.buildPlan();
+
+  // The locked day should have been protected by every one of those builds
+  // (buildPlanForWeek already respects live locks) - but let's simulate the
+  // real failure mode: something clobbers it despite being locked.
+  const corrupted=api.getState();
+  const entry=corrupted.plan.find(p=>p.day===lockedDay);
+  if(entry)entry.id='beef-brisket-01';
+  corrupted.locked[lockedDay]=false;
+  api.setState(corrupted);
+  assert.notEqual(api.getState().plan.find(p=>p.day===lockedDay)?.id,lockedRecipeId,'sanity check: the day should now show the wrong dish, unlocked');
+
+  // Restore locked items should bring it back correctly, no matter that
+  // three unrelated builds happened in between and the live lock was cleared.
+  api.restoreDurableLocks('this');
+  const restored=api.getState();
+  assert.equal(restored.plan.find(p=>p.day===lockedDay)?.id,lockedRecipeId,'the durably-locked dish should be restored');
+  assert.equal(restored.locked[lockedDay],true,'the day should be re-locked');
+});
+
+test('locking all meals for the week records durable locks for every day, and unlocking clears them', async () => {
+  const {context}=await boot();
+  const api=context.window.__dinnerPlannerTest;
+  api.buildPlan();
+  assert.equal(api.hasDurableLocks('this'),false,'nothing locked yet');
+
+  api.lockAllForWeek('this');
+  assert.equal(api.hasDurableLocks('this'),true,'locking the whole week should record durable locks');
+
+  api.lockAllForWeek('this'); // toggles back to unlocked, since all were locked
+  assert.equal(api.hasDurableLocks('this'),false,'unlocking the whole week should clear durable locks');
+});
+
+test('a sync that would silently overwrite a durably-locked meal is caught as a conflict, even if the live lock was somehow cleared (this is the actual gap the red-team report flagged: durable protection needs to survive more than just the live lock flag)', async () => {
+  const {context}=await boot();
+  const api=context.window.__dinnerPlannerTest;
+  api.buildPlan();
+  const day=api.getState().plan[0].day;
+  const recipeId=api.getState().plan[0].id;
+  api.recordDurableLock('this',day,recipeId);
+  const state=api.getState();
+  state.locked[day]=false; // live lock cleared, but the durable record remains
+  api.setState(state);
+
+  const differentPlan=Array.from(api.getState().plan).map(p=>p.day===day?{...p,id:'beef-brisket-01'}:p);
+  const conflicts=Array.from(api.cloudConflictsWithLocalLocks({plan:differentPlan,nextPlan:[]}));
+  assert.ok(conflicts.some(c=>c.weekKey==='this'&&c.day===day),'a conflict must be detected even though the live lock flag was cleared, because the durable record still protects it');
 });
 
 test('Restore previous plan: Build can be undone back to the plan that existed right before it ran', async () => {

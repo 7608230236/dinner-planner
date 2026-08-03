@@ -166,8 +166,27 @@ function normalizeState(raw){
     // stays local to this device on purpose, so restoring it can't itself become
     // another silent overwrite risk shared across devices.
     planSnapshot: (clean.planSnapshot && typeof clean.planSnapshot === "object") ? clean.planSnapshot : {},
+    // A durable record of locked meals, separate from the single-step undo
+    // snapshot above. Updated whenever a day is locked or unlocked, and never
+    // cleared by an unrelated action (Build, Replace, a sync, etc.) - so a
+    // locked meal can be restored no matter how many other things happened
+    // since it was locked, not just the single most recent one.
+    durableLocks: normalizeDurableLocks(clean.durableLocks),
     shabbosMenu: normalizeShabbosMenu(clean.shabbosMenu)
   };
+}
+
+function normalizeDurableLocks(raw){
+  const src=(raw&&typeof raw==="object")?raw:{};
+  const out={};
+  for(const weekKey of ["this","next"]){
+    const week=(src[weekKey]&&typeof src[weekKey]==="object")?src[weekKey]:{};
+    out[weekKey]={};
+    for(const [day,recipeId] of Object.entries(week)){
+      if(DAYS.includes(day)&&typeof recipeId==="string")out[weekKey][day]=recipeId;
+    }
+  }
+  return out;
 }
 
 const SHABBOS_DEFAULT_COURSES={
@@ -268,6 +287,7 @@ function buildSyncPayload(){
     planNonce:state.planNonce,
     recipeRatings:state.recipeRatings,
     shabbosMenu:state.shabbosMenu,
+    durableLocks:state.durableLocks,
     updatedAt:state.updatedAt
   };
 }
@@ -479,12 +499,17 @@ function cloudConflictsWithLocalLocks(cloudState){
   const conflicts=[];
   for(const weekKey of ["this","next"]){
     const localLocked=localLockedPlanFor(weekKey,state);
-    if(!localLocked.length)continue;
+    const durable=state.durableLocks?.[weekKey]||{};
+    const protectedDays=new Map(localLocked.map(entry=>[entry.day,entry.id]));
+    for(const [day,recipeId] of Object.entries(durable)){
+      if(!protectedDays.has(day))protectedDays.set(day,recipeId);
+    }
+    if(!protectedDays.size)continue;
     const cloudPlan=cloudState[planProp(weekKey)]||[];
-    for(const entry of localLocked){
-      const cloudEntry=cloudPlan.find(p=>p.day===entry.day);
-      if(!cloudEntry||cloudEntry.id!==entry.id){
-        conflicts.push({weekKey,day:entry.day,mine:getRecipe(entry.id)?.name||entry.id,theirs:cloudEntry?getRecipe(cloudEntry.id)?.name||cloudEntry.id:"(no dinner)"});
+    for(const [day,recipeId] of protectedDays){
+      const cloudEntry=cloudPlan.find(p=>p.day===day);
+      if(!cloudEntry||cloudEntry.id!==recipeId){
+        conflicts.push({weekKey,day,mine:getRecipe(recipeId)?.title||recipeId,theirs:cloudEntry?getRecipe(cloudEntry.id)?.title||cloudEntry.id:"(no dinner)"});
       }
     }
   }
@@ -1080,12 +1105,61 @@ function renderWeekDateRange(weekKey){
   $(target).textContent=`${FULL_DATE_FMT.format(start)} through ${FULL_DATE_FMT.format(end)}`;
 }
 
+function recordDurableLock(weekKey,day,recipeId){
+  state.durableLocks=state.durableLocks||{this:{},next:{}};
+  state.durableLocks[weekKey][day]=recipeId;
+}
+
+function clearDurableLock(weekKey,day){
+  state.durableLocks=state.durableLocks||{this:{},next:{}};
+  delete state.durableLocks[weekKey][day];
+}
+
+function hasDurableLocks(weekKey){
+  return Object.keys(state.durableLocks?.[weekKey]||{}).length>0;
+}
+
+// Restores every durably-locked meal, no matter how many other actions
+// (Build, Replace, a sync) happened since it was locked - unlike Restore
+// Previous Plan, which only remembers the single most recent change.
+function restoreDurableLocks(weekKey){
+  const locks=state.durableLocks?.[weekKey]||{};
+  if(!Object.keys(locks).length)return false;
+  const planField=planProp(weekKey);
+  const lockedField=lockedProp(weekKey);
+  const plan=state[planField]||[];
+  const dates=plannerDatesForWeek(weekKey);
+  for(const [day,recipeId] of Object.entries(locks)){
+    if(!getRecipe(recipeId))continue;
+    const dateEntry=dates.find(d=>d.day===day);
+    const existing=plan.find(p=>p.day===day);
+    if(existing){
+      existing.id=recipeId;
+      if(dateEntry)existing.date=isoLocalDate(dateEntry.date);
+    }else if(dateEntry){
+      plan.push({day,id:recipeId,date:isoLocalDate(dateEntry.date)});
+    }
+    state[lockedField][day]=true;
+  }
+  state[planField]=plan;
+  buildShoppingForWeek(weekKey);
+  save("state",state);
+  renderWeekSection(weekKey);
+  renderShopping();
+  return true;
+}
+
 function lockAllForWeek(weekKey="this"){
   const plan=state[planProp(weekKey)]||[];
   if(!plan.length)return false;
   const field=lockedProp(weekKey);
   const allLocked=plan.every(entry=>Boolean(state[field]?.[entry.day]));
   state[field]=Object.fromEntries(plan.map(entry=>[entry.day,!allLocked]));
+  if(!allLocked){
+    for(const entry of plan)recordDurableLock(weekKey,entry.day,entry.id);
+  }else{
+    for(const entry of plan)clearDurableLock(weekKey,entry.day);
+  }
   save("state",state);
   renderWeekSection(weekKey);
   return !allLocked;
@@ -1519,6 +1593,15 @@ function renderWeekSection(weekKey="this",{alreadyRebuilt=false}={}){
     };
   }
 
+  const restoreLockedButton=$(weekKey==="next"?"restoreLockedNextWeekBtn":"restoreLockedWeekBtn");
+  if(restoreLockedButton){
+    restoreLockedButton.hidden=!hasDurableLocks(weekKey);
+    restoreLockedButton.onclick=()=>{
+      if(!confirm("Bring back every meal you've locked, exactly as locked? This works no matter what else has changed since."))return;
+      restoreDurableLocks(weekKey);
+    };
+  }
+
   if(!plan.length){
     $(target).innerHTML=weekKey==="next"
       ? '<div class="notice">Build next week when you want to shop ahead.</div>'
@@ -1560,6 +1643,12 @@ function renderWeekSection(weekKey="this",{alreadyRebuilt=false}={}){
       const [wk,day]=btn.dataset.lock.split(":");
       const field=lockedProp(wk);
       state[field][day]=!state[field][day];
+      if(state[field][day]){
+        const entry=(state[planProp(wk)]||[]).find(p=>p.day===day);
+        if(entry)recordDurableLock(wk,day,entry.id);
+      }else{
+        clearDurableLock(wk,day);
+      }
       save("state",state);
       renderWeekSection(wk);
     };
@@ -3538,6 +3627,11 @@ window.__dinnerPlannerTest={
   resolveConflictKeepMine:()=>{pendingCloudState=null;renderHouseholdConflict(null);save("state",state);},
   resolveConflictUseTheirs:()=>{if(pendingCloudState){snapshotWeek("this");snapshotWeek("next");applyCloudState(pendingCloudState);}pendingCloudState=null;renderHouseholdConflict(null);},
   hasRestorableSnapshot,
+  cloudConflictsWithLocalLocks,
+  hasDurableLocks,
+  restoreDurableLocks,
+  recordDurableLock,
+  clearDurableLock,
   restoreWeekSnapshot,
   snapshotWeek,
   renderShabbosSlots,
