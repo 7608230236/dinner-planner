@@ -65,7 +65,7 @@ function createRuntime(){
     'community','communitySignedOut','communitySignedIn','appleSignInBtn','googleSignInBtn','communityUserName','communitySignOutBtn',
     'shareRecipeBtn','communityStatus','shareRecipeForm','communityTitle','communityIngredients','addCommunityIngredientBtn',
     'communitySteps','addCommunityStepBtn','submitCommunityRecipeBtn','cancelCommunityRecipeBtn','communityRecipeList',
-    'restoreWeekBtn','restoreNextWeekBtn','householdConflict','closeDeveloperBtnBottom','shabbosSlots','recipeUploadInput'
+    'restoreWeekBtn','restoreNextWeekBtn','householdConflict','closeDeveloperBtnBottom','shabbosSlots','recipeUploadInput','shabbosMenu'
   ])];
   const elements=new Map(ids.map(id=>[id,new FakeElement(id)]));
   elements.get('photoLocation').value='Pantry';
@@ -815,11 +815,22 @@ test('showView shows only the sections for the requested page and hides everythi
   assert.equal(elements.get('week').classList.contains('hidden'),true,'other views should be hidden');
   assert.equal(elements.get('shopping').classList.contains('hidden'),true,'other views should be hidden');
   assert.equal(elements.get('home').classList.contains('hidden'),true,'other views should be hidden');
+  assert.equal(elements.get('shabbosMenu').classList.contains('hidden'),true,'shabbosMenu should be hidden on the pantry view');
 
   api.showView('week');
   assert.equal(elements.get('week').classList.contains('hidden'),false,'week should be visible on the week view');
   assert.equal(elements.get('nextWeek').classList.contains('hidden'),false,'nextWeek is grouped with week and should also be visible');
+  assert.equal(elements.get('shabbosMenu').classList.contains('hidden'),false,'shabbosMenu is grouped with week and should also be visible');
   assert.equal(elements.get('pantry').classList.contains('hidden'),true,'switching views should hide the previous one');
+
+  // The actual bug the user hit: shabbosMenu was never added to any
+  // VIEW_SECTIONS group at all, so showView's hide loop never touched it -
+  // it stayed permanently visible on every single view, including Home,
+  // making the home screen enormous (2600+px of extra content bleeding
+  // through underneath the real home content).
+  api.showView('home');
+  assert.equal(elements.get('home').classList.contains('hidden'),false,'home should be visible on the home view');
+  assert.equal(elements.get('shabbosMenu').classList.contains('hidden'),true,'shabbosMenu must not bleed through onto the home view');
 
   // Switching views should also close the mobile menu, since the sidebar
   // is desktop-only and the hamburger menu is the only way to navigate on

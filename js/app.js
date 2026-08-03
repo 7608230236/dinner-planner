@@ -650,7 +650,7 @@ function scrollToSection(id){$(id)?.scrollIntoView({behavior:"smooth",block:"sta
 // whole app down with it. Now only the active view's sections are visible.
 const VIEW_SECTIONS={
   home:["home"],
-  week:["week","nextWeek"],
+  week:["week","shabbosMenu","nextWeek"],
   pantry:["pantry","receiptScan"],
   shopping:["shopping"],
   community:["community"],
