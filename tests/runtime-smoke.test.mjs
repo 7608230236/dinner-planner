@@ -925,8 +925,10 @@ test('newly added salmon recipes are blocked from weekday auto-suggestion (fish 
     assert.ok(recipe, `${id} should exist in the library`);
     assert.equal(api.recipeAllowed(recipe), false, `${id} must never be weekday-eligible - fish is a weekday-only ban`);
   }
-  const fishCourseOptions = Array.from(api.shabbosSpecialsForCourse('Fish & Salads'));
-  assert.deepEqual(fishCourseOptions.sort(), salmonIds.sort(), 'all 5 salmon recipes should be offered in the Fish & Salads course');
+  const fishCourseOptions = Array.from(api.shabbosSpecialsForCourse('Fish'));
+  for (const id of salmonIds) {
+    assert.ok(fishCourseOptions.includes(id), `${id} should be offered in the Fish course`);
+  }
 });
 
 test('the newly added London broil and chicken recipes are genuinely weekday-eligible (not accidentally excluded)', async () => {
@@ -949,9 +951,9 @@ test('Shabbos menu seeds the household\'s normal course structure by default, wi
   assert.equal(state.shabbosMenu.seuda.enabled,false);
   assert.equal(state.shabbosMenu.motzei.enabled,false);
   const fridayCourseNames=state.shabbosMenu.friday.courses.map(c=>c.name);
-  assert.deepEqual(fridayCourseNames,['Kiddush','Challah','Fish & Salads','Soup','Main Course','Dessert']);
+  assert.deepEqual(fridayCourseNames,['Kiddush','Challah','Fish','Salads','Soup','Main Course','Dessert']);
   const dayCourseNames=state.shabbosMenu.day.courses.map(c=>c.name);
-  assert.deepEqual(dayCourseNames,['Kiddush','Challah','Fish & Salads','Main Course','Dessert']);
+  assert.deepEqual(dayCourseNames,['Kiddush','Challah','Fish','Salads','Main Course','Dessert']);
 });
 
 test('Shabbos menu: courses and dishes can be freely added and removed, and everything chosen (library or custom) flows into the shopping list', async () => {

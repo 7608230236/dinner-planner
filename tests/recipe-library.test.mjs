@@ -15,18 +15,18 @@ async function loadRecipes(){
 
 test('recipe library contains 750 weekday dinners plus a curated set of Shabbos specials',async()=>{
   const recipes=await loadRecipes();
-  assert.equal(recipes.length,785);
-  assert.equal(new Set(Array.from(recipes,r=>r.id)).size,785);
-  assert.equal(new Set(Array.from(recipes,r=>r.title)).size,785);
+  assert.equal(recipes.length,802);
+  assert.equal(new Set(Array.from(recipes,r=>r.id)).size,802);
+  assert.equal(new Set(Array.from(recipes,r=>r.title)).size,802);
   assert.ok(recipes.every(r=>r.family&&r.kind&&r.tags.length&&r.ingredients.length>=4&&r.steps.length===4));
-  assert.equal(new Set(Array.from(recipes,r=>r.family)).size,117);
-  assert.equal(recipes.filter(r=>r.tags.includes('shabbos')).length,14,'the curated Shabbos specials should be tagged shabbos');
+  assert.equal(new Set(Array.from(recipes,r=>r.family)).size,131);
+  assert.equal(recipes.filter(r=>r.tags.includes('shabbos')).length,31,'the curated Shabbos specials should be tagged shabbos');
 });
 
 test('recipe mix has enough meat, dairy, pareve, and break-fast choices',async()=>{
   const recipes=await loadRecipes();
   const counts=Object.fromEntries(['meat','dairy','pareve'].map(kind=>[kind,recipes.filter(r=>r.kind===kind).length]));
-  assert.deepEqual(counts,{meat:400,dairy:227,pareve:158});
+  assert.deepEqual(counts,{meat:403,dairy:227,pareve:172});
   assert.ok(recipes.filter(r=>r.tags.includes('break-fast')).length>=6);
 });
 

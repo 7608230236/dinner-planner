@@ -171,8 +171,8 @@ function normalizeState(raw){
 }
 
 const SHABBOS_DEFAULT_COURSES={
-  friday:["Kiddush","Challah","Fish & Salads","Soup","Main Course","Dessert"],
-  day:["Kiddush","Challah","Fish & Salads","Main Course","Dessert"],
+  friday:["Kiddush","Challah","Fish","Salads","Soup","Main Course","Dessert"],
+  day:["Kiddush","Challah","Fish","Salads","Main Course","Dessert"],
   seuda:["Light Bites"],
   motzei:["Light Meal"]
 };
@@ -751,7 +751,7 @@ function getRecipe(id){return RECIPES.find(r=>r.id===id)}
 // A small curated list of Shabbos-appropriate dishes - kept separate from the
 // weekday library since Shabbos dishes are made ahead and aren't bound by the
 // weekday quick-prep rules. Grows over time.
-const SHABBOS_SPECIALS=["shabbos-roast-chicken-01","shabbos-chicken-soup-01","shabbos-cholent-01","shabbos-challah-01","shabbos-challah-02","shabbos-challah-03","shabbos-challah-04","shabbos-tzimmes-01","shabbos-roast-beef-01","bbq-beef-brisket-01","noodle-kugel-01","shabbos-salmon-01","shabbos-salmon-02","shabbos-salmon-03","shabbos-salmon-04","shabbos-salmon-05"].filter(id=>RECIPES.some(r=>r.id===id));
+const SHABBOS_SPECIALS=["shabbos-roast-chicken-01","shabbos-chicken-soup-01","shabbos-cholent-01","shabbos-cholent-kishke-01","shabbos-cholent-hungarian-01","shabbos-cholent-sweet-01","shabbos-challah-01","shabbos-challah-02","shabbos-challah-03","shabbos-challah-04","shabbos-tzimmes-01","shabbos-roast-beef-01","bbq-beef-brisket-01","shabbos-potato-kugel-01","shabbos-sweet-kugel-01","shabbos-salmon-01","shabbos-salmon-02","shabbos-salmon-03","shabbos-salmon-04","shabbos-salmon-05","shabbos-gefilte-fish-01","shabbos-herring-01","shabbos-israeli-salad-01","shabbos-pomegranate-salad-01","shabbos-roasted-veg-salad-01","shabbos-hummus-01","shabbos-matbucha-01","shabbos-potato-salad-01","shabbos-pareve-chocolate-cake-01","shabbos-fruit-compote-01","shabbos-apple-crumble-01","shabbos-fruit-sorbet-01"].filter(id=>RECIPES.some(r=>r.id===id));
 
 // Which specials make sense for which course. Courses not listed here (custom
 // courses the user names themselves) fall back to showing everything, since
@@ -759,10 +759,11 @@ const SHABBOS_SPECIALS=["shabbos-roast-chicken-01","shabbos-chicken-soup-01","sh
 const SHABBOS_COURSE_SPECIALS={
   "Challah":["shabbos-challah-01","shabbos-challah-02","shabbos-challah-03","shabbos-challah-04"],
   "Soup":["shabbos-chicken-soup-01"],
-  "Main Course":["shabbos-roast-chicken-01","shabbos-cholent-01","shabbos-roast-beef-01","bbq-beef-brisket-01","shabbos-tzimmes-01","noodle-kugel-01"],
+  "Main Course":["shabbos-roast-chicken-01","shabbos-cholent-01","shabbos-cholent-kishke-01","shabbos-cholent-hungarian-01","shabbos-cholent-sweet-01","shabbos-roast-beef-01","bbq-beef-brisket-01","shabbos-tzimmes-01","shabbos-potato-kugel-01","shabbos-sweet-kugel-01"],
   "Kiddush":[],
-  "Fish & Salads":["shabbos-salmon-01","shabbos-salmon-02","shabbos-salmon-03","shabbos-salmon-04","shabbos-salmon-05"],
-  "Dessert":[]
+  "Fish":["shabbos-salmon-01","shabbos-salmon-02","shabbos-salmon-03","shabbos-salmon-04","shabbos-salmon-05","shabbos-gefilte-fish-01","shabbos-herring-01"],
+  "Salads":["shabbos-israeli-salad-01","shabbos-pomegranate-salad-01","shabbos-roasted-veg-salad-01","shabbos-hummus-01","shabbos-matbucha-01","shabbos-potato-salad-01"],
+  "Dessert":["shabbos-pareve-chocolate-cake-01","shabbos-fruit-compote-01","shabbos-apple-crumble-01","shabbos-fruit-sorbet-01"]
 };
 
 function shabbosSpecialsForCourse(courseName){
