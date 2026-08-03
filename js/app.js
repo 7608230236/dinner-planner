@@ -751,13 +751,13 @@ function getRecipe(id){return RECIPES.find(r=>r.id===id)}
 // A small curated list of Shabbos-appropriate dishes - kept separate from the
 // weekday library since Shabbos dishes are made ahead and aren't bound by the
 // weekday quick-prep rules. Grows over time.
-const SHABBOS_SPECIALS=["shabbos-roast-chicken-01","shabbos-chicken-soup-01","shabbos-cholent-01","shabbos-challah-01","shabbos-tzimmes-01","shabbos-roast-beef-01","bbq-beef-brisket-01","noodle-kugel-01"].filter(id=>RECIPES.some(r=>r.id===id));
+const SHABBOS_SPECIALS=["shabbos-roast-chicken-01","shabbos-chicken-soup-01","shabbos-cholent-01","shabbos-challah-01","shabbos-challah-02","shabbos-challah-03","shabbos-challah-04","shabbos-tzimmes-01","shabbos-roast-beef-01","bbq-beef-brisket-01","noodle-kugel-01"].filter(id=>RECIPES.some(r=>r.id===id));
 
 // Which specials make sense for which course. Courses not listed here (custom
 // courses the user names themselves) fall back to showing everything, since
 // there's no way to know intent for a course we don't recognize.
 const SHABBOS_COURSE_SPECIALS={
-  "Challah":["shabbos-challah-01"],
+  "Challah":["shabbos-challah-01","shabbos-challah-02","shabbos-challah-03","shabbos-challah-04"],
   "Soup":["shabbos-chicken-soup-01"],
   "Main Course":["shabbos-roast-chicken-01","shabbos-cholent-01","shabbos-roast-beef-01","bbq-beef-brisket-01","shabbos-tzimmes-01","noodle-kugel-01"],
   "Kiddush":[],

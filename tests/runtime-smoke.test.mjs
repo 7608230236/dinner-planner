@@ -891,7 +891,7 @@ test('the Shabbos specials picker only shows dishes relevant to that course, not
   const {context}=await boot();
   const api=context.window.__dinnerPlannerTest;
   const challahOptions=api.shabbosSpecialsForCourse('Challah');
-  assert.deepEqual(Array.from(challahOptions),['shabbos-challah-01'],'Challah course should only offer the challah special');
+  assert.deepEqual(Array.from(challahOptions),['shabbos-challah-01','shabbos-challah-02','shabbos-challah-03','shabbos-challah-04'],'Challah course should offer all challah variants, not just one');
   const kiddushOptions=api.shabbosSpecialsForCourse('Kiddush');
   assert.deepEqual(Array.from(kiddushOptions),[],'Kiddush has no matching specials yet, so it should show none rather than an irrelevant full list');
   const mainOptions=Array.from(api.shabbosSpecialsForCourse('Main Course'));
