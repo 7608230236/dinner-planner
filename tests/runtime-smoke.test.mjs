@@ -65,7 +65,7 @@ function createRuntime(){
     'community','communitySignedOut','communitySignedIn','appleSignInBtn','googleSignInBtn','communityUserName','communitySignOutBtn',
     'shareRecipeBtn','communityStatus','shareRecipeForm','communityTitle','communityIngredients','addCommunityIngredientBtn',
     'communitySteps','addCommunityStepBtn','submitCommunityRecipeBtn','cancelCommunityRecipeBtn','communityRecipeList',
-    'restoreWeekBtn','restoreNextWeekBtn','householdConflict','closeDeveloperBtnBottom','shabbosSlots','recipeUploadInput','shabbosMenu','dishEditorDialog','dishEditorModal','dishEditorTitle','dishEditorAddRow','dishEditorSave','dishEditorCancel','restoreLockedWeekBtn','restoreLockedNextWeekBtn','restoreShabbosBtn'
+    'restoreWeekBtn','restoreNextWeekBtn','householdConflict','closeDeveloperBtnBottom','shabbosSlots','recipeUploadInput','shabbosMenu','dishEditorDialog','dishEditorModal','dishEditorTitle','dishEditorAddRow','dishEditorSave','dishEditorCancel','restoreLockedWeekBtn','restoreLockedNextWeekBtn','restoreShabbosBtn','recipeScanInput'
   ])];
   const elements=new Map(ids.map(id=>[id,new FakeElement(id)]));
   elements.get('photoLocation').value='Pantry';
@@ -1487,4 +1487,56 @@ test('extractRecipeDocumentText reads a .pdf file by extracting text from every 
   assert.match(text, /Simmer 60 minutes/);
   assert.ok(text.indexOf('Chicken Soup') < text.indexOf('Simmer 60 minutes'), 'pages should be extracted in order');
 });
+
+test('the Shabbos add-your-own sub-panel shows a loading indicator while a Scan/Upload is in flight, instead of leaving the person wondering if anything happened (closes a red-team finding: no visible loading state during document/photo import)', async () => {
+  const {context,elements}=await boot();
+  const api=context.window.__dinnerPlannerTest;
+  const state=api.getState();
+  const course=state.shabbosMenu.friday.courses.find(c=>c.name==='Salads');
+  state.shabbosAddOwnFor=`friday:${course.id}`;
+  state.shabbosImportBusy=`friday:${course.id}`;
+  state.shabbosImportBusyKind='photo';
+  api.setState(state);
+  api.renderShabbosSlots();
+  const html=elements.get('shabbosSlots').innerHTML;
+  assert.match(html,/Reading your photo/,'a photo-specific loading message should show while Scan is in flight');
+  assert.ok(!html.includes('✍️ Write'),'the action buttons should be replaced by the loading indicator, not shown alongside it');
+});
+
+test('importRecipeAndOpenEditor opens the dish editor pre-filled with what recipe-import returned, for both the document-upload and photo-scan paths', async () => {
+  const {context,elements}=await boot();
+  const api=context.window.__dinnerPlannerTest;
+  const state=api.getState();
+  const course=state.shabbosMenu.friday.courses.find(c=>c.name==='Salads');
+  const pickerKey=`friday:${course.id}`;
+
+  context.window.fetch=async()=>({
+    ok:true,
+    json:async()=>({recipe:{title:'Scanned Pomegranate Salad',ingredients:[['pomegranate seeds','1 cup']]}})
+  });
+
+  await api.importRecipeAndOpenEditor(pickerKey,{image:'data:image/jpeg;base64,abc'},'photo','not found');
+  assert.equal(elements.get('dishEditorDialog').open,true,'the dish editor should open on a successful scan/upload');
+  assert.ok(elements.get('dishEditorModal').innerHTML.includes('Scanned Pomegranate Salad'),'the found title should be pre-filled');
+});
+
+test('importRecipeAndOpenEditor shows an error and does not open the dish editor when recipe-import fails or finds nothing', async () => {
+  const {context,elements}=await boot();
+  const api=context.window.__dinnerPlannerTest;
+  const state=api.getState();
+  const course=state.shabbosMenu.friday.courses.find(c=>c.name==='Salads');
+  const pickerKey=`friday:${course.id}`;
+
+  const originalAlert=context.window.alert;
+  let lastAlert='';
+  context.window.alert=msg=>{lastAlert=msg;};
+  context.window.fetch=async()=>({ok:false,json:async()=>({error:'Could not read a recipe from that photo.'})});
+
+  await api.importRecipeAndOpenEditor(pickerKey,{image:'data:image/jpeg;base64,abc'},'photo','fallback message');
+  assert.match(lastAlert,/Could not read a recipe/);
+  assert.ok(!elements.get('dishEditorDialog').open,'the dish editor should not open when nothing was found');
+
+  context.window.alert=originalAlert;
+});
+
 

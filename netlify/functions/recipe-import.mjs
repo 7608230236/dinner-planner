@@ -4,6 +4,7 @@
 // pantry-ai.mjs so it shares the same OpenAI key/model configuration.
 
 const MAX_TEXT_CHARACTERS = 60_000;
+const MAX_IMAGE_CHARACTERS = 8_000_000;
 const MAX_INGREDIENTS = 40;
 const MAX_STEPS = 20;
 
@@ -69,9 +70,10 @@ export async function handler(event) {
   }
 
   const text = typeof body.text === "string" ? body.text.trim() : "";
+  const image = typeof body.image === "string" ? body.image : "";
 
-  if (!text) {
-    return json({ error: "Missing document text." }, 400);
+  if (!text && !image) {
+    return json({ error: "Missing document text or photo." }, 400);
   }
 
   if (text.length > MAX_TEXT_CHARACTERS) {
@@ -84,19 +86,37 @@ export async function handler(event) {
     );
   }
 
-  const prompt = buildPrompt(text);
+  if (image) {
+    if (!image.startsWith("data:image/")) {
+      return json({ error: "Invalid image data URL." }, 400);
+    }
+    if (image.length > MAX_IMAGE_CHARACTERS) {
+      return json(
+        { error: "That photo is too large. Try a closer, single photo of the recipe." },
+        413
+      );
+    }
+  }
+
+  const content = image
+    ? [
+        { type: "input_text", text: buildImagePrompt() },
+        { type: "input_image", image_url: image }
+      ]
+    : [{ type: "input_text", text: buildPrompt(text) }];
 
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), 50_000);
 
   try {
-    const result = await requestRecipe({ apiKey, prompt, controller });
+    const result = await requestRecipe({ apiKey, content, controller });
 
     if (!result.parsed || typeof result.parsed.title !== "string") {
       return json(
         {
-          error:
-            "Could not find a usable recipe in that document. Try a file with just one recipe, or type it in by hand.",
+          error: image
+            ? "Could not read a recipe from that photo. Try a clearer, closer photo, or type it in by hand."
+            : "Could not find a usable recipe in that document. Try a file with just one recipe, or type it in by hand.",
           requestId: result.requestId || "",
           model: result.model || ""
         },
@@ -104,7 +124,7 @@ export async function handler(event) {
       );
     }
 
-    const sanitized = sanitizeRecipe(result.parsed);
+    const sanitized = sanitizeRecipe(result.parsed, image ? "photo" : "document");
 
     if (!sanitized.ok) {
       return json(
@@ -136,7 +156,7 @@ export async function handler(event) {
   }
 }
 
-async function requestRecipe({ apiKey, prompt, controller }) {
+async function requestRecipe({ apiKey, content, controller }) {
   const model = process.env.OPENAI_MODEL || "gpt-4.1-mini-2025-04-14";
 
   const response = await fetch("https://api.openai.com/v1/responses", {
@@ -151,7 +171,7 @@ async function requestRecipe({ apiKey, prompt, controller }) {
       input: [
         {
           role: "user",
-          content: [{ type: "input_text", text: prompt }]
+          content
         }
       ],
       max_output_tokens: 2000,
@@ -160,7 +180,7 @@ async function requestRecipe({ apiKey, prompt, controller }) {
         format: {
           type: "json_schema",
           name: "recipe_import",
-          description: "One structured recipe extracted from an uploaded document.",
+          description: "One structured recipe extracted from an uploaded document or photo.",
           strict: true,
           schema: RECIPE_RESPONSE_SCHEMA
         }
@@ -177,6 +197,21 @@ async function requestRecipe({ apiKey, prompt, controller }) {
   const candidate = extractStructuredOutput(data);
 
   return { parsed: candidate, requestId: data.id || "", model };
+}
+
+function buildImagePrompt() {
+  return `You are reading ONE recipe from a photo for a kosher family dinner-planning app.
+
+The photo may show a recipe card, a cookbook page, or handwritten notes. It may
+contain one recipe, or several - if it contains more than one, extract only
+the first complete recipe.
+
+Return:
+- title: the recipe's name, as written or lightly cleaned up.
+- ingredients: each as {name, amount}. Keep the amount as written (e.g. "2 tbsp", "1 lb", "to taste"). If no amount is given, use an empty string.
+- steps: the cooking instructions as a numbered list of clear, complete sentences. Do not invent steps that are not visible in the photo. If the photo is blurry or a word is unreadable, make your best reasonable reading rather than guessing wildly.
+
+Do not translate or Americanize units. Do not add ingredients that are not visible in the photo.`;
 }
 
 function buildPrompt(text) {
@@ -226,11 +261,11 @@ function extractStructuredOutput(data) {
   return null;
 }
 
-function sanitizeRecipe(raw) {
+function sanitizeRecipe(raw, sourceLabel = "document") {
   const title = String(raw.title || "").trim().slice(0, 120);
 
   if (!title) {
-    return { ok: false, reason: "The document didn't include a clear recipe title." };
+    return { ok: false, reason: `The ${sourceLabel} didn't include a clear recipe title.` };
   }
 
   const ingredients = (Array.isArray(raw.ingredients) ? raw.ingredients : [])
@@ -242,7 +277,7 @@ function sanitizeRecipe(raw) {
     .slice(0, MAX_INGREDIENTS);
 
   if (!ingredients.length) {
-    return { ok: false, reason: "No ingredients could be found in that document." };
+    return { ok: false, reason: `No ingredients could be found in that ${sourceLabel}.` };
   }
 
   const steps = (Array.isArray(raw.steps) ? raw.steps : [])

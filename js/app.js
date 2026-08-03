@@ -1400,9 +1400,12 @@ function renderShabbosPicker(pickerKey,courseName){
   const relevantSpecials=shabbosSpecialsForCourse(courseName);
   if(state.shabbosAddOwnFor===pickerKey){
     return `<div class="shabbos-addown-panel">
+      ${state.shabbosImportBusy===pickerKey?`<div class="tiny" style="padding:6px 4px">⏳ Reading${state.shabbosImportBusyKind==="photo"?" your photo":" your file"}…</div>`:`
       <button type="button" class="btn tiny secondary" data-shabbos-own-write="${pickerKey}">✍️ Write</button>
+      <button type="button" class="btn tiny secondary" data-shabbos-own-scan="${pickerKey}">📷 Scan</button>
       <button type="button" class="btn tiny secondary" data-shabbos-own-upload="${pickerKey}">📄 Upload</button>
       <button type="button" class="btn tiny ghost" data-shabbos-own-cancel="${pickerKey}">✕ Cancel</button>
+      `}
     </div>`;
   }
   const openPanel=state.shabbosPickerFor===pickerKey
@@ -1427,6 +1430,42 @@ function shabbosSaveDish(pickerKey,dish){
   }
   const course=state.shabbosMenu[mealKey].courses.find(c=>c.id===courseId);
   if(course)course.dishes.push(dish);
+}
+
+async function importRecipeAndOpenEditor(pickerKey,payload,kind,notFoundMessage){
+  state.shabbosImportBusy=pickerKey;
+  state.shabbosImportBusyKind=kind;
+  renderShabbosSlots();
+  let data;
+  try{
+    const response=await fetch(`${API_ORIGIN}/.netlify/functions/recipe-import`,{
+      method:"POST",
+      headers:{"Content-Type":"application/json"},
+      body:JSON.stringify(payload)
+    });
+    data=await response.json().catch(()=>({}));
+    if(!response.ok||!data.recipe){
+      alert(data.error||notFoundMessage);
+      return;
+    }
+  }finally{
+    state.shabbosImportBusy=null;
+    state.shabbosImportBusyKind=null;
+    renderShabbosSlots();
+  }
+  openDishEditor({
+    heading:"Here's what we found",
+    helpText:"Edit anything before saving.",
+    initialTitle:data.recipe.title||"",
+    initialIngredients:data.recipe.ingredients||[],
+    onSave:({title,ingredients})=>{
+      shabbosSaveDish(pickerKey,{id:shabbosUid(),mode:"custom",recipeId:null,custom:{title,ingredients},storeLink:""});
+      state.shabbosAddOwnFor=null;
+      recordShabbosDurableBackup();
+      refreshPantryDependencies({renderInventoryToo:false});
+      renderShabbosSlots();
+    }
+  });
 }
 
 function renderShabbosSlots(){
@@ -1592,30 +1631,29 @@ function renderShabbosSlots(){
             alert("Couldn't read any text from that file. Try a .docx, .pdf, or .txt file with the recipe in it.");
             return;
           }
-          const response=await fetch(`${API_ORIGIN}/.netlify/functions/recipe-import`,{
-            method:"POST",
-            headers:{"Content-Type":"application/json"},
-            body:JSON.stringify({text:text.slice(0,60000)})
-          });
-          const data=await response.json().catch(()=>({}));
-          if(!response.ok||!data.recipe){
-            alert(data.error||"Could not read a recipe from that document. Try a file with just one recipe, or write it in by hand.");
-            return;
-          }
-          openDishEditor({
-            heading:"Here's what we found",
-            helpText:"Edit anything before saving.",
-            initialTitle:data.recipe.title||"",
-            initialIngredients:data.recipe.ingredients||[],
-            onSave:({title,ingredients})=>{
-              shabbosSaveDish(pickerKey,{id:shabbosUid(),mode:"custom",recipeId:null,custom:{title,ingredients},storeLink:""});
-              state.shabbosAddOwnFor=null;
-              rerender();
-            }
-          });
+          await importRecipeAndOpenEditor(pickerKey,{text:text.slice(0,60000)},"file","Could not read a recipe from that document. Try a file with just one recipe, or write it in by hand.");
         }catch(error){
           console.error(error);
           alert("Something went wrong reading that document. Try a .docx, .pdf, or .txt file, or write the recipe in by hand.");
+        }
+      };
+      input.click();
+    };
+  });
+  container.querySelectorAll("[data-shabbos-own-scan]").forEach(btn=>{
+    btn.onclick=()=>{
+      const pickerKey=btn.dataset.shabbosOwnScan;
+      const input=$("recipeScanInput");
+      input.value="";
+      input.onchange=async()=>{
+        const file=input.files?.[0];
+        if(!file)return;
+        try{
+          const image=await compressKitchenPhoto(file,1600,.82);
+          await importRecipeAndOpenEditor(pickerKey,{image},"photo","Could not read a recipe from that photo. Try a clearer, closer photo, or write it in by hand.");
+        }catch(error){
+          console.error(error);
+          alert("Something went wrong reading that photo. Try again with a clearer photo, or write the recipe in by hand.");
         }
       };
       input.click();
@@ -3709,6 +3747,7 @@ window.__dinnerPlannerTest={
   hasShabbosDurableBackup,
   restoreShabbosDurableBackup,
   refreshPantryDependencies,
+  importRecipeAndOpenEditor,
   hasDurableLocks,
   restoreDurableLocks,
   recordDurableLock,

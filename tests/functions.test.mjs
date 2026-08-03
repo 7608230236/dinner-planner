@@ -285,3 +285,53 @@ test('recipe-import rejects a document with no findable recipe instead of return
   assert.equal(response.statusCode, 502);
   assert.match(JSON.parse(response.body).error, /didn't include a clear recipe title|title/i);
 });
+
+test('recipe-import also extracts a structured recipe from a photo (Scan), not just document text - the actual feature request was Write/Scan/Upload as parallel options', async () => {
+  process.env.OPENAI_API_KEY = 'test-key';
+  global.fetch = async () => new Response(JSON.stringify({
+    id: 'resp_test',
+    output_text: JSON.stringify({
+      title: 'Roast Chicken',
+      ingredients: [{ name: 'whole chicken', amount: '4 lb' }],
+      steps: ['Roast at 425°F for 75 minutes.']
+    })
+  }), { status: 200, headers: { 'Content-Type': 'application/json' } });
+
+  const response = await recipeImportHandler({
+    httpMethod: 'POST',
+    body: JSON.stringify({ image: 'data:image/jpeg;base64,abc123' })
+  });
+  const body = JSON.parse(response.body);
+  assert.equal(response.statusCode, 200);
+  assert.equal(body.recipe.title, 'Roast Chicken');
+});
+
+test('recipe-import rejects a scan with no image data and a malformed image data URL, mirroring the same validation pantry-ai.mjs already does for photos', async () => {
+  process.env.OPENAI_API_KEY = 'test-key';
+
+  const noImageNoText = await recipeImportHandler({ httpMethod: 'POST', body: JSON.stringify({}) });
+  assert.equal(noImageNoText.statusCode, 400);
+
+  const badImage = await recipeImportHandler({
+    httpMethod: 'POST',
+    body: JSON.stringify({ image: 'not-a-data-url' })
+  });
+  assert.equal(badImage.statusCode, 400);
+  assert.match(JSON.parse(badImage.body).error, /Invalid image/);
+});
+
+test('recipe-import gives a photo-specific error message when nothing readable is found in a scan, distinct from the document-upload message', async () => {
+  process.env.OPENAI_API_KEY = 'test-key';
+  global.fetch = async () => new Response(JSON.stringify({
+    id: 'resp_test',
+    output_text: JSON.stringify({ title: '', ingredients: [], steps: [] })
+  }), { status: 200, headers: { 'Content-Type': 'application/json' } });
+
+  const response = await recipeImportHandler({
+    httpMethod: 'POST',
+    body: JSON.stringify({ image: 'data:image/jpeg;base64,abc123' })
+  });
+  assert.equal(response.statusCode, 502);
+  assert.match(JSON.parse(response.body).error, /photo/i);
+});
+
