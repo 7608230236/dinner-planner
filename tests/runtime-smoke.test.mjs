@@ -805,6 +805,23 @@ test('downloadJson tries the native Share Sheet first (the actual bug: a plain B
   assert.equal(downloaded,'downloaded');
 });
 
+test('every top-level section in index.html is registered in exactly one VIEW_SECTIONS group (the actual bug: shabbosMenu was added but never registered, so it was never hidden and bled through onto every single view, including Home - this test catches the next section that makes the same mistake, not just this one)', async () => {
+  const html = await readFile(resolve(root, 'index.html'), 'utf8');
+  const {context} = await boot();
+  const api = context.window.__dinnerPlannerTest;
+
+  const sectionIds = [...html.matchAll(/<section\s+class="(?:card|hero)"\s+id="([a-zA-Z]+)"/g)].map(m => m[1]);
+  assert.ok(sectionIds.length > 5, 'sanity check: should have found multiple top-level sections');
+
+  const registeredIds = new Set();
+  for (const ids of Object.values(api.VIEW_SECTIONS)) {
+    for (const id of ids) registeredIds.add(id);
+  }
+
+  const unregistered = sectionIds.filter(id => !registeredIds.has(id));
+  assert.deepEqual(unregistered, [], `these top-level sections are not registered in any VIEW_SECTIONS group and will bleed through onto every view: ${unregistered.join(', ')}`);
+});
+
 test('showView shows only the sections for the requested page and hides everything else (the actual bug: the sidebar/menu looked like real page navigation but was only scroll-to-anchor, so a large pantry section - photos, inventory, receipt scanner - dragged the whole single continuously-scrolling app down with it)', async () => {
   const {context,elements}=await boot();
   const api=context.window.__dinnerPlannerTest;

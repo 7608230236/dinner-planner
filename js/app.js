@@ -3322,6 +3322,7 @@ window.__dinnerPlannerTest={
   getHouseholdCode:()=>householdCode,
   downloadJson,
   showView,
+  VIEW_SECTIONS,
   offerToDeleteScannedPhotos,
   getPendingCloudConflict:()=>pendingCloudState?{conflicts:cloudConflictsWithLocalLocks(pendingCloudState)}:null,
   resolveConflictKeepMine:()=>{pendingCloudState=null;renderHouseholdConflict(null);save("state",state);},
