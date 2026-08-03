@@ -65,7 +65,7 @@ function createRuntime(){
     'community','communitySignedOut','communitySignedIn','appleSignInBtn','googleSignInBtn','communityUserName','communitySignOutBtn',
     'shareRecipeBtn','communityStatus','shareRecipeForm','communityTitle','communityIngredients','addCommunityIngredientBtn',
     'communitySteps','addCommunityStepBtn','submitCommunityRecipeBtn','cancelCommunityRecipeBtn','communityRecipeList',
-    'restoreWeekBtn','restoreNextWeekBtn','householdConflict','closeDeveloperBtnBottom','shabbosSlots','recipeUploadInput','shabbosMenu'
+    'restoreWeekBtn','restoreNextWeekBtn','householdConflict','closeDeveloperBtnBottom','shabbosSlots','recipeUploadInput','shabbosMenu','dishEditorDialog','dishEditorModal','dishEditorTitle','dishEditorAddRow','dishEditorSave','dishEditorCancel'
   ])];
   const elements=new Map(ids.map(id=>[id,new FakeElement(id)]));
   elements.get('photoLocation').value='Pantry';
@@ -979,9 +979,128 @@ test('Shabbos menu seeds the household\'s normal course structure by default, wi
   assert.equal(state.shabbosMenu.seuda.enabled,false);
   assert.equal(state.shabbosMenu.motzei.enabled,false);
   const fridayCourseNames=state.shabbosMenu.friday.courses.map(c=>c.name);
-  assert.deepEqual(fridayCourseNames,['Kiddush','Challah','Fish','Salads','Soup','Main Course','Dessert']);
+  assert.deepEqual(fridayCourseNames,['Fish','Salads','Soup','Main Course','Dessert'],'Kiddush and Challah are Table Basics now, not courses');
   const dayCourseNames=state.shabbosMenu.day.courses.map(c=>c.name);
-  assert.deepEqual(dayCourseNames,['Kiddush','Challah','Fish','Salads','Main Course','Dessert']);
+  assert.deepEqual(dayCourseNames,['Fish','Salads','Main Course','Dessert']);
+});
+
+test('Table Basics: Kiddush (wine) and Challah exist for Friday night and Shabbos day, with no basics for Seuda Shlishit/Motzei, and baking is not pre-selected over buying (bake-first is a UI ordering choice, not a forced default)', async () => {
+  const {context}=await boot();
+  const api=context.window.__dinnerPlannerTest;
+  const state=api.getState();
+  assert.ok(state.shabbosMenu.friday.basics,'Friday night should have Table Basics');
+  assert.ok(state.shabbosMenu.day.basics,'Shabbos day should have Table Basics');
+  assert.equal(state.shabbosMenu.seuda.basics,null,'Seuda Shlishit has no Table Basics');
+  assert.equal(state.shabbosMenu.motzei.basics,null,'Motzei Shabbos has no Table Basics');
+  assert.equal(state.shabbosMenu.friday.basics.wine.haveIt,false);
+  assert.equal(state.shabbosMenu.friday.basics.challah.mode,null,'no mode chosen by default - the user picks bake or buy themselves');
+});
+
+test('Table Basics: choosing to bake Challah adds its ingredients to the shopping list; choosing to buy it adds a generic Challah item unless one is already in the pantry', async () => {
+  const {context}=await boot();
+  const api=context.window.__dinnerPlannerTest;
+  let state=api.getState();
+
+  // Buying, nothing in pantry: a generic Challah item should be needed.
+  state.shabbosMenu.friday.basics.challah.mode='buy';
+  api.setState(state);
+  let recipes=api.shabbosSelectedRecipes();
+  assert.ok(recipes.some(r=>r.title==='Challah'),'buying challah with none in the pantry should add it to the shopping list');
+
+  // Buying, but already in the pantry: should not be added again.
+  state=api.getState();
+  state.have=[{id:'h1',item:'Challah',label:'Challah',qty:1,unit:'each',confidence:'high',category:'other',reviewed:true}];
+  api.setState(state);
+  recipes=api.shabbosSelectedRecipes();
+  assert.ok(!recipes.some(r=>r.title==='Challah'),'challah already in the pantry should not be added to the shopping list again');
+
+  // Baking: the chosen dish's real ingredients should be added instead.
+  state=api.getState();
+  state.shabbosMenu.friday.basics.challah={mode:'bake',dish:{id:'d1',mode:'library',recipeId:'shabbos-challah-01',custom:null,storeLink:''}};
+  api.setState(state);
+  recipes=api.shabbosSelectedRecipes();
+  assert.ok(recipes.some(r=>r.id==='shabbos-challah-01'),'baking should add the chosen challah recipe and its real ingredients');
+});
+
+test('Table Basics: wine/grape juice is added to the shopping list only when marked as needed, not when already have it', async () => {
+  const {context}=await boot();
+  const api=context.window.__dinnerPlannerTest;
+  let state=api.getState();
+
+  let recipes=api.shabbosSelectedRecipes();
+  assert.ok(recipes.some(r=>r.title==='Wine or Grape Juice'),'wine should be needed by default');
+
+  state=api.getState();
+  state.shabbosMenu.friday.basics.wine.haveIt=true;
+  api.setState(state);
+  recipes=api.shabbosSelectedRecipes();
+  assert.ok(!recipes.some(r=>r.title==='Wine or Grape Juice'&&r.id.includes('friday')),'wine already on hand should not be added to the shopping list');
+});
+
+test('the dish editor modal opens with pre-filled fields, lets you edit them, and calls back with the edited values on Save (this is the real form that replaced every prompt() popup in the Shabbos flow)', async () => {
+  const {context,elements}=await boot();
+  const api=context.window.__dinnerPlannerTest;
+  let saved=null;
+  api.openDishEditor({
+    heading:'Test dish',
+    initialTitle:'Original Title',
+    initialIngredients:[['flour','2 cups'],['sugar','1 cup']],
+    onSave:(result)=>{saved=result;}
+  });
+  assert.equal(elements.get('dishEditorDialog').open,true,'the dialog should open');
+  assert.ok(elements.get('dishEditorModal').innerHTML.includes('Original Title'),'the title should be pre-filled in the rendered form');
+  assert.ok(elements.get('dishEditorModal').innerHTML.includes('flour'),'ingredients should be pre-filled in the rendered form');
+
+  const titleInput=context.window.document.getElementById('dishEditorTitle');
+  titleInput.value='Edited Title';
+  context.window.document.getElementById('dishEditorSave').onclick();
+  assert.ok(saved,'onSave should have been called');
+  assert.equal(saved.title,'Edited Title');
+  assert.equal(JSON.stringify(saved.ingredients),JSON.stringify([['flour','2 cups'],['sugar','1 cup']]),'unedited ingredient rows should save as-is');
+});
+
+test('the dish editor rejects saving with no title or no ingredients, instead of silently saving something broken', async () => {
+  const {context} = await boot();
+  const api = context.window.__dinnerPlannerTest;
+  let saveCalls = 0;
+  const originalAlert = context.window.alert;
+  let lastAlert = '';
+  context.window.alert = msg => { lastAlert = msg; };
+
+  api.openDishEditor({ initialTitle: '', initialIngredients: [], onSave: () => { saveCalls++; } });
+  context.window.document.getElementById('dishEditorSave').onclick();
+  assert.equal(saveCalls, 0, 'should not save with an empty title');
+  assert.match(lastAlert, /dish name/i);
+
+  context.window.document.getElementById('dishEditorTitle').value = 'Something';
+  context.window.document.getElementById('dishEditorTitle').oninput?.();
+  context.window.document.getElementById('dishEditorSave').onclick();
+  assert.equal(saveCalls, 0, 'should not save with no ingredients entered');
+
+  context.window.alert = originalAlert;
+});
+
+test('Add your own hides the two top-level buttons while its Write/Upload sub-panel is open, instead of showing both at once (the actual UX issue the user caught in the mockup review)', async () => {
+  const {context, elements} = await boot();
+  const api = context.window.__dinnerPlannerTest;
+  api.buildPlan();
+  const state = api.getState();
+  const course = state.shabbosMenu.friday.courses.find(c => c.name === 'Salads');
+  const pickerKey = `friday:${course.id}`;
+
+  let html = elements.get('shabbosSlots').innerHTML;
+  const dmeSpecialCountBefore = (html.match(/\+ DmE special/g) || []).length;
+  assert.ok(dmeSpecialCountBefore > 0, 'the collapsed state should show top-level buttons somewhere');
+  assert.ok(!html.includes('✍️ Write'), 'the Write/Upload sub-panel should not be open yet');
+
+  state.shabbosAddOwnFor = pickerKey;
+  api.setState(state);
+  api.renderShabbosSlots();
+  html = elements.get('shabbosSlots').innerHTML;
+  const dmeSpecialCountAfter = (html.match(/\+ DmE special/g) || []).length;
+  assert.equal(dmeSpecialCountAfter, dmeSpecialCountBefore - 1, 'exactly one course (the one with its sub-panel open) should lose its top-level buttons');
+  assert.ok(html.includes('✍️ Write'), 'the Write option should be visible once the sub-panel is open');
+  assert.ok(html.includes('📄 Upload'), 'the Upload option should be visible once the sub-panel is open');
 });
 
 test('Shabbos menu: courses and dishes can be freely added and removed, and everything chosen (library or custom) flows into the shopping list', async () => {
