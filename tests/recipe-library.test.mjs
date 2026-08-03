@@ -26,7 +26,7 @@ test('recipe library contains 750 weekday dinners plus a curated set of Shabbos 
 test('recipe mix has enough meat, dairy, pareve, and break-fast choices',async()=>{
   const recipes=await loadRecipes();
   const counts=Object.fromEntries(['meat','dairy','pareve'].map(kind=>[kind,recipes.filter(r=>r.kind===kind).length]));
-  assert.deepEqual(counts,{meat:403,dairy:227,pareve:172});
+  assert.deepEqual(counts,{meat:403,dairy:225,pareve:174});
   assert.ok(recipes.filter(r=>r.tags.includes('break-fast')).length>=6);
 });
 
@@ -76,4 +76,10 @@ test('a recipe\'s declared total time is honest about what its own steps actuall
       assert.ok(hi<=declaredMin+5,`${recipe.id} declares "${recipe.time}" but a step says "${mm[0]}"`);
     }
   }
+});
+
+test('no Shabbos-tagged recipe is ever dairy (the actual bug: two salmon recipes used real Cholov Yisroel butter and were offered in the same Fish course pool as meat mains at a meat Shabbos meal - fixed to pareve margarine)',async()=>{
+  const recipes=await loadRecipes();
+  const shabbosDairy=recipes.filter(r=>r.tags.includes('shabbos')&&r.kind==='dairy');
+  assert.deepEqual(Array.from(shabbosDairy).map(r=>r.id),[],'no Shabbos recipe should be dairy, since Friday night/Shabbos day are meat meals');
 });
