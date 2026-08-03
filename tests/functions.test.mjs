@@ -134,11 +134,17 @@ test('every function includes CORS headers on every response (the actual bug: th
     );
   }
 
-  // household-sync is now a v2 (Request/Response) function, tested separately.
+  // household-sync and recipe-photos are v2 (Request/Response) functions, tested separately.
   const optionsResponse = await householdHandler(new Request('https://x.test/household-sync', { method: 'OPTIONS' }));
   assert.equal(optionsResponse.headers.get('Access-Control-Allow-Origin'), '*', 'household-sync (OPTIONS) is missing CORS header');
   const getResponse = await householdHandler(new Request('https://x.test/household-sync?code=BADCODE'));
   assert.equal(getResponse.headers.get('Access-Control-Allow-Origin'), '*', 'household-sync (GET) is missing CORS header');
+
+  const { default: photosHandler } = await import('../netlify/functions/recipe-photos.mjs');
+  const photosOptions = await photosHandler(new Request('https://x.test/recipe-photos', { method: 'OPTIONS' }));
+  assert.equal(photosOptions.headers.get('Access-Control-Allow-Origin'), '*', 'recipe-photos (OPTIONS) is missing CORS header');
+  const photosGet = await photosHandler(new Request('https://x.test/recipe-photos?recipeId=bad id'));
+  assert.equal(photosGet.headers.get('Access-Control-Allow-Origin'), '*', 'recipe-photos (GET) is missing CORS header');
 });
 
 test('household-sync surfaces a proper JSON error (not a crash) when no Blobs store is reachable at all - this is a real production risk: if both the explicit-credential store AND the automatic-context store fail (as actually happened in production - the explicit credentials went stale and every operation returned a 401), every sync/join attempt needs to fail loudly with a real message rather than crash or silently do nothing', async () => {
@@ -334,4 +340,53 @@ test('recipe-import gives a photo-specific error message when nothing readable i
   assert.equal(response.statusCode, 502);
   assert.match(JSON.parse(response.body).error, /photo/i);
 });
+
+test('recipe-photos surfaces a proper JSON error (not a crash) when no Blobs store is reachable at all, same as household-sync', async () => {
+  const { default: handler } = await import('../netlify/functions/recipe-photos.mjs');
+  delete process.env.NETLIFY_BLOBS_SITE_ID;
+  delete process.env.SITE_ID;
+  delete process.env.NETLIFY_BLOBS_TOKEN;
+
+  const response = await handler(new Request('https://x.test/recipe-photos?recipeId=beef-tacos-01'));
+  const body = await response.json();
+  assert.equal(response.status, 500);
+  assert.match(body.error, /Recipe photo storage failed/);
+  assert.equal(response.headers.get('Access-Control-Allow-Origin'), '*');
+});
+
+test('recipe-photos validates recipe ids, image data, and actions before ever touching storage', async () => {
+  process.env.NETLIFY_BLOBS_SITE_ID = 'test-site-id';
+  process.env.NETLIFY_BLOBS_TOKEN = 'test-token';
+  const { default: handler } = await import('../netlify/functions/recipe-photos.mjs?fresh=' + Date.now());
+
+  const badRecipeId = await handler(new Request('https://x.test/recipe-photos?recipeId=' + encodeURIComponent('bad id!')));
+  assert.equal(badRecipeId.status, 400);
+  assert.match((await badRecipeId.json()).error, /Invalid recipe id/);
+
+  const missingImage = await handler(new Request('https://x.test/recipe-photos', {
+    method: 'POST',
+    body: JSON.stringify({ recipeId: 'beef-tacos-01' })
+  }));
+  assert.equal(missingImage.status, 400);
+  assert.match((await missingImage.json()).error, /Invalid image data/);
+
+  const badImageFormat = await handler(new Request('https://x.test/recipe-photos', {
+    method: 'POST',
+    body: JSON.stringify({ recipeId: 'beef-tacos-01', image: 'not-a-data-url' })
+  }));
+  assert.equal(badImageFormat.status, 400);
+
+  const badMethod = await handler(new Request('https://x.test/recipe-photos', { method: 'DELETE' }));
+  assert.equal(badMethod.status, 405);
+
+  const badFavoriteRecipeId = await handler(new Request('https://x.test/recipe-photos', {
+    method: 'POST',
+    body: JSON.stringify({ recipeId: 'nope nope', action: 'favorite', photoId: 'p1' })
+  }));
+  assert.equal(badFavoriteRecipeId.status, 400);
+
+  delete process.env.NETLIFY_BLOBS_SITE_ID;
+  delete process.env.NETLIFY_BLOBS_TOKEN;
+});
+
 

@@ -3,9 +3,16 @@
 Single source of truth for what works, what's broken, and what changed.
 Update this file every time a fix is made or verified — don't rely on chat history.
 
-Last updated: 2026-08-03 by Claude (Shabbos Menu red-team fix list - fully complete)
+Last updated: 2026-08-03 by Claude (recipe photo gallery in progress + important test-environment finding)
 
 ---
+
+## Important finding: the "4 pre-existing test failures" all session were just a missing `npm install`
+
+Every session this project has been worked on, `tests/community.test.mjs`, the CORS-header test, and both `household-sync` Blobs tests have failed with what looked like environment-only issues (`@netlify/blobs` module not found). They were treated as pre-existing and unrelated to whatever was being worked on - correctly, in that they were consistently reproducible and never caused by anything in-session. But the actual root cause was simpler than assumed: **`node_modules` was never installed in the sandbox.** Running `npm install` (dependencies are already correctly declared in `package.json`) resolves all of them - the full suite goes from 4 failing to 0 failing. **Any future session should run `npm install` before trusting a "these failures are pre-existing" assumption.**
+
+---
+
 
 ## Shabbos Menu build list - complete (2026-08-03, same day as the overnight session above)
 
