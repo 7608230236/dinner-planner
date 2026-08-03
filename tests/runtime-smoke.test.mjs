@@ -65,7 +65,7 @@ function createRuntime(){
     'community','communitySignedOut','communitySignedIn','appleSignInBtn','googleSignInBtn','communityUserName','communitySignOutBtn',
     'shareRecipeBtn','communityStatus','shareRecipeForm','communityTitle','communityIngredients','addCommunityIngredientBtn',
     'communitySteps','addCommunityStepBtn','submitCommunityRecipeBtn','cancelCommunityRecipeBtn','communityRecipeList',
-    'restoreWeekBtn','restoreNextWeekBtn','householdConflict','closeDeveloperBtnBottom','shabbosSlots','recipeUploadInput','shabbosMenu','dishEditorDialog','dishEditorModal','dishEditorTitle','dishEditorAddRow','dishEditorSave','dishEditorCancel','restoreLockedWeekBtn','restoreLockedNextWeekBtn','restoreShabbosBtn','recipeScanInput'
+    'restoreWeekBtn','restoreNextWeekBtn','householdConflict','closeDeveloperBtnBottom','shabbosSlots','recipeUploadInput','shabbosMenu','dishEditorDialog','dishEditorModal','dishEditorTitle','dishEditorAddRow','dishEditorSave','dishEditorCancel','restoreLockedWeekBtn','restoreLockedNextWeekBtn','restoreShabbosBtn','recipeScanInput','dishEditorSteps'
   ])];
   const elements=new Map(ids.map(id=>[id,new FakeElement(id)]));
   elements.get('photoLocation').value='Pantry';
@@ -1538,5 +1538,59 @@ test('importRecipeAndOpenEditor shows an error and does not open the dish editor
 
   context.window.alert=originalAlert;
 });
+
+test('offerCommunityShare does nothing (no prompt at all) for a dish with no steps, since there is nothing meaningful to share with the community', async () => {
+  const {context} = await boot();
+  const api = context.window.__dinnerPlannerTest;
+  let confirmCalled = false;
+  context.window.confirm = () => { confirmCalled = true; return false; };
+  await api.offerCommunityShare({ title: 'Just ingredients, no steps', ingredients: [['flour', '1 cup']], steps: [] });
+  assert.equal(confirmCalled, false, 'a dish with no steps should never even prompt to share');
+});
+
+test('offerCommunityShare, when not signed in, offers to go to Community instead of silently failing or silently skipping', async () => {
+  const {context} = await boot();
+  const api = context.window.__dinnerPlannerTest;
+  api.setCommunitySessionForTest(null);
+  context.window.confirm = () => true;
+  await api.offerCommunityShare({ title: 'Test Dish', ingredients: [['flour', '1 cup']], steps: ['Mix and bake.'] });
+  assert.equal(api.getState().activeView, 'community', 'accepting the sign-in prompt should navigate to the Community view');
+});
+
+test('offerCommunityShare submits the dish to the community with correctly-shaped ingredients ({name,amount} objects, not [name,qty] pairs) when signed in and confirmed', async () => {
+  const {context} = await boot();
+  const api = context.window.__dinnerPlannerTest;
+  api.setCommunitySessionForTest({ sessionToken: 'test-token' });
+  context.window.confirm = () => true;
+  let capturedBody = null;
+  context.window.fetch = async (url, opts) => {
+    capturedBody = JSON.parse(opts.body);
+    return { ok: true, json: async () => ({ ok: true }) };
+  };
+  const originalAlert = context.window.alert;
+  context.window.alert = () => {};
+
+  await api.offerCommunityShare({ title: "Grandma's Kugel", ingredients: [['noodles', '1 lb'], ['sugar', '0.5 cup']], steps: ['Mix everything.', 'Bake 45 minutes.'] });
+
+  assert.ok(capturedBody, 'the community-recipes endpoint should have been called');
+  assert.equal(capturedBody.sessionToken, 'test-token');
+  assert.equal(capturedBody.title, "Grandma's Kugel");
+  assert.deepEqual(JSON.parse(JSON.stringify(capturedBody.ingredients)), [{ name: 'noodles', amount: '1 lb' }, { name: 'sugar', amount: '0.5 cup' }]);
+  assert.deepEqual(JSON.parse(JSON.stringify(capturedBody.steps)), ['Mix everything.', 'Bake 45 minutes.']);
+
+  context.window.alert = originalAlert;
+});
+
+test('offerCommunityShare does not call the API at all if the user declines the initial "share this?" confirm', async () => {
+  const {context} = await boot();
+  const api = context.window.__dinnerPlannerTest;
+  api.setCommunitySessionForTest({ sessionToken: 'test-token' });
+  context.window.confirm = () => false;
+  let fetchCalled = false;
+  context.window.fetch = async () => { fetchCalled = true; return { ok: true, json: async () => ({}) }; };
+  await api.offerCommunityShare({ title: 'Test Dish', ingredients: [['flour', '1 cup']], steps: ['Mix and bake.'] });
+  assert.equal(fetchCalled, false, 'declining the share prompt should never call the API');
+});
+
 
 

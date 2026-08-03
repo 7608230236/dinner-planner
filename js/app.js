@@ -214,7 +214,11 @@ function normalizeShabbosDish(raw){
     id: typeof raw.id==="string"?raw.id:shabbosUid(),
     mode,
     recipeId: mode==="library"?raw.recipeId:null,
-    custom: mode==="custom"?{title:raw.custom.title,ingredients:raw.custom.ingredients.filter(pair=>Array.isArray(pair)&&pair[0]).map(pair=>[String(pair[0]),String(pair[1]||"")])}:null,
+    custom: mode==="custom"?{
+      title:raw.custom.title,
+      ingredients:raw.custom.ingredients.filter(pair=>Array.isArray(pair)&&pair[0]).map(pair=>[String(pair[0]),String(pair[1]||"")]),
+      steps:Array.isArray(raw.custom.steps)?raw.custom.steps.map(s=>String(s||"").trim()).filter(Boolean):[]
+    }:null,
     storeLink: mode==="store"?String(raw.storeLink||""):""
   };
 }
@@ -875,7 +879,7 @@ function shabbosMeal(key){
 function shabbosRecipeForDish(dish,courseName){
   if(!dish)return null;
   if(dish.mode==="library"&&dish.recipeId)return getRecipe(dish.recipeId)||null;
-  if(dish.mode==="custom"&&dish.custom)return {id:`shabbos-custom-${dish.id}`,title:dish.custom.title,ingredients:dish.custom.ingredients,steps:[],tags:["shabbos","custom"],kind:"other",courseName};
+  if(dish.mode==="custom"&&dish.custom)return {id:`shabbos-custom-${dish.id}`,title:dish.custom.title,ingredients:dish.custom.ingredients,steps:dish.custom.steps||[],tags:["shabbos","custom"],kind:"other",courseName};
   return null;
 }
 
@@ -1238,14 +1242,14 @@ function shabbosDishSummary(dish){
 let dishEditorRows=[];
 let dishEditorOnSave=null;
 
-function openDishEditor({heading="Write your own recipe",helpText="",initialTitle="",initialIngredients=[],onSave}){
+function openDishEditor({heading="Write your own recipe",helpText="",initialTitle="",initialIngredients=[],initialSteps=[],onSave}){
   dishEditorRows=(initialIngredients.length?initialIngredients:[["",""]]).map(([name,qty])=>({id:shabbosUid(),name,qty}));
   dishEditorOnSave=onSave;
-  renderDishEditor(heading,helpText,initialTitle);
+  renderDishEditor(heading,helpText,initialTitle,initialSteps.join("\n"));
   $("dishEditorDialog").showModal();
 }
 
-function renderDishEditor(heading,helpText,titleValue){
+function renderDishEditor(heading,helpText,titleValue,stepsValue){
   const modal=$("dishEditorModal");
   modal.innerHTML=`
     <div class="recipe-head" style="margin-top:16px">
@@ -1269,6 +1273,10 @@ function renderDishEditor(heading,helpText,titleValue){
       </div>
       <button type="button" class="btn tiny secondary" id="dishEditorAddRow" style="margin-top:8px">+ Add ingredient</button>
     </div>
+    <div style="margin-top:14px">
+      <label class="tiny muted" for="dishEditorSteps">Instructions (optional, one step per line)</label>
+      <textarea class="text-input" id="dishEditorSteps" rows="4" placeholder="e.g.&#10;Preheat the oven to 375°F.&#10;Mix everything together and pour into a pan.&#10;Bake 40 minutes." style="margin-top:4px;resize:vertical">${esc(stepsValue||"")}</textarea>
+    </div>
     <div class="row modal-close-row-bottom" style="justify-content:space-between">
       <button type="button" class="btn small secondary" id="dishEditorCancel">Cancel</button>
       <button type="button" class="btn small" id="dishEditorSave">Save</button>
@@ -1284,12 +1292,12 @@ function renderDishEditor(heading,helpText,titleValue){
     btn.onclick=()=>{
       dishEditorRows=dishEditorRows.filter(r=>r.id!==btn.dataset.dishRowRemove);
       if(!dishEditorRows.length)dishEditorRows=[{id:shabbosUid(),name:"",qty:""}];
-      renderDishEditor(heading,helpText,$("dishEditorTitle").value);
+      renderDishEditor(heading,helpText,$("dishEditorTitle").value,$("dishEditorSteps").value);
     };
   });
   $("dishEditorAddRow").onclick=()=>{
     dishEditorRows.push({id:shabbosUid(),name:"",qty:""});
-    renderDishEditor(heading,helpText,$("dishEditorTitle").value);
+    renderDishEditor(heading,helpText,$("dishEditorTitle").value,$("dishEditorSteps").value);
   };
   $("dishEditorCancel").onclick=()=>{$("dishEditorDialog").close();dishEditorOnSave=null;};
   $("dishEditorSave").onclick=()=>{
@@ -1297,10 +1305,11 @@ function renderDishEditor(heading,helpText,titleValue){
     if(!title){alert("Please enter a dish name.");return;}
     const ingredients=dishEditorRows.map(r=>[r.name.trim(),r.qty.trim()]).filter(([name])=>name);
     if(!ingredients.length){alert("Please enter at least one ingredient.");return;}
+    const steps=$("dishEditorSteps").value.split("\n").map(s=>s.trim()).filter(Boolean);
     const callback=dishEditorOnSave;
     $("dishEditorDialog").close();
     dishEditorOnSave=null;
-    if(callback)callback({title,ingredients});
+    if(callback)callback({title,ingredients,steps});
   };
 }
 
@@ -1458,14 +1467,45 @@ async function importRecipeAndOpenEditor(pickerKey,payload,kind,notFoundMessage)
     helpText:"Edit anything before saving.",
     initialTitle:data.recipe.title||"",
     initialIngredients:data.recipe.ingredients||[],
-    onSave:({title,ingredients})=>{
-      shabbosSaveDish(pickerKey,{id:shabbosUid(),mode:"custom",recipeId:null,custom:{title,ingredients},storeLink:""});
+    initialSteps:data.recipe.steps||[],
+    onSave:({title,ingredients,steps})=>{
+      shabbosSaveDish(pickerKey,{id:shabbosUid(),mode:"custom",recipeId:null,custom:{title,ingredients,steps},storeLink:""});
       state.shabbosAddOwnFor=null;
       recordShabbosDurableBackup();
       refreshPantryDependencies({renderInventoryToo:false});
       renderShabbosSlots();
+      offerCommunityShare({title,ingredients,steps});
     }
   });
+}
+
+async function offerCommunityShare(customDish){
+  if(!customDish.steps||!customDish.steps.length)return;
+  if(!communitySession?.sessionToken){
+    if(confirm(`Share "${customDish.title}" with the community too? You'll need to sign in first - go to Community now?`)){
+      showView("community");
+    }
+    return;
+  }
+  if(!confirm(`Share "${customDish.title}" with the community?`))return;
+  try{
+    const response=await fetch(`${API_ORIGIN}/.netlify/functions/community-recipes`,{
+      method:"POST",
+      headers:{"Content-Type":"application/json"},
+      body:JSON.stringify({
+        sessionToken:communitySession.sessionToken,
+        title:customDish.title,
+        ingredients:customDish.ingredients.map(([name,amount])=>({name,amount})),
+        steps:customDish.steps
+      })
+    });
+    const data=await response.json().catch(()=>({}));
+    if(!response.ok)throw new Error(data.error||"Could not publish this recipe.");
+    alert(`"${customDish.title}" was shared with the community!`);
+    loadCommunityRecipes();
+  }catch(error){
+    alert(error?.message||"Could not share this recipe with the community.");
+  }
 }
 
 function renderShabbosSlots(){
@@ -1609,10 +1649,11 @@ function renderShabbosSlots(){
       const pickerKey=btn.dataset.shabbosOwnWrite;
       openDishEditor({
         heading:"Write your own recipe",
-        onSave:({title,ingredients})=>{
-          shabbosSaveDish(pickerKey,{id:shabbosUid(),mode:"custom",recipeId:null,custom:{title,ingredients},storeLink:""});
+        onSave:({title,ingredients,steps})=>{
+          shabbosSaveDish(pickerKey,{id:shabbosUid(),mode:"custom",recipeId:null,custom:{title,ingredients,steps},storeLink:""});
           state.shabbosAddOwnFor=null;
           rerender();
+          offerCommunityShare({title,ingredients,steps});
         }
       });
     };
@@ -3748,6 +3789,8 @@ window.__dinnerPlannerTest={
   restoreShabbosDurableBackup,
   refreshPantryDependencies,
   importRecipeAndOpenEditor,
+  offerCommunityShare,
+  setCommunitySessionForTest:s=>{communitySession=s;},
   hasDurableLocks,
   restoreDurableLocks,
   recordDurableLock,
