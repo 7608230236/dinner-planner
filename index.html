@@ -68,6 +68,14 @@
       <div class="hero-copy">
         <h1>What should we cook this week?</h1>
         <p class="subtitle">A Sunday–Thursday dinner plan based on your family, stores, and what you already have.</p>
+        <details class="have-summary">
+          <summary>❓ How this works</summary>
+          <div class="have-body">
+            <p>Set your portions, then tap <b>Build this week's dinners</b> to get 5 weeknight meals based on your saved preferences, stores, and what's already in your pantry.</p>
+            <p>Locked meals stay put when you rebuild. You can replace a single day, plan next week too, and everything feeds automatically into your shopping list.</p>
+            <p>Want your spouse's phone to show the same plan? Set up sync under <b>Family account</b> in the menu - one person creates the household, everyone else joins with the code.</p>
+          </div>
+        </details>
         <div id="calendarBanner" class="calendar-banner" aria-live="polite"></div>
         <div class="portion">
           <div class="portion-line"><b>Portions</b><div class="counter"><button class="circle" id="minusPortions">−</button><span class="count" id="portionCount">5</span><button class="circle" id="plusPortions">+</button></div></div>
@@ -97,6 +105,14 @@
       <section class="card" id="household">
         <h2 class="section-title">Family account</h2>
         <p class="muted">Share your plan, pantry, and shopping list with your spouse and kids. Photos always stay on the device that took them.</p>
+        <details class="have-summary">
+          <summary>❓ How this works</summary>
+          <div class="have-body">
+            <p>Everyone who shares a household code sees and edits the <b>same</b> plan, pantry, and shopping list in real time.</p>
+            <p><b>Only one person per family should tap Create.</b> That gives you a fresh, private code. Share that code with your spouse or kids, and they tap Join with it - never Create, or they'll end up with their own separate household instead of yours.</p>
+            <p>If you're just trying the app out on your own, you don't need to do anything here at all.</p>
+          </div>
+        </details>
 
         <div id="householdSetup">
           <div class="store-scope">
@@ -133,6 +149,13 @@
       <section class="card" id="prefs">
         <h2 class="section-title">Permanent preferences</h2>
         <p class="muted">Saved rules for every week.</p>
+        <details class="have-summary">
+          <summary>❓ How this works</summary>
+          <div class="have-body">
+            <p><b>Permanent preferences</b> apply to every week you build, from now on - things like "no fish" or "kid-friendly only." Tap a chip to toggle it, then save.</p>
+            <p><b>This week</b> (below) is for one-time exceptions - "extra spicy this week" or "no chicken this week" - without changing your permanent rules.</p>
+          </div>
+        </details>
         <div class="chips" id="prefChips"></div>
         <button class="btn full" id="savePrefsBtn" style="margin-top:14px">Save preferences</button>
         <p class="tiny" style="margin-top:14px"><a href="/privacy.html" target="_blank" rel="noopener">Privacy policy</a></p>
@@ -159,6 +182,13 @@
       <section class="card" id="stores">
         <h2 class="section-title">Set stores</h2>
         <p class="muted">Find nearby kosher stores and choose the ones you use.</p>
+        <details class="have-summary">
+          <summary>❓ How this works</summary>
+          <div class="have-body">
+            <p>Search finds kosher stores near you for meat/chicken and for supermarket items. Pick the ones you actually shop at.</p>
+            <p>This doesn't limit which recipes you get - it's just used to organize your shopping list by where you'll actually buy each thing.</p>
+          </div>
+        </details>
 
         <div class="store-scope">
           <h3>Meat / chicken</h3>
@@ -181,6 +211,14 @@
       <section class="card" id="week">
         <h2 class="section-title">This week</h2>
         <p class="muted">Lock the dinners you like. Replace the others.</p>
+        <details class="have-summary">
+          <summary>❓ How this works</summary>
+          <div class="have-body">
+            <p><b>Lock</b> a meal you want to keep - locked meals never get swapped out, even if you rebuild the whole week.</p>
+            <p><b>Replace</b> swaps just one day for something different. <b>Replace unlocked dinners</b> does that for every day you haven't locked.</p>
+            <p>If something goes wrong, <b>Restore previous plan</b> undoes the last change, and <b>Restore locked items</b> always brings back whatever you've locked, no matter what else happened since.</p>
+          </div>
+        </details>
         <div id="weekDateRange" class="tiny"></div>
         <div id="weekList"></div>
         <div class="grid2 week-footer-actions">
@@ -194,6 +232,14 @@
       <section class="card" id="shabbosMenu">
         <h2 class="section-title">Shabbos menu</h2>
         <p class="muted">Pick your Shabbos meals. Everything you add goes on your shopping list.</p>
+        <details class="have-summary">
+          <summary>❓ How this works</summary>
+          <div class="have-body">
+            <p>Check off which meals you're making. For Challah, choosing <b>I'll bake it</b> picks a recipe; <b>Mark as bought</b> just adds it to your list.</p>
+            <p>For each course, <b>+ DmE special</b> picks from our curated recipes. <b>+ Add your own</b> lets you write, scan a photo of, or upload a document for a family recipe.</p>
+            <p>Everything you add here is saved automatically and can't be lost - use <b>Restore locked items</b> if anything ever looks wrong.</p>
+          </div>
+        </details>
         <div id="shabbosSlots"></div>
         <button class="btn secondary full" id="restoreShabbosBtn" type="button" hidden style="margin-top:8px">🔒 Restore locked items</button>
       </section>
@@ -222,6 +268,13 @@
           <div>
             <h2 class="section-title">Scan your kitchen</h2>
             <p class="muted">Add pictures from your fridge, freezer, pantry, counters, or anywhere else. You can add several pictures before scanning.</p>
+            <details class="have-summary">
+              <summary>❓ How this works</summary>
+              <div class="have-body">
+                <p>Take a few photos of what you have, then tap Scan. It reads what's in each photo and adds it to your inventory below - review and correct anything before confirming.</p>
+                <p>Once confirmed, your inventory is used to suggest recipes you can nearly make already, and to skip items you already have when building your shopping list.</p>
+              </div>
+            </details>
           </div>
           <div id="scanCount" class="scan-count">0 photos</div>
         </div>
@@ -316,6 +369,13 @@
       <section class="card" id="shopping">
         <h2 class="section-title">Shopping list</h2>
         <p class="muted">Grouped by the stores you chose.</p>
+        <details class="have-summary">
+          <summary>❓ How this works</summary>
+          <div class="have-body">
+            <p>This list builds itself from your weekly plan and Shabbos menu - nothing to add by hand. Items you already have in your pantry are automatically left off.</p>
+            <p>Check items off as you shop. Switch between this week, next week, or both combined using the tabs below.</p>
+          </div>
+        </details>
         <div class="segmented" id="shoppingSwitch">
           <button type="button" class="seg" data-shop-view="this">This week</button>
           <button type="button" class="seg" data-shop-view="next">Next week</button>
@@ -328,6 +388,13 @@
       <section class="card" id="community">
         <h2 class="section-title">Community recipes</h2>
         <p class="muted">Recipes shared by other families using this app. Anyone can browse - sharing your own or adding a comment needs a quick sign-in.</p>
+        <details class="have-summary">
+          <summary>❓ How this works</summary>
+          <div class="have-body">
+            <p>Browse without signing in. To share a recipe of your own, sign in once - every submission is automatically checked to be kosher before it's posted.</p>
+            <p>This is separate from your household's private plan and Shabbos menu - nothing you cook at home is shared here unless you post it yourself.</p>
+          </div>
+        </details>
         <div class="notice" style="margin-top:10px">Every recipe is automatically checked to be kosher.</div>
 
         <div id="communitySignedOut">
