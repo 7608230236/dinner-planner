@@ -3,9 +3,20 @@
 Single source of truth for what works, what's broken, and what changed.
 Update this file every time a fix is made or verified — don't rely on chat history.
 
-Last updated: 2026-08-03 by Claude (recipe photo gallery in progress + important test-environment finding)
+Last updated: 2026-08-04 by Claude (App Store status correction - see note below)
 
 ---
+
+## App Store status correction (2026-08-04)
+
+Claude incorrectly stated Dinner Made Easy's App Store submission had crashed during Apple's review. **This was wrong** - that crash note came from Claude's own cross-conversation memory summary, which appears to have conflated a different one of the user's apps (possibly Receipts/showreceipts.app) with Dinner Made Easy. There is no crash-related entry for Dinner Made Easy anywhere in this file.
+
+**Confirmed by the user directly: Dinner Made Easy's actual App Store status is "Waiting for Review."** No known blocking issue. Treat this as the current source of truth over anything Claude's memory suggests, until the user says otherwise.
+
+TestFlight remains a real, working option in the meantime: https://testflight.apple.com/join/nDKKYqfG (signed builds upload automatically on every push, per the existing CI setup described below).
+
+---
+
 
 ## Important finding: the "4 pre-existing test failures" all session were just a missing `npm install`
 
