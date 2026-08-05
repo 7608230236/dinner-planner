@@ -13,20 +13,43 @@ async function loadRecipes(){
   return context.window.DinnerRecipes;
 }
 
-test('recipe library contains 750 weekday dinners plus a curated set of Shabbos specials',async()=>{
+test('recipe library contains 738 weekday dinners plus a curated set of Shabbos specials (738, not 802 - 64 recipes were deleted and 1 fixed in place to remove a real data bug: variants like "Caprese Pasta — with Rice" that told you to cook a second starch alongside a dish that was already pasta/orzo/rice/noodles/potato-based)',async()=>{
   const recipes=await loadRecipes();
-  assert.equal(recipes.length,802);
-  assert.equal(new Set(Array.from(recipes,r=>r.id)).size,802);
-  assert.equal(new Set(Array.from(recipes,r=>r.title)).size,802);
+  assert.equal(recipes.length,738);
+  assert.equal(new Set(Array.from(recipes,r=>r.id)).size,738);
+  assert.equal(new Set(Array.from(recipes,r=>r.title)).size,738);
   assert.ok(recipes.every(r=>r.family&&r.kind&&r.tags.length&&r.ingredients.length>=4&&r.steps.length===4));
   assert.equal(new Set(Array.from(recipes,r=>r.family)).size,131);
   assert.equal(recipes.filter(r=>r.tags.includes('shabbos')).length,31,'the curated Shabbos specials should be tagged shabbos');
 });
 
+test('no recipe pairs two competing primary-carb ingredients (the actual bug: 65 recipes like "Caprese Pasta — with Rice" or "Chicken Shepherd\'s Pie — with Quinoa" told you to cook a second starch alongside a dish that was already pasta/orzo/rice/noodle/potato-based)',async()=>{
+  const recipes=await loadRecipes();
+  const STARCH_PATTERNS=[
+    {label:"rice",re:/^rice$|^basmati rice$|^brown rice$|^white rice$/i},
+    {label:"quinoa",re:/^quinoa$/i},
+    {label:"pasta",re:/^pasta$|^small pasta$/i},
+    {label:"orzo",re:/^orzo$/i},
+    {label:"noodles",re:/noodle/i},
+    {label:"couscous",re:/^couscous$/i},
+    {label:"bulgur",re:/bulgur/i},
+    {label:"potato",re:/^potato(es)?$|mashed potato|roasted potato/i},
+  ];
+  const offenders=recipes.filter(r=>{
+    const found=new Set();
+    for(const [name] of (r.ingredients||[])){
+      const n=String(name).trim();
+      for(const p of STARCH_PATTERNS){ if(p.re.test(n)) found.add(p.label); }
+    }
+    return found.size>=2;
+  });
+  assert.equal(offenders.length,0,`recipes with two competing starches: ${offenders.map(r=>r.title).join(', ')}`);
+});
+
 test('recipe mix has enough meat, dairy, pareve, and break-fast choices',async()=>{
   const recipes=await loadRecipes();
   const counts=Object.fromEntries(['meat','dairy','pareve'].map(kind=>[kind,recipes.filter(r=>r.kind===kind).length]));
-  assert.deepEqual(counts,{meat:403,dairy:225,pareve:174});
+  assert.deepEqual(counts,{meat:387,dairy:200,pareve:151});
   assert.ok(recipes.filter(r=>r.tags.includes('break-fast')).length>=6);
 });
 
