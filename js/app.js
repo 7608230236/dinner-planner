@@ -848,8 +848,23 @@ function addCustomExclude(){
   renderExclusions();
 }
 
+// Recipes are static once loaded - the same object never needs restringifying
+// on every call. recipeAllowed and scoreRecipe both need a lowercase, full-text
+// searchable blob per recipe; caching it here was most of the remaining cost
+// after fixing the sort-comparator bug above (each JSON.stringify was ~0.5ms,
+// run for every recipe on every single build).
+const recipeTextCache=new Map();
+function recipeSearchText(r){
+  let cached=recipeTextCache.get(r.id);
+  if(cached===undefined){
+    cached=JSON.stringify(r).toLowerCase();
+    recipeTextCache.set(r.id,cached);
+  }
+  return cached;
+}
+
 function recipeAllowed(r){
-  const text=JSON.stringify(r).toLowerCase();
+  const text=recipeSearchText(r);
   const prefs=state.prefs.map(x=>x.toLowerCase());
   if(prefs.includes("no fish") && /fish|salmon|tuna/.test(text)) return false;
   if(prefs.includes("no tofu") && text.includes("tofu")) return false;
@@ -978,7 +993,7 @@ function scoreRecipe(r,targetKind,usedFamilies,usedProteins=new Set()){
     });
   }
 
-  const preferenceText=JSON.stringify(r).toLowerCase();
+  const preferenceText=recipeSearchText(r);
   const softPreferences={
     "Less chickpeas":/chickpea|garbanzo/,
     "Less carrots":/carrot/,
@@ -1034,8 +1049,13 @@ function targetKinds(dates=plannerDates()){
   });
 }
 
-function chooseUniqueRecipe({usedIds,usedFamilies,usedProteins=new Set(),targetKind,date,bannedIds=new Set(),bannedFamilies=new Set()}){
-  const allowed=RECIPES.filter(r=>recipeAllowed(r)&&recipeAllowedOnDate(r,date));
+function chooseUniqueRecipe({usedIds,usedFamilies,usedProteins=new Set(),targetKind,date,bannedIds=new Set(),bannedFamilies=new Set(),prefAllowed=null}){
+  // prefAllowed lets a caller building a whole week (5 calls) pass in the
+  // already-computed household-rules filter once, instead of re-running
+  // recipeAllowed's JSON.stringify-per-recipe check across the full library
+  // on every single day.
+  const prefsPass=prefAllowed||RECIPES.filter(recipeAllowed);
+  const allowed=prefsPass.filter(r=>recipeAllowedOnDate(r,date));
   // Recipe families each contain many near-identical variants that only swap
   // a side dish (e.g. "Lemon Herb Chicken — with Rice" vs "— with Potatoes").
   // When replacing one specific day, first try to exclude the current dish's
@@ -1046,7 +1066,16 @@ function chooseUniqueRecipe({usedIds,usedFamilies,usedProteins=new Set(),targetK
   if(!candidates.length) candidates=allowed.filter(r=>!usedIds.has(r.id)&&!bannedIds.has(r.id));
   if(!candidates.length) candidates=allowed.filter(r=>!usedIds.has(r.id));
   if(!candidates.length) candidates=allowed;
-  return candidates.sort((a,b)=>scoreRecipe(b,targetKind,usedFamilies,usedProteins)-scoreRecipe(a,targetKind,usedFamilies,usedProteins))[0];
+  // Score each candidate exactly once, then sort by the cached number.
+  // The actual bug that made "Build" and "Replace" take 20-30+ seconds with
+  // the ~800-recipe library: Array.sort's comparator runs roughly
+  // n*log2(n) times, not n times - scoring inside the comparator (as this
+  // used to) turned ~800 recipes into ~15,000 scoreRecipe calls, each doing
+  // a fresh JSON.stringify of the recipe plus a pantry-matching loop.
+  // Scoring first drops that back down to ~800 calls.
+  const scored=candidates.map(r=>({r,score:scoreRecipe(r,targetKind,usedFamilies,usedProteins)}));
+  scored.sort((a,b)=>b.score-a.score);
+  return scored[0]?.r;
 }
 
 function buildPlanForWeek(weekKey="this",{replaceUnlocked=false}={}){
@@ -1095,7 +1124,8 @@ function buildPlanForWeek(weekKey="this",{replaceUnlocked=false}={}){
       usedProteins,
       targetKind:kinds[i],
       date,
-      bannedIds:banned
+      bannedIds:banned,
+      prefAllowed:allowed
     });
 
     if(chosen){
