@@ -72,7 +72,8 @@ let state=load("state",{
   shoppingChecked:{this:{},next:{},combined:{}},
   shoppingView:"this",
   recentPlans:[],
-  receiptReview:[]
+  receiptReview:[],
+  weekSubView:"this"
 });
 
 function normalizeState(raw){
@@ -178,7 +179,13 @@ function normalizeState(raw){
     // dropping something the user actually chose - not against the user's
     // own explicit removal, which is intentional. Same protection model as
     // durableLocks above, applied to the Shabbos menu's dishes.
-    shabbosDurableBackup: (clean.shabbosDurableBackup && typeof clean.shabbosDurableBackup === "object") ? clean.shabbosDurableBackup : null
+    shabbosDurableBackup: (clean.shabbosDurableBackup && typeof clean.shabbosDurableBackup === "object") ? clean.shabbosDurableBackup : null,
+    // Which of the three stacked cards (This Week / Shabbos / Next Week) is
+    // currently shown inside the "week" view. Added because everything used
+    // to render as one long scrolling page, so building next week's plan
+    // looked like nothing happened - the fresh plan was there, just scrolled
+    // out of view below This Week and Shabbos.
+    weekSubView: ["this","shabbos","next"].includes(clean.weekSubView) ? clean.weekSubView : "this"
   };
 }
 
@@ -731,7 +738,7 @@ function scrollToSection(id){$(id)?.scrollIntoView({behavior:"smooth",block:"sta
 // whole app down with it. Now only the active view's sections are visible.
 const VIEW_SECTIONS={
   home:["home"],
-  week:["week","shabbosMenu","nextWeek"],
+  week:["weekSubNav","week","shabbosMenu","nextWeek"],
   pantry:["pantry","receiptScan"],
   shopping:["shopping"],
   community:["community"],
@@ -748,9 +755,32 @@ function showView(view){
     }
   }
   closeMobileNav();
+  // The "week" group is really three stacked cards (This Week / Shabbos /
+  // Next Week). Showing the whole group above just unhid all three again -
+  // reapply whichever one tab is actually active so navigating here doesn't
+  // silently undo the tab selection.
+  if(view==="week")showWeekSubView(state.weekSubView||"this");
   if(typeof window!=="undefined"&&window.scrollTo)window.scrollTo({top:0,behavior:"instant"});
   state.activeView=view;
 }
+const WEEK_SUBVIEW_SECTIONS={this:"week",shabbos:"shabbosMenu",next:"nextWeek"};
+function showWeekSubView(sub){
+  if(!WEEK_SUBVIEW_SECTIONS[sub])sub="this";
+  if(state.weekSubView!==sub){
+    state.weekSubView=sub;
+    save("state",state,{skipCloudPush:true});
+  }
+  for(const [key,id] of Object.entries(WEEK_SUBVIEW_SECTIONS)){
+    $(id)?.classList.toggle("hidden",key!==sub);
+  }
+  $("weekSubNav")?.querySelectorAll("[data-weeksubview]").forEach(btn=>{
+    btn.classList.toggle("on",btn.dataset.weeksubview===sub);
+  });
+  if(typeof window!=="undefined"&&window.scrollTo)window.scrollTo({top:0,behavior:"instant"});
+}
+$("weekSubNav")?.querySelectorAll("[data-weeksubview]").forEach(btn=>{
+  btn.onclick=()=>showWeekSubView(btn.dataset.weeksubview);
+});
 function openMobileNav(){$("mobileNavOverlay")?.classList.remove("hidden")}
 function closeMobileNav(){$("mobileNavOverlay")?.classList.add("hidden")}
 
@@ -3545,7 +3575,7 @@ function runBuild(weekKey="this",replaceUnlocked=false){
       throw new Error("The weekly plan was incomplete.");
     }
     status.textContent=weekKey==="next"?"Next week is ready.":"Your week is ready.";
-    requestAnimationFrame(()=>showView("week"));
+    requestAnimationFrame(()=>{showView("week");showWeekSubView(weekKey==="next"?"next":"this");});
   }catch(error){
     console.error(error);
     recordRuntimeError("build_failed",error?.message||String(error),{weekKey,stack:error?.stack||""});
@@ -3856,6 +3886,7 @@ window.__dinnerPlannerTest={
   getHouseholdCode:()=>householdCode,
   downloadJson,
   showView,
+  showWeekSubView,
   VIEW_SECTIONS,
   offerToDeleteScannedPhotos,
   getPendingCloudConflict:()=>pendingCloudState?{conflicts:cloudConflictsWithLocalLocks(pendingCloudState)}:null,

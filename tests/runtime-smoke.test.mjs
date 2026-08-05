@@ -65,7 +65,7 @@ function createRuntime(){
     'community','communitySignedOut','communitySignedIn','appleSignInBtn','googleSignInBtn','communityUserName','communitySignOutBtn',
     'shareRecipeBtn','communityStatus','shareRecipeForm','communityTitle','communityIngredients','addCommunityIngredientBtn',
     'communitySteps','addCommunityStepBtn','submitCommunityRecipeBtn','cancelCommunityRecipeBtn','communityRecipeList',
-    'restoreWeekBtn','restoreNextWeekBtn','householdConflict','closeDeveloperBtnBottom','shabbosSlots','recipeUploadInput','shabbosMenu','dishEditorDialog','dishEditorModal','dishEditorTitle','dishEditorAddRow','dishEditorSave','dishEditorCancel','restoreLockedWeekBtn','restoreLockedNextWeekBtn','restoreShabbosBtn','recipeScanInput','dishEditorSteps','recipePhotoGallery','recipePhotoInput'
+    'restoreWeekBtn','restoreNextWeekBtn','householdConflict','closeDeveloperBtnBottom','shabbosSlots','recipeUploadInput','shabbosMenu','dishEditorDialog','dishEditorModal','dishEditorTitle','dishEditorAddRow','dishEditorSave','dishEditorCancel','restoreLockedWeekBtn','restoreLockedNextWeekBtn','restoreShabbosBtn','recipeScanInput','dishEditorSteps','recipePhotoGallery','recipePhotoInput','weekSubNav'
   ])];
   const elements=new Map(ids.map(id=>[id,new FakeElement(id)]));
   elements.get('photoLocation').value='Pantry';
@@ -949,11 +949,21 @@ test('showView shows only the sections for the requested page and hides everythi
   assert.equal(elements.get('home').classList.contains('hidden'),true,'other views should be hidden');
   assert.equal(elements.get('shabbosMenu').classList.contains('hidden'),true,'shabbosMenu should be hidden on the pantry view');
 
+  // week/shabbosMenu/nextWeek are three tabs within the "week" view, not
+  // three sections stacked in one long scroll - only the active tab
+  // (This Week, by default) should actually be visible at once. Otherwise
+  // building next week's plan looks like nothing happened, since the fresh
+  // plan is just scrolled out of view below This Week and Shabbos.
   api.showView('week');
-  assert.equal(elements.get('week').classList.contains('hidden'),false,'week should be visible on the week view');
-  assert.equal(elements.get('nextWeek').classList.contains('hidden'),false,'nextWeek is grouped with week and should also be visible');
-  assert.equal(elements.get('shabbosMenu').classList.contains('hidden'),false,'shabbosMenu is grouped with week and should also be visible');
+  assert.equal(elements.get('week').classList.contains('hidden'),false,'This Week tab should be visible by default on the week view');
+  assert.equal(elements.get('nextWeek').classList.contains('hidden'),true,'Next Week is a separate tab and should be hidden until selected');
+  assert.equal(elements.get('shabbosMenu').classList.contains('hidden'),true,'Shabbos is a separate tab and should be hidden until selected');
   assert.equal(elements.get('pantry').classList.contains('hidden'),true,'switching views should hide the previous one');
+
+  api.showWeekSubView('next');
+  assert.equal(elements.get('nextWeek').classList.contains('hidden'),false,'Next Week tab should show once selected');
+  assert.equal(elements.get('week').classList.contains('hidden'),true,'This Week tab should hide once Next Week is selected');
+  assert.equal(elements.get('shabbosMenu').classList.contains('hidden'),true,'Shabbos tab should stay hidden while Next Week is selected');
 
   // The actual bug the user hit: shabbosMenu was never added to any
   // VIEW_SECTIONS group at all, so showView's hide loop never touched it -
