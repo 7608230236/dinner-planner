@@ -5,6 +5,11 @@ const APP_VERSION="60";
 // and triggers a cache/service-worker refresh, since APP_VERSION alone doesn't
 // change often enough to catch every deploy.
 const BUILD_ID="__BUILD_ID__";
+// DEPLOY_NUMBER is a simple auto-incrementing count (total commits at deploy
+// time), shown in the version badge so the user can tell whether a given
+// push actually went live without anyone needing to remember to bump a
+// version number by hand. See scripts/inject-build-id.mjs.
+const DEPLOY_NUMBER="__DEPLOY_NUMBER__";
 const SUPPORT_SCHEMA=2;
 // When running as a packaged native app (Capacitor), there is no local server to answer
 // relative /.netlify/functions/* requests, so those calls need to point at the real deployed
@@ -3670,7 +3675,7 @@ function runValidationSuite(){
   add("shopping-tomato-safety",syntheticFresh.shopping.length===1,"Fresh tomatoes do not satisfy a canned-tomato requirement",{shopping:syntheticFresh.shopping});
 
   add("version-meta",String(document.querySelector('meta[name="dinner-planner-version"]')?.content)===APP_VERSION,"Build metadata matches the app version",{appVersion:APP_VERSION});
-  add("version-badge",$("versionBadge")?.textContent?.trim()===`v${APP_VERSION}`,"Visible version badge matches the app version",{badge:$("versionBadge")?.textContent||""});
+  add("version-badge",Boolean($("versionBadge")?.textContent?.trim().startsWith(`v${APP_VERSION}`)),"Visible version badge matches the app version",{badge:$("versionBadge")?.textContent||""});
   const developerIds=["developerPanel","developerSummary","developerValidation","developerPantry","developerAi","developerShopping","developerTimeline","developerErrors","developerStorage"];
   add("developer-ui",developerIds.every(id=>Boolean($(id))),"Developer-mode panels are installed",{missing:developerIds.filter(id=>!$(id))});
   add("support-schema",SUPPORT_SCHEMA>=2,"Support-report schema is current",{schema:SUPPORT_SCHEMA});

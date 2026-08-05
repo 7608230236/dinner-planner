@@ -15,7 +15,7 @@ test('all visible and cached versions are v60', async () => {
     text('package.json')
   ]);
   assert.match(files[0], /dinner-planner-version" content="60"/);
-  assert.match(files[0], />v60<\/button>/);
+  assert.match(files[0], />v60 · #__DEPLOY_NUMBER__<\/button>/);
   assert.match(files[1], /APP_VERSION="60"/);
   assert.match(files[2], /APP_VERSION = "60"/);
   assert.doesNotMatch(files.join('\n'), /v58|content="58"|APP_VERSION="58"/);
