@@ -3548,13 +3548,15 @@ function runBuild(weekKey="this",replaceUnlocked=false){
     requestAnimationFrame(()=>showView("week"));
   }catch(error){
     console.error(error);
+    recordRuntimeError("build_failed",error?.message||String(error),{weekKey,stack:error?.stack||""});
     state[planProp(weekKey)]=[];
     state[lockedProp(weekKey)]={};
     buildShoppingForWeek(weekKey);
     save("state",state);
     renderWeekSection(weekKey);
     renderShopping();
-    status.textContent=weekKey==="next"?"Next week could not be built. Tap the button once more.":"The week could not be built. Tap the button once more.";
+    const reason=error?.message?` (${error.message})`:"";
+    status.textContent=(weekKey==="next"?"Next week could not be built.":"The week could not be built.")+reason+" Tap the button once more.";
   }finally{
     button.disabled=false;
   }
