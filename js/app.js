@@ -3790,7 +3790,7 @@ prepareCurrentAppVersion();
 // deployed build ID whenever the app is resumed, and offer a one-tap refresh
 // rather than silently reloading, so it never interrupts something the
 // person is in the middle of doing.
-async function checkForNewerDeployedBuild(){
+async function checkForNewerDeployedBuild({autoReloadIfSafe=false}={}){
   try{
     const response=await fetch(`/service-worker.js?check=${Date.now()}`,{cache:"no-store"});
     if(!response.ok)return;
@@ -3798,6 +3798,18 @@ async function checkForNewerDeployedBuild(){
     const match=text.match(/BUILD_ID\s*=\s*"([^"]+)"/);
     const deployedBuildId=match?.[1];
     if(deployedBuildId && deployedBuildId!=="__BUILD_ID__" && deployedBuildId!==BUILD_ID){
+      // Reloading silently is safe the moment someone opens or returns to the
+      // app - they haven't typed anything new yet. It's NOT safe if a dialog
+      // with unsaved typing is open (e.g. writing a custom Shabbos recipe) or
+      // they're actively focused in a text field, since a reload would wipe
+      // that out before it's saved. Only auto-reload in the safe case;
+      // otherwise fall back to asking via the banner/badge.
+      const hasOpenDialog=document.querySelectorAll("dialog[open]").length>0;
+      const isTyping=["INPUT","TEXTAREA"].includes(document.activeElement?.tagName);
+      if(autoReloadIfSafe && !hasOpenDialog && !isTyping){
+        location.reload();
+        return;
+      }
       const badge=$("versionBadge");
       if(badge){
         badge.classList.add("update-available");
@@ -3820,9 +3832,9 @@ async function checkForNewerDeployedBuild(){
   }catch{}
 }
 document.addEventListener("visibilitychange",()=>{
-  if(document.visibilityState==="visible")checkForNewerDeployedBuild();
+  if(document.visibilityState==="visible")checkForNewerDeployedBuild({autoReloadIfSafe:true});
 });
-window.addEventListener("focus",checkForNewerDeployedBuild);
+window.addEventListener("focus",()=>checkForNewerDeployedBuild({autoReloadIfSafe:true}));
 setTimeout(checkForNewerDeployedBuild,4000);
 setInterval(checkForNewerDeployedBuild,10*60*1000);
 
