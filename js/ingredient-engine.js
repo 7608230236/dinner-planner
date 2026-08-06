@@ -179,6 +179,15 @@
     const unit=normalizeUnit(requiredUnit)||'each';
     let total=0;
     let present=false;
+    // A trusted pantry item can match by name but be recorded in a unit that
+    // has no defined conversion to what the recipe needs - e.g. "1 each"
+    // ground beef (the default unit for anything typed in by hand, or an AI
+    // scan that couldn't judge weight) against a recipe that needs "2.5 lb".
+    // That used to silently count as zero pantry credit, so the item kept
+    // reappearing on the shopping list no matter how much you had or how many
+    // times you confirmed it. Track that case separately so buildShopping can
+    // trust "you told us you have this" over an exact unit match it can't compute.
+    let unconvertiblePresent=false;
     const sources=[];
     for(const item of Array.isArray(inventory)?inventory:[]){
       if(canonicalIngredient(item.item||item.name)!==target)continue;
@@ -187,11 +196,11 @@
       if(Number.isFinite(qty)&&qty>0)present=true;
       if(!Number.isFinite(qty)||qty<=0)continue;
       const converted=convertQuantity(qty,item.unit,unit,target);
-      if(converted===null)continue;
+      if(converted===null){unconvertiblePresent=true;continue;}
       total+=converted;
       sources.push({id:item.id||'',qty,unit:normalizeUnit(item.unit)||'each',converted});
     }
-    return {canonical:target,unit,total,present,sources};
+    return {canonical:target,unit,total,present,unconvertiblePresent,sources};
   }
 
   function validateDetectedItem(item){
@@ -249,8 +258,12 @@
         const required=Math.max(0,row.amount);
         const used=Math.min(required,available.total);
         const remaining=Math.max(0,required-used);
-        diagnostics.push({...row,required,available:available.total,used,remaining,sources:available.sources});
-        if(remaining>0)shopping.push({name:row.name,qty:formatAmount(remaining,row.unit),store:row.store,canonical:row.canonical,pantryUsed:used,required,available:available.total,recipes:row.recipes});
+        diagnostics.push({...row,required,available:available.total,used,remaining,unconvertiblePresent:available.unconvertiblePresent,sources:available.sources});
+        // A trusted pantry match that couldn't be unit-converted (see
+        // pantryAvailableFor) still means the person told us they have this
+        // ingredient - don't keep asking them to buy it just because we
+        // couldn't do the exact math between "each" and "lb".
+        if(remaining>0&&!available.unconvertiblePresent)shopping.push({name:row.name,qty:formatAmount(remaining,row.unit),store:row.store,canonical:row.canonical,pantryUsed:used,required,available:available.total,recipes:row.recipes});
       }else{
         diagnostics.push({...row,required:null,available:available.total,used:available.present?1:0,remaining:available.present?0:null,sources:available.sources});
         if(!available.present)shopping.push({name:row.name,qty:row.texts.join(', '),store:row.store,canonical:row.canonical,pantryUsed:0,required:null,available:0,recipes:row.recipes});
