@@ -3804,6 +3804,18 @@ async function checkForNewerDeployedBuild(){
         badge.title="A new version is ready - tap to refresh";
         badge.onclick=()=>location.reload();
       }
+      // The badge alone is too easy to miss - it's a small pill in the corner
+      // and nothing else in the app changes, so someone who isn't specifically
+      // looking for it can stay on a stale build indefinitely (this is exactly
+      // how one household member ended up missing a feature another member
+      // already had, weeks after it shipped). Show an impossible-to-miss
+      // banner across the top of every view instead.
+      const banner=$("updateBanner");
+      if(banner){
+        banner.classList.remove("hidden");
+        const btn=$("updateBannerBtn");
+        if(btn)btn.onclick=()=>location.reload();
+      }
     }
   }catch{}
 }
