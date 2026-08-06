@@ -50,7 +50,10 @@ const VERIFIED_STORES = [
     latitude: 39.3658,
     longitude: -76.7169,
     mapsUrl: "https://www.google.com/maps/search/?api=1&query=Seven+Mile+Market+201+Reisterstown+Road+Pikesville+MD+21208",
-    websiteUrl: "https://sevenmilemarket.com/",
+    // sevenmilemarket.com now 302-redirects here - pointing straight at the
+    // live domain instead of the old one, since some in-app browser/WebView
+    // contexts don't reliably follow redirects the way a normal tab does.
+    websiteUrl: "https://www.shopsevenmilemarket.com/",
     scopes: ["meat","supermarket"],
     verified: true
   }

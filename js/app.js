@@ -81,6 +81,20 @@ let state=load("state",{
   weekSubView:"this"
 });
 
+// A previously-selected store can have a website URL that's since moved (the
+// business changed domains). Rather than leaving someone's saved store
+// selection silently pointing at a dead/redirecting URL forever, patch known
+// stale URLs forward on load. Add an entry here whenever a verified store's
+// URL changes.
+const STALE_STORE_URL_FIXES={
+  "https://sevenmilemarket.com/":"https://www.shopsevenmilemarket.com/"
+};
+function fixStaleStoreUrl(store){
+  if(!store||typeof store!=="object")return store;
+  const fixed=STALE_STORE_URL_FIXES[store.websiteUrl];
+  return fixed?{...store,websiteUrl:fixed}:store;
+}
+
 function normalizeState(raw){
   const clean = raw && typeof raw === "object" ? raw : {};
   const validPlan = arr => Array.isArray(arr) ? arr.filter(p=>p && DAYS.includes(p.day) && RECIPES.some(r=>r.id===p.id)) : [];
@@ -90,7 +104,7 @@ function normalizeState(raw){
     week: Array.isArray(clean.week) ? clean.week : [],
     exclude: Array.isArray(clean.exclude) ? clean.exclude : [],
     stores: clean.stores && typeof clean.stores === "object"
-      ? {meat: clean.stores.meat || null, supermarket: clean.stores.supermarket || null}
+      ? {meat: fixStaleStoreUrl(clean.stores.meat) || null, supermarket: fixStaleStoreUrl(clean.stores.supermarket) || null}
       : {meat:null, supermarket:null},
     plan: validPlan(clean.plan),
     locked: clean.locked && typeof clean.locked === "object" ? clean.locked : {},
