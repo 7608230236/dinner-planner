@@ -479,6 +479,16 @@ test('recipe-preview-image rejects an invalid recipe id and a missing title befo
   assert.match((await missingTitle.json()).error, /Missing title/);
 });
 
+test('recipe-preview-image builds Unsplash-compliant attribution links (required by their API terms) - a plain-text credit or a bare unsplash.com link is not sufficient, both must link to the actual photographer profile and Unsplash itself, tagged with utm_source/utm_medium so Unsplash can see the referral', async () => {
+  const { buildAttribution } = await import('../netlify/functions/recipe-preview-image.mjs');
+  const { creditUrl, unsplashUrl } = buildAttribution('https://unsplash.com/@janedoe');
+  assert.equal(creditUrl, 'https://unsplash.com/@janedoe?utm_source=dinner_made_easy&utm_medium=referral');
+  assert.equal(unsplashUrl, 'https://unsplash.com/?utm_source=dinner_made_easy&utm_medium=referral');
+  // No profile URL from Unsplash - don't fabricate a broken link.
+  assert.equal(buildAttribution('').creditUrl, '');
+  assert.equal(buildAttribution(null).creditUrl, '');
+});
+
 test('recipe-preview-image surfaces a proper JSON error (not a crash) when no Blobs store is reachable at all, same as recipe-photos and household-sync', async () => {
   const { default: handler } = await import('../netlify/functions/recipe-preview-image.mjs?fresh=' + Date.now());
   delete process.env.NETLIFY_BLOBS_SITE_ID;

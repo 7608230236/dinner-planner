@@ -12,6 +12,7 @@ body{padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset
 .recipe-photo-preview-wrap{position:relative;margin-bottom:12px}
 .recipe-photo-preview-wrap .recipe-photo-hero{margin-bottom:0}
 .recipe-photo-preview-label{position:absolute;left:10px;bottom:10px;background:rgba(0,0,0,.6);color:#fff;font-size:.72rem;font-weight:700;padding:4px 10px;border-radius:999px}
+.recipe-photo-preview-label a{color:#fff;text-decoration:underline}
 .recipe-photo-strip{display:flex;gap:8px;overflow-x:auto;padding:4px 0;margin-bottom:8px}
 .recipe-photo-thumb{position:relative;flex-shrink:0;width:70px;height:70px;border-radius:12px;overflow:hidden;border:2px solid transparent;cursor:pointer;background:var(--soft)}
 .recipe-photo-thumb img{width:100%;height:100%;object-fit:cover;display:block}

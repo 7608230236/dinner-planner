@@ -1961,7 +1961,7 @@ function renderRecipePhotoGalleryHtml(recipeId,photos,previewImage=null){
   const favorite=photos.find(p=>p.isFavorite)||photos[0]||null;
   container.innerHTML=`
     ${favorite?`<img class="recipe-photo-hero" src="${esc(favorite.image)}" alt="Photo of this dish">`
-      :previewImage?`<div class="recipe-photo-preview-wrap"><img class="recipe-photo-hero" src="${esc(previewImage.url)}" alt="Preview photo of a similar dish"><div class="recipe-photo-preview-label">Preview photo${previewImage.credit?` · ${esc(previewImage.credit)} on Unsplash`:""} - not this exact recipe</div></div>`
+      :previewImage?`<div class="recipe-photo-preview-wrap"><img class="recipe-photo-hero" src="${esc(previewImage.url)}" alt="Preview photo of a similar dish"><div class="recipe-photo-preview-label">Preview photo - not this exact recipe${previewImage.credit&&previewImage.creditUrl?` · Photo by <a href="${esc(previewImage.creditUrl)}" target="_blank" rel="noopener">${esc(previewImage.credit)}</a> on <a href="${esc(previewImage.unsplashUrl||"https://unsplash.com/")}" target="_blank" rel="noopener">Unsplash</a>`:""}</div></div>`
       :""}
     <div class="recipe-photo-strip">
       ${photos.map(p=>`

@@ -67,6 +67,18 @@ export function cleanRecipeQuery(title) {
   return `${cleaned} dinner food`;
 }
 
+// Unsplash's API guidelines (required, not optional, to keep API access):
+// attribution must link to both the photographer's profile and Unsplash
+// itself, each tagged with utm_source/utm_medium so Unsplash can see the
+// referral - a plain-text name and a bare unsplash.com link don't count.
+export function buildAttribution(photographerProfileUrl) {
+  const attributionParams = "utm_source=dinner_made_easy&utm_medium=referral";
+  return {
+    creditUrl: photographerProfileUrl ? `${photographerProfileUrl}?${attributionParams}` : "",
+    unsplashUrl: `https://unsplash.com/?${attributionParams}`
+  };
+}
+
 async function searchUnsplash(query, accessKey) {
   const url = new URL("https://api.unsplash.com/search/photos");
   url.searchParams.set("query", query);
@@ -85,11 +97,31 @@ async function searchUnsplash(query, accessKey) {
     const data = await response.json();
     const first = data?.results?.[0];
     if (!first) return null;
+    const { creditUrl, unsplashUrl } = buildAttribution(first.user?.links?.html);
     return {
       url: first.urls?.regular || first.urls?.small || null,
       credit: first.user?.name || "",
-      creditUrl: first.user?.links?.html || ""
+      creditUrl,
+      unsplashUrl,
+      // Required separately from attribution: Unsplash's guidelines say every
+      // photo actually used by an app must ping this endpoint once, so they
+      // can pay photographers based on real usage - not just when someone
+      // browses the photo, but when the app actually puts it to use.
+      downloadLocation: first.links?.download_location || null
     };
+  } finally {
+    clearTimeout(timeout);
+  }
+}
+
+async function triggerDownloadEvent(downloadLocation, accessKey) {
+  if (!downloadLocation) return;
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 5_000);
+  try {
+    await fetch(downloadLocation, { signal: controller.signal, headers: { Authorization: `Client-ID ${accessKey}` } });
+  } catch {
+    // Best-effort - a failed tracking ping shouldn't break the actual feature.
   } finally {
     clearTimeout(timeout);
   }
@@ -143,8 +175,19 @@ export default async (request) => {
       return json({ image: null });
     }
 
-    await withPreviewStore(store => store.setJSON(`preview:${recipeId}`, result));
-    return json({ image: result, cached: false });
+    // Fire the required usage ping exactly once, right here at the moment
+    // this app first actually puts the photo to use for this recipe - not
+    // on every cache hit afterward. Netlify Functions can terminate as soon
+    // as a response is sent, so an un-awaited "fire and forget" call here
+    // isn't reliable - await it (it has its own internal timeout/catch, so a
+    // slow ping still can't hang the whole request for long).
+    await triggerDownloadEvent(result.downloadLocation, accessKey);
+
+    // downloadLocation was only needed for the ping above - no reason to
+    // keep re-serving it to the client on every cached read afterward.
+    const { downloadLocation, ...cacheable } = result;
+    await withPreviewStore(store => store.setJSON(`preview:${recipeId}`, cacheable));
+    return json({ image: cacheable, cached: false });
   } catch (error) {
     return json({ error: `Recipe preview image lookup failed: ${error?.message || error}` }, 500);
   }
