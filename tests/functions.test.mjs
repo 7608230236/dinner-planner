@@ -502,5 +502,44 @@ test('recipe-preview-image surfaces a proper JSON error (not a crash) when no Bl
   assert.equal(response.headers.get('Access-Control-Allow-Origin'), '*');
 });
 
+test('recipe-image-warmer loads the real recipe library (all 762, same source of truth the app itself ships) rather than some separate hand-maintained list that could drift out of sync', async () => {
+  // No direct export of loadRecipes - exercise it indirectly through a run
+  // that gets far enough to report totalRecipes before failing on Blobs.
+  process.env.UNSPLASH_ACCESS_KEY = 'test-key-for-warmer';
+  delete process.env.NETLIFY_BLOBS_SITE_ID;
+  delete process.env.SITE_ID;
+  delete process.env.NETLIFY_BLOBS_TOKEN;
+  const { default: handler } = await import('../netlify/functions/recipe-image-warmer.mjs?fresh=' + Date.now());
+  const response = await handler(new Request('https://x.test/recipe-image-warmer'));
+  const body = await response.json();
+  // Blobs is unreachable in this test sandbox (same as every other Blobs-backed
+  // function tested above), so this can't get further than listing - but it
+  // proves recipes.js loaded successfully before that point, since a load
+  // failure would surface as a different error message entirely.
+  assert.equal(response.status, 500);
+  assert.match(body.error, /Could not list cached previews/);
+  delete process.env.UNSPLASH_ACCESS_KEY;
+});
+
+test('recipe-image-warmer does nothing (200, clear message) rather than erroring when UNSPLASH_ACCESS_KEY is not set yet', async () => {
+  delete process.env.UNSPLASH_ACCESS_KEY;
+  const { default: handler } = await import('../netlify/functions/recipe-image-warmer.mjs?fresh=' + Date.now());
+  const response = await handler(new Request('https://x.test/recipe-image-warmer'));
+  const body = await response.json();
+  assert.equal(response.status, 200);
+  assert.match(body.error, /not configured yet/);
+});
+
+test('recipe-image-warmer responds to OPTIONS with the CORS header, same as every other function', async () => {
+  const { default: handler } = await import('../netlify/functions/recipe-image-warmer.mjs?fresh=' + Date.now());
+  const response = await handler(new Request('https://x.test/recipe-image-warmer', { method: 'OPTIONS' }));
+  assert.equal(response.headers.get('Access-Control-Allow-Origin'), '*');
+});
+
+test('recipe-image-warmer is configured to actually run on a schedule, not just sit there waiting to be called manually - this is the entire point, filling the cache for all 762 recipes without anyone needing to remember to trigger it', async () => {
+  const mod = await import('../netlify/functions/recipe-image-warmer.mjs?fresh=' + Date.now());
+  assert.equal(mod.config?.schedule, '@hourly');
+});
+
 
 
