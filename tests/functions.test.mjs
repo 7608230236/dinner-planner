@@ -145,6 +145,12 @@ test('every function includes CORS headers on every response (the actual bug: th
   assert.equal(photosOptions.headers.get('Access-Control-Allow-Origin'), '*', 'recipe-photos (OPTIONS) is missing CORS header');
   const photosGet = await photosHandler(new Request('https://x.test/recipe-photos?recipeId=bad id'));
   assert.equal(photosGet.headers.get('Access-Control-Allow-Origin'), '*', 'recipe-photos (GET) is missing CORS header');
+
+  const { default: previewHandler } = await import('../netlify/functions/recipe-preview-image.mjs');
+  const previewOptions = await previewHandler(new Request('https://x.test/recipe-preview-image', { method: 'OPTIONS' }));
+  assert.equal(previewOptions.headers.get('Access-Control-Allow-Origin'), '*', 'recipe-preview-image (OPTIONS) is missing CORS header');
+  const previewGet = await previewHandler(new Request('https://x.test/recipe-preview-image?recipeId=bad id&title=Test'));
+  assert.equal(previewGet.headers.get('Access-Control-Allow-Origin'), '*', 'recipe-preview-image (GET) is missing CORS header');
 });
 
 test('household-sync surfaces a proper JSON error (not a crash) when no Blobs store is reachable at all - this is a real production risk: if both the explicit-credential store AND the automatic-context store fail (as actually happened in production - the explicit credentials went stale and every operation returned a 401), every sync/join attempt needs to fail loudly with a real message rather than crash or silently do nothing', async () => {
@@ -448,6 +454,42 @@ test('recipe-photos requires OPENAI_API_KEY to be configured before accepting an
 
   delete process.env.NETLIFY_BLOBS_SITE_ID;
   delete process.env.NETLIFY_BLOBS_TOKEN;
+});
+
+test('recipe-preview-image cleans a recipe title into a search query an image search engine can actually match - the real bug this fixes: searching the raw title "Korean-Style Cheesy Rice Bowl — with Crusty Bread" verbatim returns photos of plain bread as often as the actual dish, because the tacked-on side dish dominates the query', async () => {
+  const { cleanRecipeQuery } = await import('../netlify/functions/recipe-preview-image.mjs');
+  assert.equal(cleanRecipeQuery('Lemon Herb Chicken — with Pita and Salad'), 'Lemon Herb Chicken dinner food');
+  assert.equal(cleanRecipeQuery('Korean-Style Cheesy Rice Bowl — with Crusty Bread'), 'Korean Cheesy Rice Bowl dinner food');
+  assert.equal(cleanRecipeQuery('Classic Shabbos Roast Chicken — with Roasted Potatoes'), 'Classic Roast Chicken dinner food');
+  assert.equal(cleanRecipeQuery('Vegetable Pad Thai-Style Noodles'), 'Vegetable Pad Thai Noodles dinner food');
+  assert.equal(cleanRecipeQuery('Chicken Lo Mein-Style Noodles — Classic'), 'Chicken Lo Mein Noodles dinner food');
+  assert.equal(cleanRecipeQuery('Moroccan Beef Tagine — with Couscous'), 'Moroccan Beef Tagine dinner food');
+  // No side-suffix or special words to strip - should pass through mostly unchanged.
+  assert.equal(cleanRecipeQuery('Tex-Mex Beef Stuffed Peppers'), 'Tex-Mex Beef Stuffed Peppers dinner food');
+});
+
+test('recipe-preview-image rejects an invalid recipe id and a missing title before ever calling Unsplash', async () => {
+  const { default: handler } = await import('../netlify/functions/recipe-preview-image.mjs');
+  const badId = await handler(new Request('https://x.test/recipe-preview-image?recipeId=bad id&title=Test'));
+  assert.equal(badId.status, 400);
+  assert.match((await badId.json()).error, /Invalid recipe id/);
+
+  const missingTitle = await handler(new Request('https://x.test/recipe-preview-image?recipeId=valid-id-01'));
+  assert.equal(missingTitle.status, 400);
+  assert.match((await missingTitle.json()).error, /Missing title/);
+});
+
+test('recipe-preview-image surfaces a proper JSON error (not a crash) when no Blobs store is reachable at all, same as recipe-photos and household-sync', async () => {
+  const { default: handler } = await import('../netlify/functions/recipe-preview-image.mjs?fresh=' + Date.now());
+  delete process.env.NETLIFY_BLOBS_SITE_ID;
+  delete process.env.SITE_ID;
+  delete process.env.NETLIFY_BLOBS_TOKEN;
+
+  const response = await handler(new Request('https://x.test/recipe-preview-image?recipeId=beef-tacos-01&title=Beef+Tacos'));
+  const body = await response.json();
+  assert.equal(response.status, 500);
+  assert.match(body.error, /Recipe preview image lookup failed/);
+  assert.equal(response.headers.get('Access-Control-Allow-Origin'), '*');
 });
 
 

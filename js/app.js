@@ -1936,15 +1936,33 @@ async function renderRecipePhotoGallery(recipeId){
   }catch(error){
     console.error(error);
   }
-  renderRecipePhotoGalleryHtml(recipeId,photos);
+  // Only worth fetching a generic stock preview if nobody in the household
+  // has actually cooked and photographed this dish yet - a real photo of
+  // the real dish always wins over a stock lookalike.
+  let previewImage=null;
+  if(!photos.length){
+    const recipe=getRecipe(recipeId);
+    if(recipe){
+      try{
+        const response=await fetch(`${API_ORIGIN}/.netlify/functions/recipe-preview-image?recipeId=${encodeURIComponent(recipeId)}&title=${encodeURIComponent(recipe.title)}`);
+        const data=await response.json().catch(()=>({}));
+        if(response.ok&&data.image)previewImage=data.image;
+      }catch(error){
+        console.error(error);
+      }
+    }
+  }
+  renderRecipePhotoGalleryHtml(recipeId,photos,previewImage);
 }
 
-function renderRecipePhotoGalleryHtml(recipeId,photos){
+function renderRecipePhotoGalleryHtml(recipeId,photos,previewImage=null){
   const container=$("recipePhotoGallery");
   if(!container)return;
   const favorite=photos.find(p=>p.isFavorite)||photos[0]||null;
   container.innerHTML=`
-    ${favorite?`<img class="recipe-photo-hero" src="${esc(favorite.image)}" alt="Photo of this dish">`:""}
+    ${favorite?`<img class="recipe-photo-hero" src="${esc(favorite.image)}" alt="Photo of this dish">`
+      :previewImage?`<div class="recipe-photo-preview-wrap"><img class="recipe-photo-hero" src="${esc(previewImage.url)}" alt="Preview photo of a similar dish"><div class="recipe-photo-preview-label">Preview photo${previewImage.credit?` · ${esc(previewImage.credit)} on Unsplash`:""} - not this exact recipe</div></div>`
+      :""}
     <div class="recipe-photo-strip">
       ${photos.map(p=>`
         <div>
