@@ -158,3 +158,23 @@ test('no recipe\'s only "seasoning" is salted pasta/starch boiling water while t
   assert.deepEqual(suspect.map(r=>r.id),[],'these recipes only mention salt in the context of boiling water for pasta/starch - the actual dish itself is still unseasoned');
 });
 
+test('no recipe tells you to season with salt or pepper in its steps without listing salt/pepper as an ingredient (the actual bug: 201 of 762 recipes told you to "season all over with salt, pepper..." but salt and pepper never appeared in the ingredients list, so there was no way to know from the ingredients alone that you needed it or how much)',async()=>{
+  const recipes=await loadRecipes();
+  const missing=recipes.filter(r=>{
+    const stepsText=r.steps.join(' ').toLowerCase();
+    const ingNames=r.ingredients.map(([name])=>name.toLowerCase());
+    const mentionsSalt=/\bsalt\b/.test(stepsText);
+    const mentionsPepper=/\bpepper\b/.test(stepsText) && !/bell pepper|sweet pepper|chili pepper/.test(stepsText);
+    const hasSaltIng=ingNames.some(n=>n.includes('salt'));
+    const hasPepperIng=ingNames.some(n=>n.includes('pepper') && !n.includes('bell') && !n.includes('sweet'));
+    return (mentionsSalt && !hasSaltIng) || (mentionsPepper && !hasPepperIng);
+  });
+  assert.equal(missing.length,0,`recipes referencing salt/pepper in steps but missing from ingredients: ${missing.map(r=>r.id).join(', ')}`);
+});
+
+test('no recipe gives two cooking methods in one ambiguous run-on sentence with no clear primary method (the actual bug: "cook chicken 6-7 minutes per side, or bake at 400°F for 22-25 minutes, until it reaches 165°F" reads as one instruction but is actually two unrelated methods with the doneness check ambiguously attached to whichever one you happened to pick)',async()=>{
+  const recipes=await loadRecipes();
+  const ambiguous=recipes.filter(r=>/or (bake|roast|grill|cook)[^.]* at \d/i.test(r.steps.join(' ')));
+  assert.equal(ambiguous.length,0,`recipes with an ambiguous dual-method step: ${ambiguous.map(r=>r.id).join(', ')}`);
+});
+
