@@ -1,7 +1,8 @@
-// Redeploy trigger: UNSPLASH_ACCESS_KEY was set via the Netlify API but the
-// first attempt silently failed to persist - confirmed missing when read
-// back, re-set and verified present, this push just forces a fresh build so
-// the now-correct key actually gets picked up by the deployed functions.
+// Retrigger note: QA and Android Build both failed on commit 7beef22 at the
+// dependency-install step specifically (npm ci / npm install), not on any
+// actual test - reproduced npm ci cleanly locally right after, 461 packages,
+// no errors. Looked like a transient registry hiccup on GitHub's runner, not
+// a real problem with that commit. This push just forces a fresh run to confirm.
 const APP_VERSION="60";
 // APP_VERSION is the user-facing feature version (only bumped for real releases).
 // BUILD_ID changes on every single deploy automatically (injected at Netlify build
