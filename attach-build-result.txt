@@ -1,0 +1,6 @@
+App: Dinner Made Easy (6795713321)
+Found version 1.0.1: id=d20dc979-4c87-4a47-9a08-bb80fa6b8023, state=INVALID_BINARY
+Found build 56: id=c5d0b454-180a-4237-ba90-90bf5d1e03ce, processingState=VALID
+
+SUCCESS: Build attached to version via the API.
+This did NOT submit for review or release anything - go back to App Store Connect and confirm the build now shows, then submit for review manually as usual.
