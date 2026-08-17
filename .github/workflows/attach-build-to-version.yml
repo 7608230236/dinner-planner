@@ -6,11 +6,16 @@ on:
       - "scripts/attach-build-to-version.mjs"
   workflow_dispatch:
 
+permissions:
+  contents: write
+
 jobs:
   attach:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: main
       - uses: actions/setup-node@v4
         with:
           node-version: 22
@@ -22,3 +27,10 @@ jobs:
           APP_STORE_CONNECT_API_KEY_P8: ${{ secrets.APP_STORE_CONNECT_API_KEY_P8 }}
           TARGET_VERSION_STRING: "1.0.1"
           TARGET_BUILD_NUMBER: "55"
+      - if: always()
+        run: |
+          git config user.email "claude@anthropic.com"
+          git config user.name "Claude"
+          git add attach-build-result.txt
+          git commit -m "Record attach-build-to-version result [skip ci]" || echo "nothing to commit"
+          git push
