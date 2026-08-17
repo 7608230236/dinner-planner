@@ -54,11 +54,12 @@ async function main() {
   if (!app) throw new Error(`No app found for bundle id ${bundleId}`);
   record(`App: ${app.attributes.name} (${app.id})`);
 
-  const versionsResp = await callAPI(`apps/${app.id}/appStoreVersions?limit=20&sort=-createdDate`);
-  const version = versionsResp.data.find(v => v.attributes.versionString === targetVersionString && v.attributes.platform === 'IOS');
+  const versionsResp = await callAPI(`apps/${app.id}/appStoreVersions?limit=20`);
+  const sorted = [...versionsResp.data].sort((a, b) => new Date(b.attributes.createdDate) - new Date(a.attributes.createdDate));
+  const version = sorted.find(v => v.attributes.versionString === targetVersionString && v.attributes.platform === 'IOS');
   if (!version) {
     record(`No IOS appStoreVersion found matching "${targetVersionString}". Available versions:`);
-    versionsResp.data.forEach(v => record(`  - ${v.attributes.versionString} (${v.attributes.platform}) state=${v.attributes.appStoreState}`));
+    sorted.forEach(v => record(`  - ${v.attributes.versionString} (${v.attributes.platform}) state=${v.attributes.appStoreState}`));
     throw new Error(`Version "${targetVersionString}" not found.`);
   }
   record(`Found version ${targetVersionString}: id=${version.id}, state=${version.attributes.appStoreState}`);
