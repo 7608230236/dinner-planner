@@ -56,7 +56,7 @@ async function main() {
 
   const versionsResp = await callAPI(`apps/${app.id}/appStoreVersions?limit=20`);
   const sorted = [...versionsResp.data].sort((a, b) => new Date(b.attributes.createdDate) - new Date(a.attributes.createdDate));
-  const version = sorted.find(v => v.attributes.versionString === targetVersionString && v.attributes.platform === 'IOS');
+  const version = sorted.find(v => v.attributes.versionString.trim() === targetVersionString.trim() && v.attributes.platform === 'IOS');
   if (!version) {
     record(`No IOS appStoreVersion found matching "${targetVersionString}". Available versions:`);
     sorted.forEach(v => record(`  - ${v.attributes.versionString} (${v.attributes.platform}) state=${v.attributes.appStoreState}`));

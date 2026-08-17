@@ -1,9 +1,0 @@
-App: Dinner Made Easy (6795713321)
-No IOS appStoreVersion found matching "1.0.1". Available versions:
-  -  1.0.1 (IOS) state=PREPARE_FOR_SUBMISSION
-  - 1.0 (MAC_OS) state=PREPARE_FOR_SUBMISSION
-  - 1.0 (TV_OS) state=PREPARE_FOR_SUBMISSION
-  - 1.0 (VISION_OS) state=PREPARE_FOR_SUBMISSION
-  - 1.0 (IOS) state=READY_FOR_SALE
-
-FAILED: Version "1.0.1" not found.
