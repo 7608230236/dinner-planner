@@ -1642,18 +1642,42 @@ test('renderRecipePhotoGallery fetches from the right endpoint and renders whate
   const {context, elements} = await boot();
   const api = context.window.__dinnerPlannerTest;
 
-  let requestedUrl = '';
+  // Both the household-photos check and the stock-preview lookup now fire in
+  // parallel (not one-after-the-other) to cut latency, so track every URL
+  // requested rather than assuming only one call happens.
+  let requestedUrls = [];
   context.window.fetch = async (url) => {
-    requestedUrl = url;
-    return {ok: true, json: async () => ({photos: [{id: 'p1', uploadedBy: 'Mats', isFavorite: true, image: 'data:image/jpeg;base64,XYZ'}]})};
+    requestedUrls.push(url);
+    if (url.includes('recipe-photos')) {
+      return {ok: true, json: async () => ({photos: [{id: 'p1', uploadedBy: 'Mats', isFavorite: true, image: 'data:image/jpeg;base64,XYZ'}]})};
+    }
+    return {ok: true, json: async () => ({image: {url: 'https://example.test/stock.jpg', credit: 'Someone'}})};
   };
   await api.renderRecipePhotoGallery('beef-tacos-01');
-  assert.match(requestedUrl, /recipe-photos\?recipeId=beef-tacos-01/);
-  assert.ok(elements.get('recipePhotoGallery').innerHTML.includes('base64,XYZ'));
+  assert.ok(requestedUrls.some(url => /recipe-photos\?recipeId=beef-tacos-01/.test(url)), 'should request the household-photos endpoint');
+  assert.ok(elements.get('recipePhotoGallery').innerHTML.includes('base64,XYZ'), 'a real household photo should win over the stock preview even though both were fetched');
 
   context.window.fetch = async () => { throw new Error('offline'); };
   await api.renderRecipePhotoGallery('beef-tacos-01');
   assert.ok(elements.get('recipePhotoGallery').innerHTML.includes('📷 Add a photo'), 'a network failure should still render a usable (empty) gallery, not crash or leave a stuck loading state');
+});
+
+test('renderRecipePhotoGallery runs the household-photos check and the stock-preview lookup in parallel, not one after the other - this is the actual fix for recipes taking too long to open (each lookup is a real network round-trip, and waiting for one to fully finish before starting the other was pure wasted latency)', async () => {
+  const {context, elements} = await boot();
+  const api = context.window.__dinnerPlannerTest;
+
+  let inFlight = 0;
+  let maxConcurrent = 0;
+  context.window.fetch = async (url) => {
+    inFlight++;
+    maxConcurrent = Math.max(maxConcurrent, inFlight);
+    await new Promise(resolve => setTimeout(resolve, 5));
+    inFlight--;
+    if (url.includes('recipe-photos')) return {ok: true, json: async () => ({photos: []})};
+    return {ok: true, json: async () => ({image: null})};
+  };
+  await api.renderRecipePhotoGallery('beef-tacos-01');
+  assert.equal(maxConcurrent, 2, 'both fetches should be in flight at the same time, not sequential');
 });
 
 

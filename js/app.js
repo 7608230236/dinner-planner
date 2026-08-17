@@ -1933,30 +1933,28 @@ function displayedTime(r){
 async function renderRecipePhotoGallery(recipeId){
   const container=$("recipePhotoGallery");
   if(!container)return;
-  let photos=[];
-  try{
-    const response=await fetch(`${API_ORIGIN}/.netlify/functions/recipe-photos?recipeId=${encodeURIComponent(recipeId)}`);
-    const data=await response.json().catch(()=>({}));
-    if(response.ok&&Array.isArray(data.photos))photos=data.photos;
-  }catch(error){
-    console.error(error);
-  }
-  // Only worth fetching a generic stock preview if nobody in the household
+  const recipe=getRecipe(recipeId);
+  // These two lookups don't depend on each other, so run them in parallel
+  // instead of one full round-trip after the other - waiting for the
+  // household-photos check to fully finish before even starting the stock-photo
+  // lookup was needless serial latency stacked on top of a live Unsplash
+  // search, which itself takes real time for any recipe the hourly warmer
+  // hasn't reached yet (40/hour against a 762-recipe library).
+  const [photosResult,previewResult]=await Promise.all([
+    fetch(`${API_ORIGIN}/.netlify/functions/recipe-photos?recipeId=${encodeURIComponent(recipeId)}`)
+      .then(r=>r.ok?r.json().catch(()=>({})):{})
+      .catch(error=>{console.error(error);return {};}),
+    recipe
+      ? fetch(`${API_ORIGIN}/.netlify/functions/recipe-preview-image?recipeId=${encodeURIComponent(recipeId)}&title=${encodeURIComponent(recipe.title)}`)
+          .then(r=>r.ok?r.json().catch(()=>({})):{})
+          .catch(error=>{console.error(error);return {};})
+      : Promise.resolve({})
+  ]);
+  const photos=Array.isArray(photosResult.photos)?photosResult.photos:[];
+  // Only worth showing the generic stock preview if nobody in the household
   // has actually cooked and photographed this dish yet - a real photo of
   // the real dish always wins over a stock lookalike.
-  let previewImage=null;
-  if(!photos.length){
-    const recipe=getRecipe(recipeId);
-    if(recipe){
-      try{
-        const response=await fetch(`${API_ORIGIN}/.netlify/functions/recipe-preview-image?recipeId=${encodeURIComponent(recipeId)}&title=${encodeURIComponent(recipe.title)}`);
-        const data=await response.json().catch(()=>({}));
-        if(response.ok&&data.image)previewImage=data.image;
-      }catch(error){
-        console.error(error);
-      }
-    }
-  }
+  const previewImage=(!photos.length&&previewResult.image)?previewResult.image:null;
   renderRecipePhotoGalleryHtml(recipeId,photos,previewImage);
 }
 
