@@ -15,6 +15,18 @@ on:
       - ".github/workflows/ios-build.yml"
   workflow_dispatch:
 
+env:
+  # This must always match the App Store Connect "Version" field for the
+  # release this build is meant to attach to (Apple validates that the
+  # binary's CFBundleShortVersionString matches, and rejects it as an
+  # "Invalid Binary" if it doesn't - this bit us for real: every build here
+  # was compiled with the Xcode project's hardcoded MARKETING_VERSION=1.0
+  # from before App Store Connect had moved on to submitting under 1.0.1, so
+  # Apple rejected the binary as a mismatch. Update this one line whenever a
+  # new App Store Connect version is created (e.g. bump to 1.0.2 before that
+  # version's first build), rather than editing project.pbxproj by hand.
+  IOS_MARKETING_VERSION: "1.0.1"
+
 jobs:
   build:
     runs-on: macos-latest
@@ -142,6 +154,7 @@ jobs:
             -sdk iphoneos -configuration Release \
             -archivePath build/App.xcarchive \
             CURRENT_PROJECT_VERSION="${{ github.run_number }}" \
+            MARKETING_VERSION="${{ env.IOS_MARKETING_VERSION }}" \
             archive
 
       - name: Export a signed .ipa
