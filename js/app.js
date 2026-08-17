@@ -768,7 +768,8 @@ const VIEW_SECTIONS={
   community:["community"],
   stores:["stores"],
   household:["household"],
-  prefs:["prefs","weekSettings"]
+  prefs:["prefs","weekSettings"],
+  help:["help"]
 };
 function showView(view){
   if(!VIEW_SECTIONS[view])view="home";
@@ -3894,7 +3895,18 @@ renderHouseholdSection();
 loadCommunitySession();
 renderCommunitySignInState();
 loadCommunityRecipes();
-showView("home");
+// First-ever open on this device gets a quick tour automatically, so people
+// aren't left wondering how to use the app - a real gap the app had before
+// (zero onboarding content existed anywhere). Per-device, not synced via
+// household code, so every family member still gets their own first look.
+// This must be the LAST view decision in the boot sequence, or an earlier
+// default (like this same showView("home") used to be) would just override it.
+if(!load("seenHelpTour",false)){
+  showView("help");
+  save("seenHelpTour",true);
+}else{
+  showView("home");
+}
 if(householdCode){
   // One-time recovery: on 2026-08-01 an accidental Build press wiped this household's
   // locked plan, and a race in household sync then overwrote the good copy with a

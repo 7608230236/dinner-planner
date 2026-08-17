@@ -47,7 +47,7 @@ class FakeElement {
   click(){ if(typeof this.onclick==='function')this.onclick({target:this}); }
 }
 
-function createRuntime(){
+function createRuntime({initialStorage}={}){
   const ids=[...new Set([
     'calendarBanner','weekDateRange','nextWeekDateRange','prefChips','weekChips','portionCount','excludeChecks','excludeChips','excludeSummary','customExclude',
     'weekList','nextWeekList','recipeModal','recipeDialog','shoppingList','meatSelected','supermarketSelected','meatResults','supermarketResults','meatStatus','supermarketStatus',
@@ -65,7 +65,7 @@ function createRuntime(){
     'community','communitySignedOut','communitySignedIn','appleSignInBtn','googleSignInBtn','communityUserName','communitySignOutBtn',
     'shareRecipeBtn','communityStatus','shareRecipeForm','communityTitle','communityIngredients','addCommunityIngredientBtn',
     'communitySteps','addCommunityStepBtn','submitCommunityRecipeBtn','cancelCommunityRecipeBtn','communityRecipeList',
-    'restoreWeekBtn','restoreNextWeekBtn','householdConflict','closeDeveloperBtnBottom','shabbosSlots','recipeUploadInput','shabbosMenu','dishEditorDialog','dishEditorModal','dishEditorTitle','dishEditorAddRow','dishEditorSave','dishEditorCancel','restoreLockedWeekBtn','restoreLockedNextWeekBtn','restoreShabbosBtn','recipeScanInput','dishEditorSteps','recipePhotoGallery','recipePhotoInput','weekSubNav','updateBanner','updateBannerBtn'
+    'restoreWeekBtn','restoreNextWeekBtn','householdConflict','closeDeveloperBtnBottom','shabbosSlots','recipeUploadInput','shabbosMenu','dishEditorDialog','dishEditorModal','dishEditorTitle','dishEditorAddRow','dishEditorSave','dishEditorCancel','restoreLockedWeekBtn','restoreLockedNextWeekBtn','restoreShabbosBtn','recipeScanInput','dishEditorSteps','recipePhotoGallery','recipePhotoInput','weekSubNav','updateBanner','updateBannerBtn','help'
   ])];
   const elements=new Map(ids.map(id=>[id,new FakeElement(id)]));
   elements.get('photoLocation').value='Pantry';
@@ -73,7 +73,7 @@ function createRuntime(){
   elements.get('developerPanel').classList.add('hidden');
   elements.get('versionBadge').textContent='v60';
 
-  const storage=new Map();
+  const storage=new Map(initialStorage instanceof Map ? initialStorage : []);
   const document={
     getElementById:id=>elements.get(id)||null,
     querySelectorAll:()=>[],
@@ -143,11 +143,11 @@ function createRuntime(){
   context.window.DinnerIngredientEngine=ingredientEngine;
   context.window.addEventListener=()=>{};
   context.window.devicePixelRatio=2;
-  return {context:vm.createContext(context),elements};
+  return {context:vm.createContext(context),elements,storage};
 }
 
-async function boot(){
-  const runtime=createRuntime();
+async function boot({carryLocalStorageFrom}={}){
+  const runtime=createRuntime({initialStorage:carryLocalStorageFrom?.storage});
   const recipesCode=await readFile(resolve(root,'js/recipes.js'),'utf8');
   vm.runInContext(recipesCode,runtime.context,{filename:'recipes.js'});
   const code=await readFile(resolve(root,'js/app.js'),'utf8');
@@ -1678,6 +1678,25 @@ test('renderRecipePhotoGallery runs the household-photos check and the stock-pre
   };
   await api.renderRecipePhotoGallery('beef-tacos-01');
   assert.equal(maxConcurrent, 2, 'both fetches should be in flight at the same time, not sequential');
+});
+
+test('a real, permanent "How to Use" section exists and covers the app\'s actual features - the app previously had zero onboarding or help content anywhere', async () => {
+  const {context, elements} = await boot();
+  const api = context.window.__dinnerPlannerTest;
+  api.showView('help');
+  assert.equal(elements.get('help').classList.contains('hidden'), false, 'the help view should be visible after navigating to it');
+  assert.equal(elements.get('home').classList.contains('hidden'), true, 'other views should hide when help is shown');
+});
+
+test('the How to Use tour shows automatically on a brand-new device (first ever open), then never again on that same device', async () => {
+  const first = await boot();
+  assert.equal(first.elements.get('help').classList.contains('hidden'), false, 'a fresh device with no stored flag should land on the help view automatically');
+
+  // Simulate the SAME device opening the app again by carrying over its
+  // localStorage (the seenHelpTour flag) into a fresh boot.
+  const second = await boot({ carryLocalStorageFrom: first });
+  assert.equal(second.elements.get('help').classList.contains('hidden'), true, 'a returning device that has already seen the tour should not be dropped back into it on every open');
+  assert.equal(second.elements.get('home').classList.contains('hidden'), false, 'a returning device should land on the normal home view');
 });
 
 
