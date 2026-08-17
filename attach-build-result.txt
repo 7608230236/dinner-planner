@@ -1,0 +1,3 @@
+App: Dinner Made Easy (6795713321)
+
+FAILED: API error on GET apps/6795713321/appStoreVersions?limit=20&sort=-createdDate (400): {"errors":[{"id":"bca3c139-3019-41a2-aecc-af78f0df1042","status":"400","code":"PARAMETER_ERROR.ILLEGAL","title":"A given parameter is not allowed for this request","detail":"The parameter 'sort' can not be used with this request","source":{"parameter":"sort"}}]}
