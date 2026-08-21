@@ -1699,6 +1699,28 @@ test('the How to Use tour shows automatically on a brand-new device (first ever 
   assert.equal(second.elements.get('home').classList.contains('hidden'), false, 'a returning device should land on the normal home view');
 });
 
+test('the Nine Days meat restriction defaults to Chabad-strict (no siyum override) for every existing household, and only changes when a household explicitly turns on the siyum-reliance setting - this is a real halachic difference between communities, not a cosmetic preference, so the default must never silently change for anyone already using the app', async () => {
+  const {context} = await boot();
+  const api = context.window.__dinnerPlannerTest;
+
+  const nineDaysDate = new Date(2026, 6, 20); // within the Nine Days, 2026
+  const tishaBAv = new Date(2026, 6, 23); // the fast day itself, 2026
+
+  const defaultRule = api.calendarRuleForDate(nineDaysDate);
+  assert.equal([...defaultRule.allowedKinds].sort().join(','), 'dairy,pareve', 'default (no household setting) must stay meat-free during the Nine Days - this is the original Chabad-strict behavior every existing household relies on');
+
+  const state = api.getState();
+  state.minhagim = {reliesOnSiyumForNineDaysMeat: true};
+  api.setState(state);
+
+  const siyumRule = api.calendarRuleForDate(nineDaysDate);
+  assert.ok([...siyumRule.allowedKinds].includes('meat'), 'once a household explicitly opts in, meat should be allowed during the Nine Days');
+  assert.match(siyumRule.note, /siyum/i, 'the note should explain why, not just silently change behavior');
+
+  const tishaRuleWithSiyumOn = api.calendarRuleForDate(tishaBAv);
+  assert.equal([...tishaRuleWithSiyumOn.allowedKinds].sort().join(','), 'dairy,pareve', 'Tisha BAv itself must stay unaffected by the siyum setting - a fast day restriction is a completely different halachic category from the Nine Days meat restriction, and no siyum overrides a fast day');
+});
+
 
 
 

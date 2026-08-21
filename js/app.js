@@ -106,6 +106,13 @@ function normalizeState(raw){
   return {
     portions: Number.isFinite(Number(clean.portions)) ? Math.max(1, Math.min(20, Number(clean.portions))) : 5,
     prefs: Array.isArray(clean.prefs) ? clean.prefs : [],
+    // Household-specific practices that differ across observant communities,
+    // not just Chabad. Default (false) preserves the original Chabad-strict
+    // behavior for every existing household with zero change - this is
+    // additive, not a replacement of that default.
+    minhagim: {
+      reliesOnSiyumForNineDaysMeat: Boolean(clean.minhagim?.reliesOnSiyumForNineDaysMeat)
+    },
     week: Array.isArray(clean.week) ? clean.week : [],
     exclude: Array.isArray(clean.exclude) ? clean.exclude : [],
     stores: clean.stores && typeof clean.stores === "object"
@@ -708,6 +715,18 @@ function calendarRuleForDate(date){
   const h=hebrewDateParts(date);
   if(isObservedTishaBAv(date)) return {type:"tisha",note:"Tisha B’Av — light break-fast",allowedKinds:["dairy","pareve"]};
   if(h.month==="Av" && h.day>=1 && h.day<=9){
+    // Chabad does not recognize a siyum as a meat override during the Nine
+    // Days - that's the app's original, intentional default and every
+    // existing household keeps it unless they explicitly say otherwise.
+    // Other Orthodox communities commonly do rely on a siyum for this, so
+    // households that turn this on get meat allowed with a note explaining
+    // why, rather than the app silently applying a Chabad-specific stringency
+    // to a family that doesn't hold by it. This is a real halachic
+    // difference between communities, not a preference of convenience - the
+    // in-app copy says so and points to asking a Rav, not just a toggle.
+    if(state?.minhagim?.reliesOnSiyumForNineDaysMeat){
+      return {type:"nine-days",note:"Nine Days — meat allowed based on your household's siyum practice",allowedKinds:["meat","dairy","pareve"]};
+    }
     return {type:"nine-days",note:"Nine Days — meat-free",allowedKinds:["dairy","pareve"]};
   }
   return {type:"normal",note:"",allowedKinds:["meat","dairy","pareve"]};
@@ -820,6 +839,16 @@ function renderPrefs(){
   renderChips("weekChips",WEEK,state.week,x=>{state.week=toggle(state.week,x);save("state",state);renderPrefs()});
   $("portionCount").textContent=state.portions;
   renderExclusions();
+  const siyumToggle=$("siyumNineDaysToggle");
+  if(siyumToggle){
+    siyumToggle.checked=Boolean(state.minhagim?.reliesOnSiyumForNineDaysMeat);
+    siyumToggle.onchange=()=>{
+      state.minhagim=state.minhagim||{};
+      state.minhagim.reliesOnSiyumForNineDaysMeat=siyumToggle.checked;
+      save("state",state);
+      renderCalendar();
+    };
+  }
 }
 
 function renderExclusions(){
