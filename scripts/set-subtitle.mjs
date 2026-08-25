@@ -45,19 +45,26 @@ async function main() {
   if (!app) throw new Error(`No app found for bundle id ${bundleId}`);
   record(`App: ${app.attributes.name} (${app.id})`);
 
-  const versionsResp = await callAPI(`apps/${app.id}/appStoreVersions?limit=20`);
-  const version = versionsResp.data.find(v => v.attributes.versionString.trim() === targetVersionString && v.attributes.platform === 'IOS');
-  if (!version) throw new Error(`Version "${targetVersionString}" not found.`);
-  record(`Found version ${targetVersionString}: id=${version.id}, state=${version.attributes.appStoreState}`);
+  // Subtitle lives on appInfoLocalizations (app-level metadata), not
+  // appStoreVersionLocalizations (version-level metadata like description/
+  // keywords/promotional text) - confirmed via Apple's own WWDC20 API
+  // documentation after the first attempt hit a 409 targeting the wrong
+  // resource. There are typically two appInfos entries (one READY_FOR_SALE
+  // matching what's live, one PREPARE_FOR_SUBMISSION which is the editable
+  // one) - target the editable one.
+  const infoResp = await callAPI(`apps/${app.id}/appInfos`);
+  const editableInfo = infoResp.data.find(i => i.attributes?.appStoreState === 'PREPARE_FOR_SUBMISSION') || infoResp.data[0];
+  if (!editableInfo) throw new Error('No appInfo found.');
+  record(`Using appInfo: id=${editableInfo.id}, state=${editableInfo.attributes?.appStoreState}`);
 
-  const locResp = await callAPI(`appStoreVersions/${version.id}/appStoreVersionLocalizations`);
-  const loc = locResp.data.find(l => l.attributes.locale === 'en-US');
-  if (!loc) throw new Error('No en-US localization found.');
-  record(`Current subtitle: "${loc.attributes.subtitle || '(none set)'}"`);
+  const infoLocResp = await callAPI(`appInfos/${editableInfo.id}/appInfoLocalizations`);
+  const infoLoc = infoLocResp.data.find(l => l.attributes.locale === 'en-US');
+  if (!infoLoc) throw new Error('No en-US appInfoLocalization found.');
+  record(`Current subtitle: "${infoLoc.attributes.subtitle || '(none set)'}"`);
 
-  await callAPI(`appStoreVersionLocalizations/${loc.id}`, {
+  await callAPI(`appInfoLocalizations/${infoLoc.id}`, {
     method: 'PATCH',
-    body: JSON.stringify({ data: { type: 'appStoreVersionLocalizations', id: loc.id, attributes: { subtitle: newSubtitle } } })
+    body: JSON.stringify({ data: { type: 'appInfoLocalizations', id: infoLoc.id, attributes: { subtitle: newSubtitle } } })
   });
   record(`\nSUCCESS: Subtitle set to "${newSubtitle}".`);
 }
