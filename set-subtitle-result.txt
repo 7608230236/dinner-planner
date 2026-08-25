@@ -1,5 +1,0 @@
-App: Dinner Made Easy (6795713321)
-Using appInfo: id=cd7ab6ca-3805-48cb-9adb-62fd3fabd865, state=PREPARE_FOR_SUBMISSION
-Current subtitle: "Kosher Meals, Made Simple"
-
-SUCCESS: Subtitle set to "Kosher Family Meal Planner".
