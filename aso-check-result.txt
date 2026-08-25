@@ -1,0 +1,23 @@
+App: Dinner Made Easy (6795713321)
+
+=== Version " 1.0.1" (state: READY_FOR_SALE) ===
+Locale: en-US
+  Keywords: kosher, meal planner, dinner, shabbat, jewish, recipes, pantry, shopping list, chabad
+  Subtitle: (none set)
+  Promotional Text: (none set)
+  Description (first 150 chars): Dinner Made Easy
+
+Another night, another "what should we make for dinner?" We built this because we were tired of staring into the fridge with no plan...
+
+=== Version "1.0" (state: READY_FOR_SALE) ===
+Locale: en-US
+  Keywords: fact check,fact checking,misinformation,news verification,sources,media literacy,truth,claims
+  Subtitle: (none set)
+  Promotional Text: Scan your pantry, we handle the rest — dinners planned, shopping list done, nothing you already have gets bought twice.
+  Description (first 150 chars): Dinner Made Easy
+
+Another night, another "what should we make for dinner?" We built this because we were tired of staring into the fridge with no plan...
+
+App Info state: READY_FOR_SALE
+
+App Info state: PREPARE_FOR_SUBMISSION
