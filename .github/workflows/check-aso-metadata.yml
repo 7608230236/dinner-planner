@@ -1,0 +1,35 @@
+name: Check ASO Metadata (one-off)
+
+on:
+  push:
+    paths:
+      - "scripts/check-aso-metadata.mjs"
+      - ".github/workflows/check-aso-metadata.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: npm install jose
+      - run: node scripts/check-aso-metadata.mjs
+        env:
+          APP_STORE_CONNECT_KEY_ID: ${{ secrets.APP_STORE_CONNECT_KEY_ID }}
+          APP_STORE_CONNECT_ISSUER_ID: ${{ secrets.APP_STORE_CONNECT_ISSUER_ID }}
+          APP_STORE_CONNECT_API_KEY_P8: ${{ secrets.APP_STORE_CONNECT_API_KEY_P8 }}
+      - if: always()
+        run: |
+          git config user.email "claude@anthropic.com"
+          git config user.name "Claude"
+          git add aso-check-result.txt
+          git commit -m "Record ASO metadata check result [skip ci]" || echo "nothing to commit"
+          git push
