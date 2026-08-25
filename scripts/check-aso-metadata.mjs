@@ -50,7 +50,8 @@ async function main() {
     for (const loc of locResp.data || []) {
       record(`Locale: ${loc.attributes.locale}`);
       record(`  Keywords: ${loc.attributes.keywords || '(none set)'}`);
-      record(`  Subtitle: ${loc.attributes.promotionalText || '(none)'}`);
+      record(`  Subtitle: ${loc.attributes.subtitle || '(none set)'}`);
+      record(`  Promotional Text: ${loc.attributes.promotionalText || '(none set)'}`);
       record(`  Description (first 150 chars): ${(loc.attributes.description || '').slice(0, 150)}...`);
     }
   }
