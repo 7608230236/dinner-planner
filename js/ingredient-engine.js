@@ -11,6 +11,18 @@
 
   function cleanName(value){
     return String(value||'').toLowerCase().trim()
+      // Kashrut-qualifier words (Cholov Yisroel, Pas Yisroel) describe the
+      // supervision level, not a different ingredient - "Cholov Yisroel milk"
+      // and plain "milk" must canonicalize identically or shopping/pantry
+      // matching silently breaks for every qualified ingredient. This was
+      // already a live bug: only "cheese" had a one-off fix for this further
+      // down, so every OTHER Cholov Yisroel dairy ingredient (milk, sour
+      // cream, butter, cream, yogurt...) was never actually matching a
+      // plain pantry item. Stripping generically here fixes all of those
+      // at once, and covers Pas Yisroel from day one instead of repeating
+      // the same mistake for bread ingredients.
+      .replace(/\b(cholov|chalav) yisroel\b/g,' ')
+      .replace(/\bpas yisroel\b/g,' ')
       .replace(/\b(organic|large|small|medium|whole|shredded|sliced|fresh|yellow|red|green|white)\b/g,' ')
       .replace(/\bchick[ -]?peas\b/g,'chickpea')
       .replace(/\bgarbanzo beans?\b/g,'chickpea')

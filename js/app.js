@@ -3924,18 +3924,15 @@ renderHouseholdSection();
 loadCommunitySession();
 renderCommunitySignInState();
 loadCommunityRecipes();
-// First-ever open on this device gets a quick tour automatically, so people
-// aren't left wondering how to use the app - a real gap the app had before
-// (zero onboarding content existed anywhere). Per-device, not synced via
-// household code, so every family member still gets their own first look.
-// This must be the LAST view decision in the boot sequence, or an earlier
-// default (like this same showView("home") used to be) would just override it.
-if(!load("seenHelpTour",false)){
-  showView("help");
-  save("seenHelpTour",true);
-}else{
-  showView("home");
-}
+// "How to Use" is a normal, always-visible nav item, not something forced on
+// people - it used to auto-redirect first-time opens away from the home
+// screen entirely, which meant the very first thing anyone saw was a whole
+// separate page to read through before they ever reached the one button
+// that actually does something (Build this week's dinners). That's backwards:
+// fixing "no onboarding existed" by inserting a mandatory detour before the
+// real app just traded one problem for a different one. Help should be
+// available the moment someone wants it, not in the way before they do.
+showView("home");
 if(householdCode){
   // One-time recovery: on 2026-08-01 an accidental Build press wiped this household's
   // locked plan, and a race in household sync then overwrote the good copy with a

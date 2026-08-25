@@ -116,3 +116,22 @@ test('salsa jars are grouped by heat level regardless of brand name misreads (th
   assert.equal(new Set(hotCanonical).size, 1, `expected both hot salsa names to match, got: ${hotCanonical.join(', ')}`);
   assert.notEqual(mediumCanonical[0], hotCanonical[0], 'medium and hot salsa should stay distinct from each other');
 });
+
+test('kashrut-qualifier prefixes (Cholov Yisroel, Pas Yisroel) do not create a different pantry/shopping item than the plain ingredient - the actual bug: only "cheese" had a one-off fix for this, so every OTHER Cholov Yisroel dairy ingredient (milk, sour cream, butter, cream, yogurt...) was silently never matching a plain pantry item, and the same bug was about to repeat itself for every Pas Yisroel bread ingredient', () => {
+  const pairs = [
+    ['Cholov Yisroel milk', 'milk'],
+    ['Cholov Yisroel sour cream', 'sour cream'],
+    ['Cholov Yisroel butter', 'butter'],
+    ['Cholov Yisroel heavy cream', 'heavy cream'],
+    ['Pas Yisroel bread', 'bread'],
+    ['Pas Yisroel burger buns', 'burger buns'],
+    ['Pas Yisroel pita', 'pita']
+  ];
+  for (const [qualified, plain] of pairs) {
+    assert.equal(
+      engine.canonicalIngredient(qualified),
+      engine.canonicalIngredient(plain),
+      `"${qualified}" should canonicalize the same as "${plain}"`
+    );
+  }
+});

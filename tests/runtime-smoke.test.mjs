@@ -1688,15 +1688,10 @@ test('a real, permanent "How to Use" section exists and covers the app\'s actual
   assert.equal(elements.get('home').classList.contains('hidden'), true, 'other views should hide when help is shown');
 });
 
-test('the How to Use tour shows automatically on a brand-new device (first ever open), then never again on that same device', async () => {
+test('a brand-new device (first ever open) lands on the normal home screen, not forced into the How to Use tour first - the actual bug this fixes: auto-redirecting first opens away from home meant the very first thing anyone saw was a whole separate page to read before they ever reached the one button that actually does something', async () => {
   const first = await boot();
-  assert.equal(first.elements.get('help').classList.contains('hidden'), false, 'a fresh device with no stored flag should land on the help view automatically');
-
-  // Simulate the SAME device opening the app again by carrying over its
-  // localStorage (the seenHelpTour flag) into a fresh boot.
-  const second = await boot({ carryLocalStorageFrom: first });
-  assert.equal(second.elements.get('help').classList.contains('hidden'), true, 'a returning device that has already seen the tour should not be dropped back into it on every open');
-  assert.equal(second.elements.get('home').classList.contains('hidden'), false, 'a returning device should land on the normal home view');
+  assert.equal(first.elements.get('home').classList.contains('hidden'), false, 'a fresh device should land directly on the home screen, no detour');
+  assert.equal(first.elements.get('help').classList.contains('hidden'), true, 'help should not be force-shown - it is available as a normal nav item whenever someone actually wants it');
 });
 
 test('the Nine Days meat restriction defaults to Chabad-strict (no siyum override) for every existing household, and only changes when a household explicitly turns on the siyum-reliance setting - this is a real halachic difference between communities, not a cosmetic preference, so the default must never silently change for anyone already using the app', async () => {

@@ -49,19 +49,21 @@ const ADAPT_RESPONSE_SCHEMA = {
   }
 };
 
-function buildPrompt(raw) {
+export function buildPrompt(raw) {
   return `You are reviewing a home cook's recipe submission for a Chabad kosher family dinner app. Every recipe shown in this app - whether from the app's own library or submitted by another user - must read at the same strict Chabad kosher standard, regardless of what the original submitter personally keeps.
 
 Do the following:
 
-1. REJECT (approved: false, with a clear rejectionReason) if the recipe contains: fish, shellfish, pork, tofu, turkey, or any dish that mixes meat and dairy together. Also reject if it is not a real food recipe.
+1. REJECT (approved: false, with a clear rejectionReason) only if the recipe contains something that cannot be made kosher by relabeling: shellfish, pork or other non-kosher meat, non-kosher fish species, or any dish that structurally mixes meat and dairy together (not fixable by just relabeling an ingredient). Also reject if it is not a real food recipe.
+   - Do NOT reject for containing (kosher) fish, tofu, or turkey - these are fully kosher ingredients. A household simply not personally eating them is a taste preference, not a kashrut issue, and must never block someone else's submission.
 
 2. Otherwise APPROVE it and rewrite the recipe:
    - Determine "kind": "meat", "dairy", or "pareve" based on the actual ingredients.
    - Every dairy ingredient (milk, cheese, butter, cream, yogurt, etc.) must be rewritten to explicitly say "Cholov Yisroel" (e.g. "cheese" becomes "Cholov Yisroel cheese").
-   - Do not add meat/dairy language to a pareve recipe - leave pareve ingredients as-is.
+   - Every bread ingredient (bread, buns, pita, rolls, breadcrumbs, bagels, etc.) must be rewritten to explicitly say "Pas Yisroel" (e.g. "burger buns" becomes "Pas Yisroel burger buns").
+   - Do not add meat/dairy/bread kashrut language to ingredients that aren't actually dairy or bread - leave everything else as-is.
    - Keep the recipe's actual content (title, ingredient amounts, steps) as close to the original submission as possible - you are relabeling for kashrut clarity, not rewriting the dish.
-   - Set "kashrutNotes" to a short, single sentence appropriate to the kind - for a meat recipe: "Meat must be from Chabad-approved shechita." For dairy: "All dairy must be Cholov Yisroel." For pareve: "Pareve - contains no meat or dairy, but check that any packaged ingredients are kosher certified."
+   - Set "kashrutNotes" to a short sentence appropriate to the kind, mentioning Pas Yisroel too if the recipe contains bread - for a meat recipe: "Meat must be from Chabad-approved shechita." For dairy: "All dairy must be Cholov Yisroel." For pareve: "Pareve - contains no meat or dairy, but check that any packaged ingredients are kosher certified." Append " Bread must be Pas Yisroel." to any of these if the recipe includes a bread ingredient.
 
 Original submission:
 Title: ${raw.title}

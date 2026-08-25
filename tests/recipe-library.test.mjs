@@ -178,3 +178,10 @@ test('no recipe gives two cooking methods in one ambiguous run-on sentence with 
   assert.equal(ambiguous.length,0,`recipes with an ambiguous dual-method step: ${ambiguous.map(r=>r.id).join(', ')}`);
 });
 
+test('every bread-derived ingredient is labeled Pas Yisroel, the same way every dairy ingredient is labeled Cholov Yisroel - added in response to the household confirming this is a real, kept standard, not just Chabad minhag for meat/dairy',async()=>{
+  const recipes=await loadRecipes();
+  const breadWords=/\b(pita|bread|bun|buns|bagel|baguette|challah|tortilla|naan|roll|rolls|breadcrumbs?|matzo|matzah|pretzel)\b/i;
+  const missing=recipes.filter(r=>r.ingredients.some(([name])=>breadWords.test(name) && !/pas yisroel/i.test(name)));
+  assert.equal(missing.length,0,`recipes with an unlabeled bread ingredient: ${missing.map(r=>r.id).join(', ')}`);
+});
+

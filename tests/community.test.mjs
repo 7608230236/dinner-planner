@@ -168,7 +168,7 @@ test('community-recipes requires a valid session to submit, and validates basic 
   assert.equal(noSession.statusCode, 401);
 });
 
-test('community-recipes rejects a recipe the AI flags as not kosher-safe (e.g. contains fish), and never publishes it', async () => {
+test('community-recipes rejects a recipe the AI flags as not kosher-safe (e.g. contains shellfish), and never publishes it', async () => {
   process.env.OPENAI_API_KEY = 'test-key';
 
   const { createSession } = await import('../netlify/functions/lib/auth.mjs');
@@ -177,7 +177,7 @@ test('community-recipes rejects a recipe the AI flags as not kosher-safe (e.g. c
   global.fetch = async () => new Response(JSON.stringify({
     output_text: JSON.stringify({
       approved: false,
-      rejectionReason: 'Contains fish, which is not permitted in this app.',
+      rejectionReason: 'Contains shrimp, which is not kosher.',
       kind: 'pareve',
       title: '', ingredients: [], steps: [], kashrutNotes: ''
     })
@@ -188,14 +188,42 @@ test('community-recipes rejects a recipe the AI flags as not kosher-safe (e.g. c
     httpMethod: 'POST',
     body: JSON.stringify({
       sessionToken,
-      title: 'Salmon Bake',
-      ingredients: [{ name: 'salmon', amount: '1 lb' }],
-      steps: ['Bake the salmon']
+      title: 'Shrimp Scampi',
+      ingredients: [{ name: 'shrimp', amount: '1 lb' }],
+      steps: ['Cook the shrimp']
     })
   });
   const body = JSON.parse(response.body);
   assert.equal(response.statusCode, 422);
-  assert.match(body.error, /fish/);
+  assert.match(body.error, /shrimp/);
+});
+
+test('community-recipes moderation prompt only rejects what is actually not kosher (shellfish/pork/non-kosher fish species/meat-dairy mixing), never fish/tofu/turkey as a blanket category - the actual bug this fixes: fish, tofu, and turkey are fully kosher, they were only excluded from this household\'s OWN recipe library as a personal taste preference, and that preference must never block someone else\'s community submission', async () => {
+  const { buildPrompt } = await import('../netlify/functions/community-recipes.mjs');
+  const prompt = buildPrompt({ title: 'Test', ingredients: [{ name: 'x', amount: '1' }], steps: ['step'] });
+
+  // The reject clause (first numbered instruction) must not target these -
+  // check the actual reject rule text, not just prompt-wide absence, since
+  // the word "fish" legitimately still appears there, qualified as
+  // "non-kosher fish species" (real non-kosher species genuinely should be
+  // rejected - only the old blanket "fish" was the actual bug).
+  const rejectClause = prompt.split(/2\. Otherwise APPROVE/)[0];
+  // Isolate just the actual reject-trigger sentence, separate from the
+  // clarifying "Do NOT reject for..." sub-bullet - that sub-bullet legitimately
+  // mentions fish/tofu/turkey by name specifically to instruct the AI not to
+  // reject them, so checking the whole clause for those words would wrongly
+  // flag the fix itself as the bug.
+  const rejectTriggerSentence = rejectClause.split(/\n\s*-\s*Do NOT reject/i)[0];
+  assert.doesNotMatch(rejectTriggerSentence, /\btofu\b/i, 'tofu must not be in the actual reject-trigger list');
+  assert.doesNotMatch(rejectTriggerSentence, /\bturkey\b/i, 'turkey must not be in the actual reject-trigger list');
+  assert.doesNotMatch(rejectTriggerSentence, /:\s*fish,/i, 'fish must not appear as an unqualified blanket reject category');
+  assert.match(rejectTriggerSentence, /non-kosher fish species/i, 'non-kosher fish SPECIES specifically should still be rejected - this is real kashrut, unlike the old blanket fish rule');
+  assert.match(rejectTriggerSentence, /shellfish/i);
+  assert.match(rejectTriggerSentence, /pork/i);
+  assert.match(rejectClause, /do not reject.*(fish|tofu|turkey)/i, 'the prompt should explicitly instruct the AI not to reject kosher ingredients the household just personally avoids');
+
+  assert.match(prompt, /Pas Yisroel/, 'bread ingredients must be adapted to Pas Yisroel, the same way dairy is adapted to Cholov Yisroel');
+  assert.match(prompt, /Cholov Yisroel/);
 });
 
 test('community-recipes publishes an approved recipe with dairy relabeled to Cholov Yisroel, and it then shows up when browsing (GET)', async () => {
