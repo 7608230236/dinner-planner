@@ -1,0 +1,5 @@
+App: Dinner Made Easy (6795713321)
+Found version 1.0.1: id=d20dc979-4c87-4a47-9a08-bb80fa6b8023, state=READY_FOR_SALE
+Current subtitle: "(none set)"
+
+FAILED: API error on PATCH appStoreVersionLocalizations/66870241-e92f-4d90-af76-ebe999225e12 (409): {"errors":[{"id":"166e0155-4a90-4735-9292-b132098bb3f3","status":"409","code":"ENTITY_ERROR.ATTRIBUTE.UNKNOWN","title":"The provided entity includes an unknown attribute","detail":"'subtitle' is not an attribute on the resource 'appStoreVersionLocalizations'","source":{"pointer":"/data/attributes/subtitle"}}]}
